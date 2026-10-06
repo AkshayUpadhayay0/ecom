@@ -1,0 +1,26 @@
+/**
+ * API error codes shared by the API and every client.
+ * Extend this list; never rename or remove a code (clients branch on them).
+ */
+export const ERROR_CODES = [
+  'VALIDATION_ERROR',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'PRODUCT_UNAVAILABLE',
+  'INVALID_SIZE',
+  'SIZE_NOT_CONFIRMED',
+  'INSUFFICIENT_STOCK',
+  'CART_EMPTY',
+  'INVALID_DELIVERY_ZONE',
+  'RESERVATION_EXPIRED',
+  'PAYMENT_FAILED',
+  'PAYMENT_VERIFICATION_FAILED',
+  'DUPLICATE_REQUEST',
+  'RATE_LIMITED',
+  'INTERNAL_ERROR',
+  // Added in Phase 0: a dependency (e.g. the database) is unreachable.
+  'SERVICE_UNAVAILABLE',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];

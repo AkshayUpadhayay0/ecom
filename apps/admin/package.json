@@ -1,0 +1,11 @@
+{
+  "name": "@urban-ibile/admin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"admin: placeholder, built in Phase 8\"",
+    "typecheck": "echo \"admin: placeholder, built in Phase 8\"",
+    "test": "echo \"admin: placeholder, built in Phase 8\""
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "urban-ibile",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @urban-ibile/api dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @urban-ibile/api start",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "db:codegen": "pnpm --filter @urban-ibile/api db:codegen",
+    "db:test:setup": "pnpm --filter @urban-ibile/api db:test:setup"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.4",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "rimraf": "^6.1.3",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  }
+}

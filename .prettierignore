@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+db/*.sql
+docs
+apps/api/src/db/types.ts
+CLAUDE.md
+SKILL.md
