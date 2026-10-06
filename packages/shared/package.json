@@ -14,5 +14,8 @@
     "build": "rimraf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"shared: no tests yet\""
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
   }
 }

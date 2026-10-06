@@ -17,7 +17,9 @@
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
     "db:codegen": "pnpm --filter @urban-ibile/api db:codegen",
-    "db:test:setup": "pnpm --filter @urban-ibile/api db:test:setup"
+    "db:test:setup": "pnpm --filter @urban-ibile/api db:test:setup",
+    "db:migrate": "pnpm --filter @urban-ibile/api db:migrate",
+    "admin:create": "pnpm --filter @urban-ibile/api admin:create"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

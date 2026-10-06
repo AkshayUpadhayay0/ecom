@@ -1,0 +1,111 @@
+### Urban Ibile - Phase 1 auth requests for the VS Code "REST Client" extension (humao.rest-client).
+### Click "Send Request" above each block. Start the API first: `pnpm dev`.
+### Requests marked @name store their response so later requests can reuse the tokens.
+
+@base = http://localhost:4000/api/v1
+@email = ada@example.com
+@password = Ankara-Velvet-2026!
+
+### ---------------------------------------------------------------- CUSTOMER
+
+### Register (mobile client: refresh token comes back in the body)
+# @name register
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "fullName": "Ada Obi",
+  "phone": "+234 801 234 5678",
+  "acceptTerms": true,
+  "client": "ios"
+}
+
+### Log in
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{email}}", "password": "{{password}}", "client": "ios" }
+
+### Who am I (uses the access token from "login")
+GET {{base}}/auth/me
+Authorization: Bearer {{login.response.body.data.tokens.accessToken}}
+
+### Update profile (preferredLanguage: en | pcm)
+PATCH {{base}}/auth/me
+Authorization: Bearer {{login.response.body.data.tokens.accessToken}}
+Content-Type: application/json
+
+{ "fullName": "Ada N. Obi", "preferredLanguage": "pcm" }
+
+### Refresh (rotates: the old refresh token becomes invalid; sending it again revokes the session)
+# @name refreshed
+POST {{base}}/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{login.response.body.data.tokens.refreshToken}}" }
+
+### Log out (revokes the session family)
+POST {{base}}/auth/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshed.response.body.data.tokens.refreshToken}}" }
+
+### Verify email - copy the token from the MOCK EMAIL printed in the API terminal
+POST {{base}}/auth/verify-email
+Content-Type: application/json
+
+{ "token": "PASTE_TOKEN_FROM_MOCK_EMAIL" }
+
+### Resend verification email
+POST {{base}}/auth/resend-verification
+Authorization: Bearer {{login.response.body.data.tokens.accessToken}}
+
+### Forgot password (always 202)
+POST {{base}}/auth/forgot-password
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+### Reset password - token from the MOCK EMAIL in the API terminal
+POST {{base}}/auth/reset-password
+Content-Type: application/json
+
+{ "token": "PASTE_TOKEN_FROM_MOCK_EMAIL", "newPassword": "Lagos-Linen-Season-9" }
+
+### ---------------------------------------------------------------- ADMIN
+### Create the admin first in a terminal:  pnpm admin:create
+
+@adminEmail = boss@example.com
+@adminPassword = CHANGE_ME_TO_THE_PASSWORD_YOU_CHOSE
+
+### Admin log in (refresh token is set as an httpOnly cookie; REST Client keeps cookies)
+# @name adminLogin
+POST {{base}}/admin/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+### Admin me
+GET {{base}}/admin/auth/me
+Authorization: Bearer {{adminLogin.response.body.data.tokens.accessToken}}
+
+### Admin refresh (uses the cookie)
+POST {{base}}/admin/auth/refresh
+
+### Admin change password
+POST {{base}}/admin/auth/change-password
+Authorization: Bearer {{adminLogin.response.body.data.tokens.accessToken}}
+Content-Type: application/json
+
+{ "currentPassword": "{{adminPassword}}", "newPassword": "Another-Strong-Pass-77" }
+
+### Admin log out (uses the cookie)
+POST {{base}}/admin/auth/logout
+
+### ---------------------------------------------------------------- AUDIENCE CHECK
+### Customer token on an admin route -> 401
+GET {{base}}/admin/auth/me
+Authorization: Bearer {{login.response.body.data.tokens.accessToken}}

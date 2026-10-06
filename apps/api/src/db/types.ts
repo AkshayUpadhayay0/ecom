@@ -75,9 +75,13 @@ export interface AuthSessions {
   client: string;
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
+  family_id: string;
   id: Generated<string>;
   ip_address: string | null;
+  last_used_at: Timestamp | null;
+  replaced_by: string | null;
   revoked_at: Timestamp | null;
+  revoked_reason: string | null;
   subject_id: string;
   subject_type: string;
   token_hash: string;

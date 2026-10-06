@@ -29,12 +29,21 @@ pnpm install
 copy .env.example .env        # Git Bash: cp .env.example .env
 ```
 
-Edit `.env` and set `DATABASE_URL` and `TEST_DATABASE_URL` (a separate database, e.g. `ecom_test`).
+Edit `.env` and set `DATABASE_URL`, `TEST_DATABASE_URL` (a separate database, e.g. `ecom_test`),
+`JWT_ACCESS_SECRET` and `JWT_ADMIN_ACCESS_SECRET` (32+ random characters each, different from each
+other; the API refuses to start otherwise). Generate a secret (any shell):
+
+```sh
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
 `.env` is git-ignored; never commit it.
 
 ```sh
+pnpm db:migrate       # apply db/migrations/*.sql to `ecom` (tracked in schema_migrations)
 pnpm db:codegen       # generate Kysely types from the live `ecom` database -> apps/api/src/db/types.ts
-pnpm db:test:setup    # create `ecom_test` and apply schema + migrations + seed (refuses to touch `ecom`)
+pnpm db:test:setup    # create `ecom_test` and apply schema + seed + migrations (refuses to touch `ecom`)
+pnpm admin:create     # create an admin account (prompts; password input is hidden)
 ```
 
 ## Running
@@ -50,6 +59,8 @@ pnpm db:test:setup    # create `ecom_test` and apply schema + migrations + seed 
 | `pnpm test`                         | Vitest + Supertest                                         |
 | `pnpm db:codegen`                   | Regenerate Kysely DB types (run after every migration)     |
 | `pnpm db:test:setup`                | Create and prepare the integration-test database           |
+| `pnpm db:migrate`                   | Apply pending SQL migrations to `ecom`                     |
+| `pnpm admin:create`                 | Create an admin account interactively                      |
 
 Check it is running:
 
@@ -79,6 +90,32 @@ If the database is unreachable, the endpoint returns `503` with `SERVICE_UNAVAIL
   is generated. The same id appears in every log line for the request.
 - Security middleware: helmet, CORS allow-list (`CORS_ORIGINS`), per-IP rate limit on `/api/v1`
   (the health check is exempt), JSON body limit 100 kB.
+
+## Authentication (Phase 1)
+
+| Endpoint                                     | Auth           | Notes                                                                    |
+| -------------------------------------------- | -------------- | ------------------------------------------------------------------------ |
+| `POST /api/v1/auth/register`                 | -              | email, password, fullName, phone?, acceptTerms, client (web/ios/android) |
+| `POST /api/v1/auth/login`                    | -              | email, password, client                                                  |
+| `POST /api/v1/auth/refresh`                  | refresh token  | rotates the token; reusing an old one revokes the session                |
+| `POST /api/v1/auth/logout`                   | refresh token  | idempotent, 204                                                          |
+| `GET` / `PATCH /api/v1/auth/me`              | customer       | PATCH: fullName, phone, preferredLanguage (en/pcm)                       |
+| `POST /api/v1/auth/verify-email`             | -              | token from the email link                                                |
+| `POST /api/v1/auth/resend-verification`      | customer       | 202                                                                      |
+| `POST /api/v1/auth/forgot-password`          | -              | always 202                                                               |
+| `POST /api/v1/auth/reset-password`           | -              | token, newPassword; signs out every device                               |
+| `POST /api/v1/admin/auth/login`              | -              | email, password                                                          |
+| `POST /api/v1/admin/auth/refresh`, `/logout` | refresh cookie |                                                                          |
+| `GET /api/v1/admin/auth/me`                  | admin          |                                                                          |
+| `POST /api/v1/admin/auth/change-password`    | admin          | currentPassword, newPassword; audited                                    |
+
+- **Access token**: `Authorization: Bearer <token>`, 15 minutes. Customer and admin tokens use
+  different secrets and audiences, so neither works on the other's routes.
+- **Refresh token**: web and admin get an httpOnly `SameSite=Strict` cookie scoped to the auth
+  path; iOS/Android get it in the JSON body (store it in the Keychain/Keystore).
+- **Emails are MOCK**: they are printed in the API terminal (look for `MOCK EMAIL`), not delivered.
+- Try every endpoint with [apps/api/http/auth.http](apps/api/http/auth.http) (VS Code REST Client
+  extension).
 
 ## Tests
 

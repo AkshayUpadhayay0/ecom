@@ -21,6 +21,14 @@ export const ERROR_CODES = [
   'INTERNAL_ERROR',
   // Added in Phase 0: a dependency (e.g. the database) is unreachable.
   'SERVICE_UNAVAILABLE',
+  // Added in Phase 1 (auth).
+  'INVALID_CREDENTIALS',
+  'ACCOUNT_LOCKED',
+  'EMAIL_ALREADY_REGISTERED',
+  'WEAK_PASSWORD',
+  'INVALID_TOKEN',
+  'TOKEN_EXPIRED',
+  'PASSWORD_CHANGE_REQUIRED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

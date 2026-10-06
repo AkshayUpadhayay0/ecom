@@ -70,5 +70,5 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next)
       requestId,
     },
   };
-  res.status(appError.status).json(body);
+  res.set(appError.headers).status(appError.status).json(body);
 };
