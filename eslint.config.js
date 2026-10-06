@@ -1,5 +1,8 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooks from 'eslint-plugin-react-hooks';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -41,6 +44,24 @@ export default tseslint.config(
     // CLI scripts may print to the terminal.
     files: ['apps/api/scripts/**/*.ts'],
     rules: { 'no-console': 'off' },
+  },
+  {
+    // Admin panel (React, browser).
+    files: ['apps/admin/src/**/*.{ts,tsx}'],
+    ...jsxA11y.flatConfigs.recommended,
+    plugins: { ...jsxA11y.flatConfigs.recommended.plugins, 'react-hooks': reactHooks },
+    languageOptions: {
+      ...jsxA11y.flatConfigs.recommended.languageOptions,
+      globals: globals.browser,
+    },
+    rules: {
+      ...jsxA11y.flatConfigs.recommended.rules,
+      ...reactHooks.configs.recommended.rules,
+      // Fire-and-forget handlers (onClick={() => void x()}) are intentional in JSX.
+      '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
+      // Ignore the explicit autoFocus on the login form's first field (single-purpose page).
+      'jsx-a11y/no-autofocus': ['error', { ignoreNonDOM: true }],
+    },
   },
   prettier,
 );

@@ -50,8 +50,10 @@ pnpm admin:create     # create an admin account (prompts; password input is hidd
 
 | Command                             | What it does                                               |
 | ----------------------------------- | ---------------------------------------------------------- |
-| `pnpm dev`                          | API in watch mode at `http://localhost:4000` (pretty logs) |
-| `pnpm build`                        | Compile `packages/shared` then `apps/api` to `dist/`       |
+| `pnpm dev` / `pnpm dev:api`         | API in watch mode at `http://localhost:4000` (pretty logs) |
+| `pnpm dev:admin`                    | Admin panel (Vite) at `http://localhost:5173`              |
+| `pnpm dev:all`                      | API and admin panel together in one terminal               |
+| `pnpm build`                        | Build `packages/shared`, `apps/api` and `apps/admin`       |
 | `pnpm start`                        | Run the compiled API (`pnpm build` first)                  |
 | `pnpm typecheck`                    | TypeScript strict check for every package                  |
 | `pnpm lint` / `pnpm lint:fix`       | ESLint (type-aware)                                        |
@@ -116,6 +118,26 @@ If the database is unreachable, the endpoint returns `503` with `SERVICE_UNAVAIL
 - **Emails are MOCK**: they are printed in the API terminal (look for `MOCK EMAIL`), not delivered.
 - Try every endpoint with [apps/api/http/auth.http](apps/api/http/auth.http) (VS Code REST Client
   extension).
+
+## Admin panel (apps/admin)
+
+React + Vite + TypeScript, React Router, TanStack Query, Tailwind v4 + shadcn/ui, react-hook-form +
+Zod. Current scope: login, authenticated layout, dashboard; other sections show "Coming soon".
+
+- Config: copy `apps/admin/.env.example` to `apps/admin/.env.local` (optional in development; the
+  default is `http://localhost:4000/api/v1`). The API's `CORS_ORIGINS` must include
+  `http://localhost:5173`.
+- Sign-in needs an admin account: `pnpm admin:create`.
+- **Tokens**: the access token is kept in memory only. The refresh token is the API's httpOnly
+  `SameSite=Strict` cookie; on page load the panel calls `/admin/auth/refresh` to restore the
+  session. Refreshes are single-flight per tab and serialised across tabs (Web Locks), because the
+  API revokes the session if a rotated refresh token is replayed.
+- **Production**: the admin panel and API must be served over HTTPS from the same parent domain
+  (e.g. `admin.example.com` + `api.example.com`), otherwise the browser will not send the cookie.
+- **Dashboard data is MOCK** (`src/features/dashboard/dashboard.mock.ts`, "Sample data" badge).
+  Preview states with `/dashboard?mock=empty` or `/dashboard?mock=error`.
+- **Theme**: every colour, font and radius is in `src/styles/theme.css` (TEMP palette until the
+  client chooses one). Dark mode toggle in the top bar.
 
 ## Tests
 

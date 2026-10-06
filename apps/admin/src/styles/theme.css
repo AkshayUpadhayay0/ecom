@@ -1,0 +1,101 @@
+/*
+ * Urban Ibile admin theme - the ONLY place colours, fonts and radii are defined.
+ *
+ * TEMP palette: the brand colour palette is a Pending Client Decision. This is a refined
+ * neutral placeholder (near-black ink, warm off-white, one muted brass accent). To apply the
+ * client's palette, change the values below; components only use these variables.
+ */
+
+:root {
+  /* Typography */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, 'Times New Roman', serif;
+
+  /* Shape */
+  --radius: 0.625rem;
+
+  /* Surfaces (light) */
+  --background: oklch(0.978 0.006 85); /* warm off-white */
+  --foreground: oklch(0.2 0.008 60); /* near-black ink */
+  --card: oklch(0.995 0.003 85);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.995 0.003 85);
+  --popover-foreground: var(--foreground);
+  --muted: oklch(0.945 0.008 80);
+  --muted-foreground: oklch(0.5 0.012 65);
+  --border: oklch(0.9 0.01 80);
+  --input: oklch(0.88 0.012 80);
+
+  /* Brand */
+  --primary: oklch(0.21 0.008 60); /* ink buttons */
+  --primary-foreground: oklch(0.975 0.006 85);
+  --secondary: oklch(0.94 0.01 80);
+  --secondary-foreground: var(--foreground);
+  --accent: oklch(0.7 0.1 78); /* TEMP brass accent */
+  --accent-foreground: oklch(0.2 0.02 70);
+  --accent-soft: oklch(0.93 0.035 82);
+  --ring: oklch(0.62 0.1 75);
+
+  /* Status */
+  --destructive: oklch(0.55 0.19 27);
+  --destructive-foreground: oklch(0.98 0.01 27);
+  --destructive-soft: oklch(0.95 0.03 27);
+  --success: oklch(0.52 0.11 155);
+  --success-soft: oklch(0.95 0.035 155);
+  --warning: oklch(0.6 0.13 70);
+  --warning-soft: oklch(0.95 0.05 85);
+  --info: oklch(0.52 0.1 245);
+  --info-soft: oklch(0.95 0.025 245);
+
+  /* Sidebar */
+  --sidebar: oklch(0.965 0.007 82);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-active: oklch(0.21 0.008 60);
+  --sidebar-active-foreground: oklch(0.975 0.006 85);
+  --sidebar-border: var(--border);
+
+  /* Login brand panel artwork */
+  --brand-ink: oklch(0.17 0.01 55);
+  --brand-ink-2: oklch(0.24 0.02 50);
+  --brand-glow: oklch(0.55 0.1 60);
+  --brand-line: oklch(0.75 0.09 80);
+  --brand-text: oklch(0.96 0.01 85);
+}
+
+.dark {
+  --background: oklch(0.16 0.006 60);
+  --foreground: oklch(0.94 0.008 85);
+  --card: oklch(0.2 0.007 60);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.21 0.007 60);
+  --popover-foreground: var(--foreground);
+  --muted: oklch(0.25 0.008 60);
+  --muted-foreground: oklch(0.7 0.012 75);
+  --border: oklch(0.3 0.008 60);
+  --input: oklch(0.34 0.01 60);
+
+  --primary: oklch(0.94 0.008 85);
+  --primary-foreground: oklch(0.18 0.008 60);
+  --secondary: oklch(0.26 0.008 60);
+  --secondary-foreground: var(--foreground);
+  --accent: oklch(0.74 0.1 78);
+  --accent-foreground: oklch(0.18 0.02 70);
+  --accent-soft: oklch(0.3 0.04 75);
+  --ring: oklch(0.7 0.1 78);
+
+  --destructive: oklch(0.65 0.18 25);
+  --destructive-foreground: oklch(0.98 0.01 27);
+  --destructive-soft: oklch(0.3 0.06 27);
+  --success: oklch(0.72 0.12 155);
+  --success-soft: oklch(0.29 0.04 155);
+  --warning: oklch(0.78 0.12 80);
+  --warning-soft: oklch(0.31 0.05 80);
+  --info: oklch(0.72 0.1 245);
+  --info-soft: oklch(0.29 0.04 245);
+
+  --sidebar: oklch(0.18 0.006 60);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-active: oklch(0.94 0.008 85);
+  --sidebar-active-foreground: oklch(0.18 0.008 60);
+  --sidebar-border: var(--border);
+}
