@@ -286,6 +286,66 @@ describe.skipIf(!hasTestDatabase)('customer auth (/api/v1/auth)', () => {
     });
   });
 
+  // ---------------------------------------------------------------- delivery per client
+
+  describe('refresh token delivery per client', () => {
+    function setCookieHeader(res: request.Response): string | undefined {
+      const header = res.headers['set-cookie'] as string[] | string | undefined;
+      return header === undefined ? undefined : String(header);
+    }
+
+    function tokensOf(res: request.Response): AuthTokensDto {
+      return bodyOf<ApiData<{ tokens: AuthTokensDto }>>(res).data.tokens;
+    }
+
+    it.each(['ios', 'android'] as const)(
+      '%s: login, refresh and logout use the JSON body only (no cookies)',
+      async (client) => {
+        await registerMobile();
+        // Plain request() calls: no cookie jar, exactly like a native app.
+        const loggedIn = await login('ada@example.com', PASSWORD, client);
+        expect(loggedIn.status).toBe(200);
+        expect(setCookieHeader(loggedIn)).toBeUndefined();
+        const issued = tokensOf(loggedIn).refreshToken;
+        expect(issued).toEqual(expect.any(String));
+
+        const refreshed = await refresh(issued ?? '');
+        expect(refreshed.status).toBe(200);
+        expect(setCookieHeader(refreshed)).toBeUndefined();
+        const rotated = tokensOf(refreshed);
+        expect(rotated.refreshToken).toEqual(expect.any(String));
+        expect(rotated.refreshToken).not.toBe(issued);
+        expect(rotated.accessToken).toEqual(expect.any(String));
+
+        const out = await request(ctx.app)
+          .post(`${AUTH}/logout`)
+          .send({ refreshToken: rotated.refreshToken });
+        expect(out.status).toBe(204);
+        expect((await refresh(rotated.refreshToken ?? '')).status).toBe(401);
+      },
+    );
+
+    it('web: login and refresh use the httpOnly cookie and never put the token in the body', async () => {
+      await registerMobile();
+      const agent = request.agent(ctx.app);
+
+      const loggedIn = await agent
+        .post(`${AUTH}/login`)
+        .send({ email: 'ada@example.com', password: PASSWORD, client: 'web' });
+      expect(loggedIn.status).toBe(200);
+      expect(tokensOf(loggedIn).refreshToken).toBeUndefined();
+      expect(setCookieHeader(loggedIn)).toMatch(/^ui_rt=[^;]+;.*HttpOnly/);
+
+      const refreshed = await agent.post(`${AUTH}/refresh`).send();
+      expect(refreshed.status).toBe(200);
+      expect(tokensOf(refreshed).refreshToken).toBeUndefined();
+      expect(setCookieHeader(refreshed)).toMatch(/^ui_rt=/);
+
+      // Without the cookie (and no body token) a web refresh is rejected.
+      expect((await request(ctx.app).post(`${AUTH}/refresh`).send()).status).toBe(401);
+    });
+  });
+
   // ---------------------------------------------------------------- access tokens
 
   describe('access tokens and /me', () => {
