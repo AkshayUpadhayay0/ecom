@@ -60,6 +60,11 @@ export function bodyOf<T>(res: Response): T {
  * which would also wipe seeded tables that reference admin_users).
  */
 export async function resetAuthTables(db: Database): Promise<void> {
+  // Phase 2 tables keep a reference to the admin who made a change; detach before deleting admins.
+  await db.updateTable('stock_movements').set({ admin_id: null }).execute();
+  await db.updateTable('app_settings').set({ updated_by: null }).execute();
+  await db.updateTable('content_blocks').set({ updated_by: null }).execute();
+  await db.updateTable('media_assets').set({ uploaded_by: null }).execute();
   await db.deleteFrom('auth_sessions').execute();
   await db.deleteFrom('email_verification_tokens').execute();
   await db.deleteFrom('password_reset_tokens').execute();

@@ -29,6 +29,15 @@ export const ERROR_CODES = [
   'INVALID_TOKEN',
   'TOKEN_EXPIRED',
   'PASSWORD_CHANGE_REQUIRED',
+  // Added in Phase 2 (admin API).
+  'ALREADY_EXISTS',
+  'INVALID_STATE',
+  'ACTIVE_PRODUCT_LIMIT_REACHED',
+  'STOCK_BELOW_RESERVED',
+  'ZONE_FEE_REQUIRED',
+  'MEDIA_NOT_READY',
+  'INVALID_MEDIA_TYPE',
+  'UNKNOWN_SETTING',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

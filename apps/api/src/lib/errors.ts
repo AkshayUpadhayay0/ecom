@@ -1,4 +1,5 @@
 import type { ErrorCode } from '@urban-ibile/shared';
+import { HTTP_STATUS } from './http-status.js';
 
 export interface AppErrorOptions {
   /** Extra response headers, e.g. `Retry-After`. */
@@ -29,4 +30,14 @@ export class AppError extends Error {
     this.details = details;
     this.headers = options.headers ?? {};
   }
+}
+
+/** 404 NOT_FOUND for `what` ("Product", "Size"...). */
+export function notFoundError(what: string): AppError {
+  return new AppError('NOT_FOUND', HTTP_STATUS.NOT_FOUND, `${what} not found.`);
+}
+
+/** 409 ALREADY_EXISTS for a unique field (slug, code, sku...). */
+export function alreadyExistsError(field: string, message: string): AppError {
+  return new AppError('ALREADY_EXISTS', HTTP_STATUS.CONFLICT, message, { field });
 }

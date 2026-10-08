@@ -141,6 +141,36 @@ Zod. Current scope: login, authenticated layout, dashboard; other sections show 
 - **Theme**: every colour, font and radius is in `src/styles/theme.css` (TEMP palette until the
   client chooses one). Dark mode toggle in the top bar.
 
+## Admin API (Phase 2)
+
+All routes are under `/api/v1/admin` and need an **admin** access token (`Authorization: Bearer`);
+customer tokens are rejected. Every write records `admin_audit_logs` (before/after, IP) in the same
+transaction. Lists take `page`, `pageSize` (default = setting `catalog.page_size`, max 50) and
+`order=asc|desc`, and return `{ data, meta }`. Nothing is deleted: types/sizes/cuts/zones are
+deactivated (`isActive: false`), products are archived.
+
+| Area               | Endpoints                                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clothing types     | `GET/POST /clothing-types`, `GET/PATCH /clothing-types/:id` (`?q=&isActive=&sort=`)                                                                                                   |
+| Sizes              | `GET/POST /sizes`, `GET/PATCH /sizes/:id`, `PUT /sizes/order`                                                                                                                         |
+| Garment cuts       | `GET/POST /garment-cuts`, `GET/PATCH /garment-cuts/:id`                                                                                                                               |
+| Products           | `GET/POST /products` (`?q=&status=&clothingTypeId=&garmentCutId=&sort=`), `GET/PATCH /products/:id`, `POST /products/:id/status`, `PUT /products/:id/video`                           |
+| Variants and stock | `GET/POST /products/:productId/variants`, `PATCH /variants/:id`, `POST /variants/:id/stock-adjustments`, `GET /variants/:id/stock-movements`, `GET /inventory/low-stock`              |
+| Delivery zones     | `GET/POST /delivery-zones`, `GET/PATCH /delivery-zones/:id`                                                                                                                           |
+| Settings           | `GET /settings`, `PATCH /settings/:key` (super admin)                                                                                                                                 |
+| Content blocks     | `GET /content-blocks`, `GET /content-blocks/:key`, `PUT /content-blocks/:key/translations/:lang`, `POST /content-blocks/:key/publish` / `unpublish`, `PUT /content-blocks/:key/media` |
+| Audit log          | `GET /audit-logs` (`?entityType=&entityId=&adminId=&action=&from=&to=`, super admin)                                                                                                  |
+
+- **Stock** changes only through stock adjustments (`restock` + `quantity`, `initial` +
+  `newOnHand` before any movement, `adjustment` + `quantity` or `newOnHand` + required `note`). One
+  conditional UPDATE per call; it can never go below reserved units (`STOCK_BELOW_RESERVED`); each
+  call writes a `stock_movements` ledger row.
+- **Active products** are capped by setting `catalog.max_active_products` (default 100,
+  `ACTIVE_PRODUCT_LIMIT_REACHED`).
+- **Media**: only existing `ready` video assets can be assigned (uploads are Phase 3).
+- **Content** bodies are Markdown; raw HTML is stripped on write.
+- **Not admin-managed**: secret QR page content/slugs/tokens and Blueprint rules.
+
 ## Tests
 
 - Unit and HTTP tests run without a database.

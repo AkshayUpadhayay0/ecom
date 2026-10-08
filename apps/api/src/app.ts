@@ -10,6 +10,7 @@ import { notFound } from './middleware/not-found.js';
 import { apiRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { ADMIN_AUTH_PATH } from './modules/admin-users/admin-auth.routes.js';
+import { ADMIN_API_PATH, createAdminApiRouter } from './modules/admin-api.js';
 import { createAdminAuthModule } from './modules/admin-users/admin-auth.module.js';
 import { createCustomerAuthModule } from './modules/auth/auth.module.js';
 import { CUSTOMER_AUTH_PATH } from './modules/auth/auth.routes.js';
@@ -67,6 +68,8 @@ export function createApp({ env, logger, db }: AppDeps): Express {
   v1.use(CUSTOMER_AUTH_PATH, customerAuth.router);
   const adminAuth = createAdminAuthModule({ env, db, logger, basePath: API_BASE_PATH });
   v1.use(ADMIN_AUTH_PATH, adminAuth.router);
+  // Every other /admin route requires an admin token (mounted after /admin/auth).
+  v1.use(ADMIN_API_PATH, createAdminApiRouter({ db, requireAdmin: adminAuth.requireAdmin }));
 
   app.use(API_BASE_PATH, v1);
   app.use(notFound);

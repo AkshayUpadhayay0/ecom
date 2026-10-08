@@ -15,7 +15,7 @@ import type {
   SessionService,
 } from '../auth/core/sessions.service.js';
 import type { AdminRole, AdminRow, AdminUsersRepository } from './admin-users.repository.js';
-import { writeAuditLog } from './audit-log.repository.js';
+import { writeAuditLog } from '../audit/audit-log.repository.js';
 
 /** The admin panel is a browser app. */
 const ADMIN_CLIENT = 'web';
