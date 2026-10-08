@@ -88,7 +88,51 @@ export interface AuthSessions {
   user_agent: string | null;
 }
 
+export interface BlueprintDecisions {
+  created_at: Generated<Timestamp>;
+  customer_id: string | null;
+  fit_preference: string | null;
+  garment_cut_id: string | null;
+  guest_token: string | null;
+  height_cm: Numeric | null;
+  id: Generated<string>;
+  product_id: string;
+  recommendation_outcome: string;
+  recommended_size_id: string | null;
+  rule_set_id: string | null;
+  rule_version: number | null;
+  selected_size_id: string;
+  selection_mode: string;
+  weight_kg: Numeric | null;
+}
+
+export interface BlueprintRules {
+  fit_preference: string;
+  height_max_cm: Numeric;
+  height_min_cm: Numeric;
+  id: Generated<string>;
+  rule_set_id: string;
+  size_id: string;
+  weight_max_kg: Numeric;
+  weight_min_kg: Numeric;
+}
+
+export interface BlueprintRuleSets {
+  created_at: Generated<Timestamp>;
+  effective_from: Timestamp | null;
+  garment_cut_id: string | null;
+  id: Generated<string>;
+  is_sample_data: Generated<boolean>;
+  name: string;
+  notes: string | null;
+  retired_at: Timestamp | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  version: number;
+}
+
 export interface CartItems {
+  blueprint_decision_id: string;
   cart_id: string;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -211,6 +255,23 @@ export interface EmailVerificationTokens {
   used_at: Timestamp | null;
 }
 
+export interface FitPreferences {
+  code: string;
+  is_active: Generated<boolean>;
+  label: string;
+  sort_order: Generated<number>;
+}
+
+export interface GarmentCuts {
+  code: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  name: string;
+  notes: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface IdempotencyKeys {
   created_at: Generated<Timestamp>;
   expires_at: Generated<Timestamp>;
@@ -229,21 +290,6 @@ export interface Languages {
   is_default: Generated<boolean>;
   name: string;
   sort_order: Generated<number>;
-}
-
-export interface MeasurementTypes {
-  code: string;
-  id: Generated<string>;
-  is_active: Generated<boolean>;
-  sort_order: Generated<number>;
-  unit: Generated<string>;
-}
-
-export interface MeasurementTypeTranslations {
-  help_text: string | null;
-  label: string;
-  language_code: string;
-  measurement_type_id: string;
 }
 
 export interface MediaAssets {
@@ -276,6 +322,7 @@ export interface MediaRenditions {
 }
 
 export interface OrderItems {
+  blueprint_decision_id: string;
   clothing_type_name: string;
   id: Generated<string>;
   line_total_minor: Int8;
@@ -395,11 +442,11 @@ export interface Products {
   created_at: Generated<Timestamp>;
   currency: Generated<string>;
   display_order: Generated<number>;
+  garment_cut_id: string | null;
   id: Generated<string>;
   name: string;
   price_minor: Int8;
   search_keywords: Generated<string>;
-  size_chart_id: string | null;
   slug: string;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
@@ -426,15 +473,38 @@ export interface ProductVariants {
   updated_at: Generated<Timestamp>;
 }
 
+export interface QrAccessEvents {
+  created_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  ip_address: string | null;
+  outcome: string;
+  qr_page_id: string | null;
+  user_agent: string | null;
+}
+
+export interface QrAccessGrants {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  grant_token_hash: string;
+  id: Generated<string>;
+  ip_address: string | null;
+  last_used_at: Timestamp | null;
+  qr_page_id: string;
+  revoked_at: Timestamp | null;
+  user_agent: string | null;
+}
+
 export interface QrPages {
+  access_token_hash: string | null;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
   is_published: Generated<boolean>;
   media_asset_id: string | null;
   slot_number: number;
   slug: string;
+  token_locked_at: Timestamp | null;
+  token_provisioned_at: Timestamp | null;
   updated_at: Generated<Timestamp>;
-  updated_by: string | null;
 }
 
 export interface QrPageTranslations {
@@ -444,22 +514,83 @@ export interface QrPageTranslations {
   title: string;
 }
 
-export interface SizeChartRanges {
-  id: Generated<string>;
-  max_value: Numeric;
-  measurement_type_id: string;
-  min_value: Numeric;
-  size_chart_id: string;
-  size_id: string;
-}
-
-export interface SizeCharts {
+export interface ReturnPolicies {
   created_at: Generated<Timestamp>;
+  effective_from: Timestamp | null;
+  extra_rules: Generated<Json>;
   id: Generated<string>;
-  is_sample_data: Generated<boolean>;
   name: string;
+  notes: string | null;
+  request_window_days: number | null;
+  require_original_tags: boolean | null;
+  require_unworn_unwashed: boolean | null;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
+  version: number;
+}
+
+export interface ReturnReasons {
+  code: string;
+  evidence_requirement: string;
+  is_active: Generated<boolean>;
+  label: string;
+  sort_order: Generated<number>;
+}
+
+export interface ReturnRequestEvents {
+  actor_id: string | null;
+  actor_type: string;
+  created_at: Generated<Timestamp>;
+  event_type: string;
+  from_status: string | null;
+  id: Generated<Int8>;
+  note: string | null;
+  return_request_id: string;
+  to_status: string | null;
+}
+
+export interface ReturnRequestMedia {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  media_asset_id: string;
+  return_request_id: string;
+  sort_order: Generated<number>;
+}
+
+export interface ReturnRequests {
+  admin_decision: Generated<string>;
+  admin_notes: string | null;
+  blueprint_decision_id: string;
+  closed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  customer_explanation: string | null;
+  customer_id: string;
+  exchange_size_id: string | null;
+  fault_basis: string | null;
+  fault_classification: Generated<string>;
+  fault_classified_at: Timestamp | null;
+  fault_classified_by: Generated<string>;
+  id: Generated<string>;
+  order_id: string;
+  order_item_id: string;
+  policy_id: string | null;
+  quantity: Generated<number>;
+  reason_code: string;
+  request_number: Generated<string>;
+  request_type: string;
+  reverse_logistics_payer: Generated<string>;
+  reviewed_at: Timestamp | null;
+  reviewed_by: string | null;
+  status: Generated<string>;
+  submitted_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ReturnStatuses {
+  code: string;
+  is_terminal: Generated<boolean>;
+  label: string;
+  sort_order: number;
 }
 
 export interface Sizes {
@@ -507,6 +638,9 @@ export interface DB {
   admin_users: AdminUsers;
   app_settings: AppSettings;
   auth_sessions: AuthSessions;
+  blueprint_decisions: BlueprintDecisions;
+  blueprint_rule_sets: BlueprintRuleSets;
+  blueprint_rules: BlueprintRules;
   cart_items: CartItems;
   carts: Carts;
   clothing_type_translations: ClothingTypeTranslations;
@@ -518,10 +652,10 @@ export interface DB {
   delivery_zones: DeliveryZones;
   email_outbox: EmailOutbox;
   email_verification_tokens: EmailVerificationTokens;
+  fit_preferences: FitPreferences;
+  garment_cuts: GarmentCuts;
   idempotency_keys: IdempotencyKeys;
   languages: Languages;
-  measurement_type_translations: MeasurementTypeTranslations;
-  measurement_types: MeasurementTypes;
   media_assets: MediaAssets;
   media_renditions: MediaRenditions;
   order_items: OrderItems;
@@ -535,10 +669,16 @@ export interface DB {
   product_translations: ProductTranslations;
   product_variants: ProductVariants;
   products: Products;
+  qr_access_events: QrAccessEvents;
+  qr_access_grants: QrAccessGrants;
   qr_page_translations: QrPageTranslations;
   qr_pages: QrPages;
-  size_chart_ranges: SizeChartRanges;
-  size_charts: SizeCharts;
+  return_policies: ReturnPolicies;
+  return_reasons: ReturnReasons;
+  return_request_events: ReturnRequestEvents;
+  return_request_media: ReturnRequestMedia;
+  return_requests: ReturnRequests;
+  return_statuses: ReturnStatuses;
   sizes: Sizes;
   stock_movements: StockMovements;
   stock_reservations: StockReservations;

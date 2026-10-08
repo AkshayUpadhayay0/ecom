@@ -1,11 +1,11 @@
 ---
 name: urban-ibile-backend
-description: Engineering playbook for the Urban Ibile Express + PostgreSQL + Kysely backend and admin API. Use this skill whenever you add or change any API module, endpoint, repository, migration, or admin feature, and ALWAYS for anything touching stock/inventory, cart, checkout, delivery fees, Paystack payments, webhooks, orders and order status, email confirmations, media/video upload, QR content pages, content blocks, localization (English/Pidgin), or audit logging - even if the user does not mention the word "skill". Covers the module layout, transaction recipes, idempotency rules, error codes and the definition of done.
+description: Engineering playbook for the Urban Ibile Express + PostgreSQL + Kysely backend and admin API. Use this skill whenever you add or change any API module, endpoint, repository, migration, or admin feature, and ALWAYS for anything touching stock/inventory, cart, Blueprint/Find My Size, returns and exchanges, checkout, delivery fees, Paystack payments, webhooks, orders and order status, email confirmations, media/video upload, secret QR pages, content blocks, localization (English/Pidgin), or audit logging - even if the user does not mention the word "skill". Covers the module layout, transaction recipes, idempotency rules, error codes and the definition of done.
 ---
 
 # Urban Ibile Backend Playbook
 
-Read `CLAUDE.md` first for the stack and non-negotiable business rules. This skill is the **how**:
+Read `CLAUDE.md` first for the stack and non-negotiable business rules. The client's v2.0 document (`docs/requirements-v2.pdf`) is the current source of truth; where this playbook disagrees with it, the document wins. This skill is the **how**:
 step-by-step recipes for building features correctly. If a recipe conflicts with `CLAUDE.md`, stop and ask.
 
 ## 1. Adding any endpoint (checklist)
@@ -44,7 +44,7 @@ Services receive repositories via constructor/factory so they can be unit-tested
 - Write endpoints that must survive retries (checkout, payment initiate) require an `Idempotency-Key` header.
 
 Error codes (extend, never rename): `VALIDATION_ERROR`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`,
-`PRODUCT_UNAVAILABLE`, `INVALID_SIZE`, `SIZE_NOT_CONFIRMED`, `INSUFFICIENT_STOCK`, `CART_EMPTY`,
+`PRODUCT_UNAVAILABLE`, `INVALID_SIZE`, `SIZE_NOT_CONFIRMED`, `BLUEPRINT_DECISION_REQUIRED`, `BLUEPRINT_NO_RECOMMENDATION`, `RETURN_NOT_ELIGIBLE`, `RETURN_ALREADY_OPEN`, `EVIDENCE_REQUIRED`, `QR_ACCESS_DENIED`, `INSUFFICIENT_STOCK`, `CART_EMPTY`,
 `INVALID_DELIVERY_ZONE`, `RESERVATION_EXPIRED`, `PAYMENT_FAILED`, `PAYMENT_VERIFICATION_FAILED`,
 `DUPLICATE_REQUEST`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
@@ -70,7 +70,7 @@ Never read stock, check in JS, then write. The DB `CHECK (stock_reserved <= stoc
 Transaction steps:
 1. Require `Idempotency-Key`. If an order already exists for `(customer_id, idempotency_key)`, return it (do not create another).
 2. Load the customer's active cart; reject if empty (`CART_EMPTY`).
-3. For each line: load variant + product; reject inactive/archived (`PRODUCT_UNAVAILABLE`) or inactive size (`INVALID_SIZE`).
+3. For each line: load variant + product; reject inactive/archived (`PRODUCT_UNAVAILABLE`) or inactive size (`INVALID_SIZE`). Each cart line must carry its `blueprint_decision_id`; copy it onto `order_items` (the DB checks it matches the variant and the customer). Never recompute a decision at checkout.
 4. Price from the DB (`products.price_minor`), never from the client. Compute subtotal.
 5. Load the delivery zone; it must be `is_active` with a non-null fee (`INVALID_DELIVERY_ZONE`). Fee comes from the zone row, never from the client.
 6. Reserve stock (recipe 3). Insert `stock_reservations` with `expires_at = now + checkout.reservation_minutes`.
@@ -106,7 +106,7 @@ Failed payment: payment -> `failed`, order stays `pending_payment`/`payment_fail
 
 ## 6. Recipe: reservation expiry job
 
-Every minute (BullMQ repeatable job): in a transaction select `held` reservations past `expires_at` with `FOR UPDATE SKIP LOCKED`, decrement `stock_reserved`, mark `released`, append `stock_movements` (`reservation_release`), set unpaid orders to `cancelled` with `cancel_reason = 'reservation_expired'`. Safe to run on multiple workers.
+Every minute (in-process timer; Redis/BullMQ is not required now, so do not add it): in a transaction select `held` reservations past `expires_at` with `FOR UPDATE SKIP LOCKED`, decrement `stock_reserved`, mark `released`, append `stock_movements` (`reservation_release`), set unpaid orders to `cancelled` with `cancel_reason = 'reservation_expired'`. Safe to run on multiple workers.
 
 ## 7. Recipe: admin order status change
 
@@ -118,11 +118,29 @@ Every minute (BullMQ repeatable job): in a transaction select `held` reservation
 
 Transaction: `UPDATE product_variants SET stock_on_hand = :new WHERE id = :id AND :new >= stock_reserved`. If it affects 0 rows return a clear message ("cannot set stock below reserved units"). Always append `stock_movements` (`adjustment`/`restock`) with the admin id and note. Never edit stock without a ledger row.
 
-## 9. Recipe: QR pages and content
+## 9. Recipe: secret QR pages (Option 2) and content blocks
 
-- 14 rows exist in `qr_pages`. Admin may update title/body (translations), `is_published`, and media. **Never** expose or accept a slug change (the DB trigger will reject it anyway). There is no create/delete endpoint for QR pages.
-- Public route `GET /api/v1/q/:slug` returns localized content; unpublished or unknown slug returns 404.
-- Content blocks (`home.hero`, policies, footer) follow the same pattern: admin edits translations by language; hero video is replaced by pointing `media_asset_id` to a new asset.
+- 8 rows exist in `qr_pages`; never hard-code 8. No create/delete endpoint, **no admin endpoint to edit secret-page content or slugs/tokens**. Developers change `qr_page_translations` by script/migration.
+- Provisioning (CLI `pnpm qr:provision`, run once): for each page generate a random token (>=32 bytes), store only its SHA-256 in `access_token_hash`, write the printable QR image files (labelled `QR-1.png` ... `QR-8.png`) to a local output folder that is git-ignored, then set `token_locked_at` at print handover. If the token must be regenerable, derive it from a server secret with HMAC (decide with the team); never log tokens.
+- Scan flow: `GET /api/v1/secret/scan/:token` (rate-limited) -> hash token -> find published page -> create `qr_access_grants` (random grant value in an HttpOnly, Secure, SameSite cookie; only its hash stored; TTL from `qr.grant_ttl_minutes`) -> log `qr_access_events` -> return the stable page location. `GET /api/v1/secret/pages/:slug` returns localized content ONLY with a valid unexpired, unrevoked grant for that same page, else 404 (do not reveal existence). A copied page URL in another browser has no cookie, so it fails.
+- Secret pages must never appear in listings, navigation, search, sitemap or responses of other endpoints. Send `X-Robots-Tag: noindex` as a precaution only.
+- Accepted limitation (client decision): a copy/screenshot of the QR works. Do not try to solve it with per-order or expiring QR codes.
+- Content blocks (`home.hero`, policies, footer) are still admin-editable by language; the hero video is replaced by pointing `media_asset_id` to a new asset.
+
+## 9b. Recipe: Blueprint (Find My Size) and decisions
+
+- `POST /blueprint/recommend` (public, validated): body `{ productId, heightCm, weightKg, fitPreference }`. Resolve the rule set: active set for the product's `garment_cut_id`, else the active default set (`garment_cut_id IS NULL`). Find the rule with `height_min <= h < height_max`, same for weight, same fit. Return `{ recommendedSize | null, ruleVersion }` and create nothing yet. Refuse `is_sample_data` sets in production. Units: cm and kg (Assumption).
+- On Add to Cart the client sends the outcome (`productId`, inputs, chosen size, mode). The server RE-RUNS the recommendation itself (never trusts a client-sent recommendation), then inserts ONE `blueprint_decisions` row: MATCHED + same size = RECOMMENDED_LOCKED; MATCHED + different size = OVERRIDE; no match = NO_MATCH/MANUAL; "I know my size" without inputs = SKIPPED/MANUAL. The cart item references that decision. Reopening Find My Size from the cart creates a NEW decision and repoints the cart line.
+- Guest decisions use `guest_token`; on login claim them (set `customer_id`, the only allowed update) and merge carts.
+- Rule sets are versioned: to change sizing logic create a new draft set, add rules, activate it (the old one is retired automatically in the service in one transaction). Active/retired sets and their rules are immutable.
+
+## 9c. Recipe: Return / Exchange
+
+- Customer: `POST /me/orders/:orderId/items/:itemId/returns` with `requestType` (RETURN|EXCHANGE), `reasonCode`, optional explanation, `quantity`, `exchangeSizeId` (EXCHANGE only), and evidence media ids. Preconditions in the service: order belongs to the customer, is paid and delivered, no open request for the item (`RETURN_ALREADY_OPEN`), and evidence present when `return_reasons.evidence_requirement = 'required'` (`EVIDENCE_REQUIRED`). Read the request window / condition rules from the active `return_policies` row; a NULL rule means "not enforced yet", never invent a default. Store `policy_id`.
+- Photo evidence uses the media flow (presigned upload -> `media_assets` -> `return_request_media`). No binaries in PostgreSQL.
+- Auto-classification at creation (record `fault_basis`, `fault_classified_by = 'SYSTEM'`): OVERRIDE + does_not_fit => CUSTOMER_FAULT; changed_mind => CUSTOMER_FAULT; RECOMMENDED_LOCKED + does_not_fit => REVIEW_REQUIRED; MANUAL + does_not_fit, damaged_faulty, wrong_item, other => REVIEW_REQUIRED (undefined by client). Admin may reclassify (writes `return_request_events` and `admin_audit_logs`). Set `reverse_logistics_payer` only from a confirmed rule; otherwise leave UNDECIDED.
+- Admin review view must show: customer, order, exact item, product, purchased size, type, reason, explanation, evidence, Blueprint recommended vs selected size and mode, fault classification, status, decision, notes, timestamps.
+- Status changes go through `return_statuses`; every change writes `return_request_events`. Refund execution is NOT built (policy pending).
 
 ## 10. Recipe: media (video) upload and replacement
 
@@ -162,7 +180,8 @@ The baseline is `db/schema_v2.sql`. Never edit it after it was applied. Every ch
 - Business logic in controllers; SQL outside repositories; returning raw DB rows.
 - Hard-coding delivery fees, sizing rules, contact details, policy text, or the Pidgin strings.
 - Deleting products/orders/payments (archive instead).
-- Changing a QR slug; overwriting a media file key in place.
+- Changing a QR slug or locked token, exposing secret pages in any list, adding admin editing of secret-page content; overwriting a media file key in place.
+- Recalculating an old Blueprint recommendation with newer rules; trusting a client-sent recommendation; guessing a size when no rule matches.
 - Inventing a pending client decision instead of making it configurable and labelling it.
 
 ## 16. Definition of done

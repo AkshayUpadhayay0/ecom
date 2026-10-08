@@ -41,6 +41,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 ```sh
 pnpm db:migrate       # apply db/migrations/*.sql to `ecom` (tracked in schema_migrations)
+pnpm db:seed          # apply db/seeds/*.sql sample data (re-runnable)
 pnpm db:codegen       # generate Kysely types from the live `ecom` database -> apps/api/src/db/types.ts
 pnpm db:test:setup    # create `ecom_test` and apply schema + seed + migrations (refuses to touch `ecom`)
 pnpm admin:create     # create an admin account (prompts; password input is hidden)
@@ -62,6 +63,7 @@ pnpm admin:create     # create an admin account (prompts; password input is hidd
 | `pnpm db:codegen`                   | Regenerate Kysely DB types (run after every migration)     |
 | `pnpm db:test:setup`                | Create and prepare the integration-test database           |
 | `pnpm db:migrate`                   | Apply pending SQL migrations to `ecom`                     |
+| `pnpm db:seed`                      | Apply re-runnable sample data from `db/seeds/` to `ecom`   |
 | `pnpm admin:create`                 | Create an admin account interactively                      |
 
 Check it is running:

@@ -3,13 +3,16 @@
 You are the lead engineer on Urban Ibile, a premium video-first fashion e-commerce platform.
 Read this file fully before every task. Source documents live in the repo:
 
-- `docs/feature-brief.pdf` - the client's Feature Brief (primary business requirement)
-- `db/schema_v2.sql` - the complete PostgreSQL schema (already applied to database `ecom`)
+- `docs/requirements-v2.pdf` - **CURRENT SOURCE OF TRUTH** (v2.0, 7 Oct 2026). Where it conflicts with the older brief, it wins. The project is NOT restarted; existing work stays unless it conflicts.
+- `docs/feature-brief.pdf` - the original Feature Brief (older; superseded where v2.0 differs)
+- `db/schema_v2.sql` - baseline PostgreSQL schema (already applied to database `ecom`; never edit)
+- `db/migrations/0002_requirements_v2.sql` - Blueprint, Return/Exchange, 8 protected QR pages (applied by `pnpm db:migrate`; `schema_migrations` tracks it)
+- `db/seeds/seed_0002_blueprint_qr.sql` - SAMPLE Blueprint rules, QR placeholders, empty return policy (`pnpm db:seed`; re-runnable)
 - `db/seed_v2.sql` - seed data (sample values are flagged)
 
 ## 1. What we are building
 
-One backend serving two customer clients (Next.js website, React Native iOS+Android app) and one admin panel.
+One backend serving two customer clients (customer website - framework still PENDING, do not assume Next.js; React Native iOS+Android app) and one admin panel.
 They share ONE database: products, stock, carts, orders, payments, content. Never create separate data per client.
 
 Current phase: **backend API + admin panel**. The customer website and mobile app come later.
@@ -26,7 +29,7 @@ Current phase: **backend API + admin panel**. The customer website and mobile ap
 | Auth | argon2id password hashing; short-lived JWT access token + rotating refresh token stored hashed in `auth_sessions` |
 | Logging | pino (+ pino-http), request IDs on every request |
 | Security | helmet, cors (allow-list from env), express-rate-limit, input validation everywhere |
-| Queue / cache | Redis + BullMQ (emails, media processing, reservation expiry) - introduce when first needed |
+| Background work | Redis/BullMQ NOT required now (v2.0). Use DB-backed jobs: `email_outbox` polling, reservation-expiry timer using `FOR UPDATE SKIP LOCKED`. Add Redis only if a real need appears. |
 | Media | Cloudflare R2 (S3 API, presigned uploads) + CDN; FFmpeg worker for renditions |
 | Payments | Paystack (server-side verification + signed webhook) |
 | Tests | Vitest + Supertest; real Postgres test database for integration tests |
@@ -54,7 +57,7 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
 - Services: business rules, transactions, orchestration.
 - Repositories: all SQL (Kysely). Nothing else touches the database.
 - Return DTOs, never raw DB rows. Consistent error shape: `{ error: { code, message, details?, requestId } }`.
-- Modules (one folder each under `apps/api/src/modules`): auth, customers, admin-users, catalog, media, inventory, cart, checkout, delivery, payments, orders, notifications, content, qr-pages, localization, sizing, settings.
+- Modules (one folder each under `apps/api/src/modules`): auth, customers, admin-users, catalog, media, inventory, blueprint, cart, checkout, delivery, payments, orders, returns, notifications, content, secret-pages, localization, settings.
 
 ## 4. Non-negotiable business rules
 
@@ -67,7 +70,9 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
 5. **Orders** snapshot name, size, price, address and zone at purchase time. Never delete products, orders or payments; archive instead.
 6. **Order status** and **payment status** are separate. Admin-selectable statuses: Being prepared, Sent out, Delivered (lookup table `order_statuses`; more can be added later). Log every change in `order_status_history` and `admin_audit_logs`.
 7. **Product names are never translated.** Descriptions, content and UI strings are localized (English default, Pidgin second; Pidgin text arrives later from the client's writer).
-8. **QR page slugs are immutable** (DB trigger enforces it). Content may change; URLs may not.
+8. **Secret QR pages (v2.0, Option 2)**: exactly 8 pages / 8 permanent QR codes, but never hard-code the number 8 in code or SQL. The QR URL carries a permanent secret (only its SHA-256 is stored in `qr_pages.access_token_hash`; lock it with `token_locked_at` at print handover). Scanning a valid QR creates a short-lived, browser-bound `qr_access_grants` row (HttpOnly cookie, TTL from setting `qr.grant_ttl_minutes`); the secret page content is only served with a valid grant, so copying the page URL elsewhere does not grant access. Pages never appear in navigation, search, sitemaps or any list; send `noindex` as an extra precaution only. **Content is NOT editable from admin**: no admin endpoints for QR content; developers update `qr_page_translations` via scripts. Accepted limitation: anyone holding a copy of the QR can scan it. Slugs and locked tokens are immutable (DB trigger).
+8a. **Blueprint / Find My Size (v2.0 replaces chest/waist/hip)**: inputs are height (cm), weight (kg) and fit preference (exactly Tailored, Standard, Oversized). Rules live in versioned `blueprint_rule_sets` / `blueprint_rules` (half-open ranges, DB prevents overlaps). Never invent the real mapping (tailor data is PENDING); sample sets have `is_sample_data = true` and must be refused when NODE_ENV=production. No matching rule = no recommendation: the customer chooses a size (MANUAL), never guess. Every Add to Cart creates an append-only `blueprint_decisions` row (recommended size, selected size, selection mode RECOMMENDED_LOCKED / OVERRIDE / MANUAL, rule version). `cart_items` and `order_items` reference it; old orders are NEVER recalculated with newer rules.
+8b. **Return / Exchange (v2.0)**: a request is linked to the exact `order_items` row and inherits its Blueprint decision. Reasons and evidence requirements are data (`return_reasons`). Fault classification: CUSTOMER_FAULT, BRAND_FAULT, REVIEW_REQUIRED. Auto-rules supported by the client: OVERRIDE + does_not_fit => CUSTOMER_FAULT; changed_mind => CUSTOMER_FAULT; RECOMMENDED_LOCKED + does_not_fit => REVIEW_REQUIRED (admin decides; may become BRAND_FAULT / Blueprint failure). MANUAL + does_not_fit is NOT defined by the client: use REVIEW_REQUIRED and flag as Pending Client Decision. The operational policy (window, tags, unworn, refund/exchange flow, who pays reverse logistics) is TEAM DESIGN: read it from `return_policies`, never hard-code it. Refund processing is not built yet.
 9. Customers must be logged in to checkout/buy. Browsing is public. Guest carts merge into the account cart on login.
 10. Search covers the whole catalog (name, clothing type, keywords), not just the current page. Empty result message: `No outfits found. Try another word.` Shop pages show 20 products per page.
 11. Never hard-code delivery fees, size rules, contact details, palette or policy text. They are configurable data.
@@ -78,7 +83,8 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
 When you document or discuss a decision, label it: Confirmed Requirement / Technical Recommendation / Assumption / Pending Client Decision.
 Do NOT invent pending items. Use configurable structures and clearly marked sample data:
 
-Pending client decisions: brand colour palette, QR placement/usage, delivery fees, delivery areas and timing, logistics provider (Jumia Logistics mentioned, unconfirmed), support email/phone/WhatsApp, social links, return and exchange policy, final size chart and sizing rules, approved Pidgin translations, email provider, hosting provider.
+Pending client decisions: brand colour palette, delivery fees, delivery areas and timing, Jumia Logistics arrangement (expected next week; do NOT build a Jumia integration from assumptions), support email/phone/WhatsApp, social links, tailor's Blueprint mapping and any garment-cut differences (expected next week), final content for the 8 secret pages, approved Pidgin translations, final videos, email provider, hosting provider, customer website framework.
+Team design items: operational Return/Exchange policy, final video specification, return status workflow.
 
 ## 6. Code quality
 
@@ -104,11 +110,11 @@ Write tests with each feature. Critical areas need strong coverage: auth, invent
 
 - Phase 0: monorepo scaffold, config, DB connection + codegen, logging, error handling, health check, test setup
 - Phase 1: auth (customer register/login/refresh/logout/email verification/lockout; admin login; `admin:create` CLI)
-- Phase 2: admin API - clothing types, sizes, products, variants/stock, settings, delivery zones, content blocks, QR pages, size charts
+- Phase 2: admin API - clothing types, sizes, products (incl. garment cut), variants/stock, settings, delivery zones, content blocks. (NO QR content editing. Blueprint rules are loaded by developers/scripts unless the client asks for an admin screen.)
 - Phase 3: media pipeline - R2 presigned upload, asset records, FFmpeg renditions, replace-video flow
-- Phase 4: public API - catalog (20/page), search, product detail, content, QR page by slug, localization
-- Phase 5: cart, Find My Size, delivery fee quote, checkout with stock reservation
+- Phase 4: public API - catalog (20/page), search, product detail, content, localization. Secret pages: QR scan endpoint -> grant -> protected page content (Option 2).
+- Phase 5: Blueprint recommend endpoint + decisions, cart (every item carries a decision), delivery fee quote, checkout with stock reservation
 - Phase 6: Paystack initiate/verify/webhook, order confirmation, email outbox worker, reservation expiry job
-- Phase 7: admin orders (list, filter, detail, status update, notes), stock adjustments with ledger
+- Phase 7: admin orders (list, filter, detail, status update, notes), stock adjustments with ledger, Return/Exchange (customer request from order item + photo evidence via media, admin review queue with Blueprint info and fault classification)
 - Phase 8: admin panel UI (React) over the admin API, module by module
 - Phase 9: load testing (target 5,000 concurrent users), security review, deployment config

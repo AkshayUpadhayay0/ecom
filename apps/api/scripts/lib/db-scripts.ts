@@ -7,6 +7,8 @@ import type pg from 'pg';
 export const REPO_ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
 export const DB_DIR = `${REPO_ROOT}db/`;
 const MIGRATIONS_DIR = `${DB_DIR}migrations/`;
+const SEEDS_DIR = `${DB_DIR}seeds/`;
+const SEED_FILE = /^seed_\d{4}_[a-z0-9_]+\.sql$/;
 const MIGRATION_FILE = /^\d{4}_[a-z0-9_]+\.sql$/;
 
 /** Reads one connection URL from the environment / repo-root `.env` (no other config needed). */
@@ -72,4 +74,17 @@ export async function applyPendingMigrations(
     count += 1;
   }
   return count;
+}
+
+/**
+ * Runs every `db/seeds/seed_NNNN_*.sql` in order. Seed files manage their own transaction and must
+ * be safe to re-run (they only insert what is missing), so nothing is recorded.
+ */
+export async function applySeeds(client: pg.Client, log: (line: string) => void): Promise<number> {
+  const files = (await readdir(SEEDS_DIR)).filter((file) => SEED_FILE.test(file)).sort();
+  for (const file of files) {
+    log(`Applying seed ${file}`);
+    await client.query(await readFile(`${SEEDS_DIR}${file}`, 'utf8'));
+  }
+  return files.length;
 }

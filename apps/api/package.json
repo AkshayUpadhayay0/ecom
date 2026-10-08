@@ -13,6 +13,7 @@
     "db:codegen": "kysely-codegen --dialect postgres --env-file ../../.env --exclude-pattern schema_migrations --out-file src/db/types.ts",
     "db:test:setup": "tsx scripts/setup-test-db.ts",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "admin:create": "tsx --conditions=source scripts/admin-create.ts"
   },
   "dependencies": {

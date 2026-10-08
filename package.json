@@ -22,6 +22,7 @@
     "db:codegen": "pnpm --filter @urban-ibile/api db:codegen",
     "db:test:setup": "pnpm --filter @urban-ibile/api db:test:setup",
     "db:migrate": "pnpm --filter @urban-ibile/api db:migrate",
+    "db:seed": "pnpm --filter @urban-ibile/api db:seed",
     "admin:create": "pnpm --filter @urban-ibile/api admin:create"
   },
   "devDependencies": {

@@ -1,14 +1,14 @@
 /**
  * Prepares the integration-test database (TEST_DATABASE_URL, e.g. `ecom_test`):
  * creates it if missing, applies db/schema_v2.sql + db/seed_v2.sql once, then any pending
- * db/migrations. Safe to re-run. Refuses to run against the main `ecom` database.
+ * db/migrations, then db/seeds (re-runnable). Safe to re-run. Refuses to run against the main `ecom` database.
  *
  *   pnpm db:test:setup
  */
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { assertSafeTestDatabase } from '../test/safe-database.js';
-import { DB_DIR, applyPendingMigrations, loadDatabaseUrl } from './lib/db-scripts.js';
+import { DB_DIR, applyPendingMigrations, applySeeds, loadDatabaseUrl } from './lib/db-scripts.js';
 
 const MAINTENANCE_DATABASE = 'postgres';
 // Any table from the baseline schema: if present, the baseline was already applied.
@@ -48,6 +48,9 @@ async function prepareSchema(testUrl: string): Promise<void> {
       console.log(line);
     });
     console.log(count === 0 ? 'No pending migrations.' : `Applied ${count} migration(s).`);
+    await applySeeds(client, (line) => {
+      console.log(line);
+    });
   } finally {
     await client.end();
   }
