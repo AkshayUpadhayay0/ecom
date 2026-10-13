@@ -81,6 +81,30 @@ describe.skipIf(!hasTestDatabase)('admin delivery zones API', () => {
     expect(await auditCount(ctx, { action: 'delivery_zone.update', entityId: zone.id })).toBe(1);
   });
 
+  it('reads the fee from the database (stored in minor units, never hard-coded)', async () => {
+    const zone = await createZone({ feeMinor: 250_000, isActive: true });
+    const row = await ctx.db
+      .selectFrom('delivery_zones')
+      .select('fee_minor')
+      .where('id', '=', zone.id)
+      .executeTakeFirstOrThrow();
+    expect(Number(row.fee_minor)).toBe(250_000);
+
+    // A fee changed in the database (e.g. by a later migration or tool) is what the API serves.
+    await ctx.db
+      .updateTable('delivery_zones')
+      .set({ fee_minor: 410_000 })
+      .where('id', '=', zone.id)
+      .execute();
+    const read = await api.get(`/delivery-zones/${zone.id}`);
+    expect(bodyOf<ApiData<DeliveryZoneDto>>(read).data.feeMinor).toBe(410_000);
+    const listed = await api.get('/delivery-zones?isActive=true');
+    expect(bodyOf<ApiList<DeliveryZoneDto>>(listed).data.map((z) => z.feeMinor)).toEqual([410_000]);
+
+    // Floats are refused: money is always an integer number of kobo.
+    expect((await api.patch(`/delivery-zones/${zone.id}`, { feeMinor: 4100.5 })).status).toBe(400);
+  });
+
   it('keeps seeded SAMPLE zones inactive', async () => {
     const list = await api.get('/delivery-zones?isActive=false');
     const sample = bodyOf<ApiList<DeliveryZoneDto>>(list).data.find((zone) => zone.isSampleData);

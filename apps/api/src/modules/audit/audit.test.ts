@@ -47,7 +47,7 @@ describe.skipIf(!hasTestDatabase)('admin audit log viewer', () => {
   }
 
   it('filters by entity type, entity id, admin and date; newest first; paginated', async () => {
-    await api.post('/garment-cuts', { code: 'boxy', name: 'Boxy' });
+    await api.post('/clothing-types', { slug: 't-boxy', name: 'Boxy' });
     await otherAdmin.post('/delivery-zones', { code: 'ibadan', name: 'Ibadan' });
     const zone = await otherAdmin.post('/delivery-zones', { code: 'kano', name: 'Kano' });
     const zoneId = bodyOf<{ data: { id: string } }>(zone).data.id;
@@ -56,11 +56,11 @@ describe.skipIf(!hasTestDatabase)('admin audit log viewer', () => {
     expect(all.data.map((l) => l.action)).toEqual([
       'delivery_zone.create',
       'delivery_zone.create',
-      'garment_cut.create',
+      'clothing_type.create',
     ]);
     expect(all.data[0]?.admin.id).not.toBe(superAdmin.id);
 
-    expect((await logs('?entityType=garment_cut')).meta.total).toBe(1);
+    expect((await logs('?entityType=clothing_type')).meta.total).toBe(1);
     expect((await logs(`?entityId=${zoneId}`)).data[0]?.after).toMatchObject({ code: 'kano' });
     expect((await logs(`?adminId=${superAdmin.id}`)).meta.total).toBe(1);
 

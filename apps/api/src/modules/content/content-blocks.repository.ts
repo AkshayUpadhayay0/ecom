@@ -34,11 +34,6 @@ export interface ContentBlocksRepository {
   ): Promise<{ rows: ContentBlockRow[]; total: number }>;
   findByKey(db: Database, key: string, lock?: boolean): Promise<ContentBlockRow | undefined>;
   translationsFor(db: Database, blockIds: string[]): Promise<Map<string, ContentTranslationRow[]>>;
-  upsertTranslation(
-    db: Database,
-    blockId: string,
-    translation: ContentTranslationRow,
-  ): Promise<void>;
   /** Sets the given columns plus updated_by / updated_at. */
   touch(
     db: Database,
@@ -87,26 +82,6 @@ export function createContentBlocksRepository(): ContentBlocksRepository {
         .execute();
       for (const { blockId, ...translation } of rows) result.get(blockId)?.push(translation);
       return result;
-    },
-
-    async upsertTranslation(db, blockId, translation) {
-      await db
-        .insertInto('content_block_translations')
-        .values({
-          content_block_id: blockId,
-          language_code: translation.languageCode,
-          title: translation.title,
-          body: translation.body,
-          cta_label: translation.ctaLabel,
-        })
-        .onConflict((oc) =>
-          oc.columns(['content_block_id', 'language_code']).doUpdateSet((eb) => ({
-            title: eb.ref('excluded.title'),
-            body: eb.ref('excluded.body'),
-            cta_label: eb.ref('excluded.cta_label'),
-          })),
-        )
-        .execute();
     },
 
     async touch(db, blockId, adminId, changes) {

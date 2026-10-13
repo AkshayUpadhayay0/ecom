@@ -11,9 +11,6 @@ const ADMIN_PASSWORD = 'Ankara-Velvet-2026!';
 
 /** Test data naming: everything a test creates starts with these prefixes so cleanup is exact. */
 export const TEST_SLUG_PREFIX = 't-';
-const TEST_SIZE_CODE_PREFIX = 'T';
-/** Seeded size order (db/seed_v2.sql) restored after reorder tests. */
-const SEED_SIZE_ORDER = ['S', 'M', 'L', 'XL', 'XXL'];
 
 export interface AdminSession {
   id: string;
@@ -70,7 +67,12 @@ export type AdminClient = ReturnType<typeof adminClient>;
  */
 export async function insertMediaAsset(
   ctx: TestContext,
-  input: { kind: 'video' | 'image'; status: 'pending' | 'processing' | 'ready' | 'failed' },
+  input: {
+    kind: 'video' | 'image';
+    status: 'pending' | 'processing' | 'ready' | 'failed';
+    visibility?: 'public' | 'private';
+    retired?: boolean;
+  },
 ): Promise<string> {
   const row = await ctx.db
     .insertInto('media_assets')
@@ -80,6 +82,8 @@ export async function insertMediaAsset(
       mime_type: input.kind === 'video' ? 'video/mp4' : 'image/jpeg',
       size_bytes: 1024,
       processing_status: input.status,
+      visibility: input.visibility ?? 'public',
+      retired_at: input.retired === true ? new Date() : null,
     })
     .returning('id')
     .executeTakeFirstOrThrow();
@@ -107,9 +111,9 @@ export async function restoreSettings(ctx: TestContext, snapshot: SettingsSnapsh
 }
 
 /**
- * Removes everything the admin API tests create (catalog, stock, media, test zones/types/sizes)
- * and then the auth tables. Seeded reference data (languages, seeded sizes/types, sample zones,
- * content blocks, Blueprint sample rules) is kept.
+ * Removes everything the admin API tests create (catalog, stock, media, test zones/types) and
+ * then the auth tables. Seeded reference data (languages, sizes, size charts, measurement
+ * profiles, seeded types, sample zones, content blocks) is kept.
  */
 export async function resetAdminApiData(ctx: TestContext): Promise<void> {
   const { db } = ctx;
@@ -119,18 +123,9 @@ export async function resetAdminApiData(ctx: TestContext): Promise<void> {
   await db.deleteFrom('products').execute();
   await db.updateTable('content_blocks').set({ media_asset_id: null, updated_by: null }).execute();
   await db.deleteFrom('media_assets').execute();
-  await db.deleteFrom('garment_cuts').execute();
   await db.deleteFrom('delivery_zones').where('is_sample_data', '=', false).execute();
   await db.updateTable('delivery_zones').set({ is_active: false }).execute();
   await db.deleteFrom('clothing_types').where('slug', 'like', `${TEST_SLUG_PREFIX}%`).execute();
-  await db.deleteFrom('sizes').where('code', 'like', `${TEST_SIZE_CODE_PREFIX}%`).execute();
-  for (const [index, code] of SEED_SIZE_ORDER.entries()) {
-    await db
-      .updateTable('sizes')
-      .set({ sort_order: index + 1, is_active: true })
-      .where('code', '=', code)
-      .execute();
-  }
   await resetAuthTables(db);
 }
 
@@ -164,4 +159,14 @@ export async function auditCount(
     .where('action', '=', where.action);
   if (where.entityId !== undefined) query = query.where('entity_id', '=', where.entityId);
   return Number((await query.executeTakeFirstOrThrow()).n);
+}
+
+/** Id of a seeded measurement profile by code (db/seeds/seed_0003_charts.sql). */
+export async function seededProfileId(ctx: TestContext, code = 'male_top'): Promise<string> {
+  const row = await ctx.db
+    .selectFrom('measurement_profiles')
+    .select('id')
+    .where('code', '=', code)
+    .executeTakeFirstOrThrow();
+  return row.id;
 }

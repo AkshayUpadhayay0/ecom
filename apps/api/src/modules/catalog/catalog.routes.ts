@@ -3,7 +3,8 @@ import type { CatalogController } from './catalog.controller.js';
 
 /**
  * Admin catalog routes, mounted under /admin behind requireAdmin. There are no DELETE routes:
- * clothing types, sizes and garment cuts are deactivated; products are archived.
+ * clothing types are deactivated, products are archived. Sizes are seeded with the size charts,
+ * so the admin can only list and reorder them.
  */
 export function createCatalogRouter(controller: CatalogController): Router {
   const router = Router();
@@ -14,16 +15,9 @@ export function createCatalogRouter(controller: CatalogController): Router {
   router.patch('/clothing-types/:id', controller.updateClothingType);
 
   router.get('/sizes', controller.listSizes);
-  router.post('/sizes', controller.createSize);
   // Before /sizes/:id so "order" is not read as an id.
   router.put('/sizes/order', controller.reorderSizes);
   router.get('/sizes/:id', controller.getSize);
-  router.patch('/sizes/:id', controller.updateSize);
-
-  router.get('/garment-cuts', controller.listGarmentCuts);
-  router.post('/garment-cuts', controller.createGarmentCut);
-  router.get('/garment-cuts/:id', controller.getGarmentCut);
-  router.patch('/garment-cuts/:id', controller.updateGarmentCut);
 
   router.get('/products', controller.listProducts);
   router.post('/products', controller.createProduct);
@@ -31,6 +25,7 @@ export function createCatalogRouter(controller: CatalogController): Router {
   router.patch('/products/:id', controller.updateProduct);
   router.post('/products/:id/status', controller.changeProductStatus);
   router.put('/products/:id/video', controller.setProductVideo);
+  router.put('/products/:id/images', controller.setProductImages);
 
   return router;
 }

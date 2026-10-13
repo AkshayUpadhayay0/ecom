@@ -71,19 +71,19 @@ export type StockAdjustmentType = (typeof STOCK_ADJUSTMENT_TYPES)[number];
 /**
  * - `restock`: add `quantity` (> 0) units.
  * - `initial`: set the first count with `newOnHand` (only before any stock movement exists).
- * - `adjustment`: correction, either a signed `quantity` delta or an absolute `newOnHand`; a
- *   note explaining why is required.
+ * - `adjustment`: correction, either a signed `quantity` delta or an absolute `newOnHand`.
+ * Every admin adjustment needs a `note` (the reason), stored on the ledger row.
  */
 export const stockAdjustmentSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('restock'),
     quantity: z.number().int().min(1).max(MAX_STOCK_QUANTITY),
-    note: noteSchema.optional(),
+    note: noteSchema,
   }),
   z.object({
     type: z.literal('initial'),
     newOnHand: onHandSchema,
-    note: noteSchema.optional(),
+    note: noteSchema,
   }),
   z
     .object({

@@ -47,9 +47,14 @@ describe.skipIf(!hasTestDatabase)('admin settings API', () => {
   it('lists every known setting with its default', async () => {
     const res = await api.get('/settings');
     const settings = bodyOf<ApiData<SettingDto[]>>(res).data;
+    // 9 Oct design: no product cap unless the client sets one.
     expect(settings.find((s) => s.key === 'catalog.max_active_products')).toMatchObject({
-      value: 100,
-      defaultValue: 100,
+      value: null,
+      defaultValue: null,
+    });
+    expect(settings.find((s) => s.key === 'catalog.page_size')).toMatchObject({
+      value: 20,
+      defaultValue: 20,
     });
     expect(settings.find((s) => s.key === 'support.email')).toMatchObject({
       value: null,

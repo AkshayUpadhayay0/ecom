@@ -19,6 +19,9 @@ export type LimitSettingKey = {
   [K in SettingKey]: (typeof SETTING_DEFINITIONS)[K] extends { default: number } ? K : never;
 }[SettingKey];
 
+/** Numeric settings with NO default: NULL means "no limit" (e.g. the optional product cap). */
+export type OptionalLimitSettingKey = 'catalog.max_active_products' | 'qr.grant_ttl_minutes';
+
 export interface SettingsService {
   list(): Promise<SettingDto[]>;
   update(actor: AuditActor, key: string, value: unknown): Promise<SettingDto>;
@@ -27,6 +30,8 @@ export interface SettingsService {
    * (or invalid). Pass a transaction to read inside it.
    */
   getLimit(db: Database, key: LimitSettingKey): Promise<number>;
+  /** Current value, or null when the setting is NULL / unset ("no limit"). */
+  getOptionalLimit(db: Database, key: OptionalLimitSettingKey): Promise<number | null>;
 }
 
 export interface SettingsServiceDeps {
@@ -91,6 +96,12 @@ export function createSettingsService({ db, repository }: SettingsServiceDeps): 
       const row = await repository.findByKey(executor, key);
       const result = definition.schema.safeParse(row?.value);
       return result.success ? result.data : definition.default;
+    },
+
+    async getOptionalLimit(executor, key) {
+      const row = await repository.findByKey(executor, key);
+      const result = SETTING_DEFINITIONS[key].schema.safeParse(row?.value);
+      return result.success ? result.data : null;
     },
   };
 }

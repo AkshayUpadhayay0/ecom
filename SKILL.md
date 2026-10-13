@@ -1,11 +1,11 @@
 ---
 name: urban-ibile-backend
-description: Engineering playbook for the Urban Ibile Express + PostgreSQL + Kysely backend and admin API. Use this skill whenever you add or change any API module, endpoint, repository, migration, or admin feature, and ALWAYS for anything touching stock/inventory, cart, Blueprint/Find My Size, returns and exchanges, checkout, delivery fees, Paystack payments, webhooks, orders and order status, email confirmations, media/video upload, secret QR pages, content blocks, localization (English/Pidgin), or audit logging - even if the user does not mention the word "skill". Covers the module layout, transaction recipes, idempotency rules, error codes and the definition of done.
+description: Engineering playbook for the Urban Ibile Express + PostgreSQL + Kysely backend and admin API. Use this skill whenever you add or change any API module, endpoint, repository, migration, or admin feature, and ALWAYS for anything touching stock/inventory, cart, Blueprint/Find My Size, returns and exchanges, checkout, delivery fees, Paystack payments, webhooks, orders and order status, email confirmations, media/video upload, hidden pages and serial access, content blocks, localization (English/Pidgin), or audit logging - even if the user does not mention the word "skill". Covers the module layout, transaction recipes, idempotency rules, error codes and the definition of done.
 ---
 
 # Urban Ibile Backend Playbook
 
-Read `CLAUDE.md` first for the stack and non-negotiable business rules. The client's v2.0 document (`docs/requirements-v2.pdf`) is the current source of truth; where this playbook disagrees with it, the document wins. This skill is the **how**:
+Read `CLAUDE.md` first for the stack and non-negotiable business rules. The Backend System Design of 9 Oct 2026 (`docs/backend-design-9oct.docx`) is the current source of truth; where this playbook disagrees with it, the document wins. Extend the existing codebase: reuse existing auth, session, payment/idempotency, inventory, order, outbox and media structures; do not restart or switch to Prisma. This skill is the **how**:
 step-by-step recipes for building features correctly. If a recipe conflicts with `CLAUDE.md`, stop and ask.
 
 ## 1. Adding any endpoint (checklist)
@@ -44,7 +44,7 @@ Services receive repositories via constructor/factory so they can be unit-tested
 - Write endpoints that must survive retries (checkout, payment initiate) require an `Idempotency-Key` header.
 
 Error codes (extend, never rename): `VALIDATION_ERROR`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`,
-`PRODUCT_UNAVAILABLE`, `INVALID_SIZE`, `SIZE_NOT_CONFIRMED`, `BLUEPRINT_DECISION_REQUIRED`, `BLUEPRINT_NO_RECOMMENDATION`, `RETURN_NOT_ELIGIBLE`, `RETURN_ALREADY_OPEN`, `EVIDENCE_REQUIRED`, `QR_ACCESS_DENIED`, `INSUFFICIENT_STOCK`, `CART_EMPTY`,
+`PRODUCT_UNAVAILABLE`, `INVALID_SIZE`, `SIZE_NOT_CONFIRMED`, `BLUEPRINT_DECISION_REQUIRED`, `BLUEPRINT_MEASUREMENTS_INVALID`, `BLUEPRINT_OUT_OF_RANGE`, `BODY_SCAN_NOT_READY`, `RETURN_NOT_ELIGIBLE`, `RETURN_ALREADY_OPEN`, `EVIDENCE_REQUIRED`, `HIDDEN_PAGE_LOCKED`, `SERIAL_NOT_VALID`, `INSUFFICIENT_STOCK`, `CART_EMPTY`,
 `INVALID_DELIVERY_ZONE`, `RESERVATION_EXPIRED`, `PAYMENT_FAILED`, `PAYMENT_VERIFICATION_FAILED`,
 `DUPLICATE_REQUEST`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
@@ -70,7 +70,7 @@ Never read stock, check in JS, then write. The DB `CHECK (stock_reserved <= stoc
 Transaction steps:
 1. Require `Idempotency-Key`. If an order already exists for `(customer_id, idempotency_key)`, return it (do not create another).
 2. Load the customer's active cart; reject if empty (`CART_EMPTY`).
-3. For each line: load variant + product; reject inactive/archived (`PRODUCT_UNAVAILABLE`) or inactive size (`INVALID_SIZE`). Each cart line must carry its `blueprint_decision_id`; copy it onto `order_items` (the DB checks it matches the variant and the customer). Never recompute a decision at checkout.
+3. For each line: load variant + product; reject inactive/archived (`PRODUCT_UNAVAILABLE`) or inactive size (`INVALID_SIZE`). Each cart line for a product that has a `measurement_profile_id` must carry its `blueprint_decision_id` (products without a profile do not); copy it onto `order_items` together with a readable `fit_snapshot` (method, mode, recommended and selected size labels, fit preference, chart versions). The DB checks it matches the variant and the customer. Never recompute a decision at checkout.
 4. Price from the DB (`products.price_minor`), never from the client. Compute subtotal.
 5. Load the delivery zone; it must be `is_active` with a non-null fee (`INVALID_DELIVERY_ZONE`). Fee comes from the zone row, never from the client.
 6. Reserve stock (recipe 3). Insert `stock_reservations` with `expires_at = now + checkout.reservation_minutes`.
@@ -118,29 +118,47 @@ Every minute (in-process timer; Redis/BullMQ is not required now, so do not add 
 
 Transaction: `UPDATE product_variants SET stock_on_hand = :new WHERE id = :id AND :new >= stock_reserved`. If it affects 0 rows return a clear message ("cannot set stock below reserved units"). Always append `stock_movements` (`adjustment`/`restock`) with the admin id and note. Never edit stock without a ledger row.
 
-## 9. Recipe: secret QR pages (Option 2) and content blocks
+## 9. Recipe: hidden pages, QR routes and serial access (9 Oct design)
 
-- 8 rows exist in `qr_pages`; never hard-code 8. No create/delete endpoint, **no admin endpoint to edit secret-page content or slugs/tokens**. Developers change `qr_page_translations` by script/migration.
-- Provisioning (CLI `pnpm qr:provision`, run once): for each page generate a random token (>=32 bytes), store only its SHA-256 in `access_token_hash`, write the printable QR image files (labelled `QR-1.png` ... `QR-8.png`) to a local output folder that is git-ignored, then set `token_locked_at` at print handover. If the token must be regenerable, derive it from a server secret with HMAC (decide with the team); never log tokens.
-- Scan flow: `GET /api/v1/secret/scan/:token` (rate-limited) -> hash token -> find published page -> create `qr_access_grants` (random grant value in an HttpOnly, Secure, SameSite cookie; only its hash stored; TTL from `qr.grant_ttl_minutes`) -> log `qr_access_events` -> return the stable page location. `GET /api/v1/secret/pages/:slug` returns localized content ONLY with a valid unexpired, unrevoked grant for that same page, else 404 (do not reveal existence). A copied page URL in another browser has no cookie, so it fails.
-- Secret pages must never appear in listings, navigation, search, sitemap or responses of other endpoints. Send `X-Robots-Tag: noindex` as a precaution only.
-- Accepted limitation (client decision): a copy/screenshot of the QR works. Do not try to solve it with per-order or expiring QR codes.
-- Content blocks (`home.hero`, policies, footer) are still admin-editable by language; the hero video is replaced by pointing `media_asset_id` to a new asset.
+Model: QR = which page. Serial = permission. The QR route token is printed on boxes and is NOT a secret; the serial list is.
 
-## 9b. Recipe: Blueprint (Find My Size) and decisions
+- Tables: `qr_pages` (the hidden pages; `route_token`, `exclusive_only`, developer-managed `qr_page_translations`), `serial_numbers`, `serial_import_batches`, `page_access_grants`, `qr_access_events`. Never hard-code 8; page 8 is just the row with `exclusive_only = true`.
+- QR images: a CLI `pnpm qr:generate` builds `QR-1.png` ... from `route_token` (URL `https://<final-domain>/h/<route_token>`; the final domain must be decided BEFORE printing) into a git-ignored folder. Set `token_locked_at` at print handover; after that the token can never change.
+- `GET /api/v1/hidden/pages/:routeToken`: unknown token -> 404. Known token: if the request's cookie/customer has a valid grant for this page return the content, otherwise return only `{ locked: true }` (no content, no title).
+- `POST /api/v1/hidden/pages/:routeToken/unlock` body `{ serial }` (strict rate limit per IP and per token, plus a global limit): trim whitespace only (exact match otherwise, no case/prefix guessing; open question if tolerance is wanted). Compute `HMAC-SHA256(serial, SERIAL_HMAC_SECRET)` (env var; fail startup if missing or short) and look it up in `serial_numbers.serial_hash` where `is_active`. Authorise: GENERAL only if `allowed_page_id` = this page; EXCLUSIVE always. On success insert a `page_access_grants` row (GENERAL: scope PAGE + its page; EXCLUSIVE: scope ALL), set/refresh the browser cookie (random 32 bytes; only its hash is stored; HttpOnly, Secure, SameSite=Lax), add `customer_id` when the customer is logged in, and return the content. On any failure return the SAME generic message (unknown, inactive and wrong-page look identical) and log the real reason in `qr_access_events`.
+- Grants accumulate: the same browser can hold several PAGE grants. Authorisation query: a grant for this browser hash (or this customer) that is not revoked, not expired (`expires_at` NULL = no expiry; TTL is an open team decision, setting `qr.grant_ttl_minutes`), and `scope = 'ALL' OR page_id = :page`.
+- Do not mark serials used, bind them to a customer, or expire them: not approved.
+- Serial import (admin, Phase 2b): CSV rows `serial, category, pageSlot (GENERAL only)`; validate everything, HMAC each serial, store `serial_hint` (masked), create a `serial_import_batches` row, write `admin_audit_logs`, all in one transaction; reject duplicates. Serials are never returned by any endpoint and never logged. The client supplies only the General and Exclusive lists; General page pairing is our setup step.
+- Hidden pages never appear in navigation, search, sitemaps, lists or other responses; send `X-Robots-Tag: noindex, nofollow` as an extra. There is NO admin endpoint to edit hidden-page content, slugs or tokens.
+- Content blocks (`home.hero`, policies, footer): hero video is replaced by pointing `media_asset_id` to a new asset. Static copy is not edited by admin.
 
-- `POST /blueprint/recommend` (public, validated): body `{ productId, heightCm, weightKg, fitPreference }`. Resolve the rule set: active set for the product's `garment_cut_id`, else the active default set (`garment_cut_id IS NULL`). Find the rule with `height_min <= h < height_max`, same for weight, same fit. Return `{ recommendedSize | null, ruleVersion }` and create nothing yet. Refuse `is_sample_data` sets in production. Units: cm and kg (Assumption).
-- On Add to Cart the client sends the outcome (`productId`, inputs, chosen size, mode). The server RE-RUNS the recommendation itself (never trusts a client-sent recommendation), then inserts ONE `blueprint_decisions` row: MATCHED + same size = RECOMMENDED_LOCKED; MATCHED + different size = OVERRIDE; no match = NO_MATCH/MANUAL; "I know my size" without inputs = SKIPPED/MANUAL. The cart item references that decision. Reopening Find My Size from the cart creates a NEW decision and repoints the cart line.
-- Guest decisions use `guest_token`; on login claim them (set `customer_id`, the only allowed update) and merge carts.
-- Rule sets are versioned: to change sizing logic create a new draft set, add rules, activate it (the old one is retired automatically in the service in one transaction). Active/retired sets and their rules are immutable.
+## 9b. Recipe: Blueprint (virtual fitting room)
 
-## 9c. Recipe: Return / Exchange
+Data: `size_chart_groups`, `size_charts` (versioned, immutable once active), `size_chart_rows` (min/max inches per size and measurement), `measurement_types`, `measurement_profiles` + `measurement_profile_items` (which measurements a product needs), `body_scan_sessions`, `blueprint_decisions`, `blueprint_measurements`. Weight/height are not used anywhere.
 
-- Customer: `POST /me/orders/:orderId/items/:itemId/returns` with `requestType` (RETURN|EXCHANGE), `reasonCode`, optional explanation, `quantity`, `exchangeSizeId` (EXCHANGE only), and evidence media ids. Preconditions in the service: order belongs to the customer, is paid and delivered, no open request for the item (`RETURN_ALREADY_OPEN`), and evidence present when `return_reasons.evidence_requirement = 'required'` (`EVIDENCE_REQUIRED`). Read the request window / condition rules from the active `return_policies` row; a NULL rule means "not enforced yet", never invent a default. Store `policy_id`.
-- Photo evidence uses the media flow (presigned upload -> `media_assets` -> `return_request_media`). No binaries in PostgreSQL.
-- Auto-classification at creation (record `fault_basis`, `fault_classified_by = 'SYSTEM'`): OVERRIDE + does_not_fit => CUSTOMER_FAULT; changed_mind => CUSTOMER_FAULT; RECOMMENDED_LOCKED + does_not_fit => REVIEW_REQUIRED; MANUAL + does_not_fit, damaged_faulty, wrong_item, other => REVIEW_REQUIRED (undefined by client). Admin may reclassify (writes `return_request_events` and `admin_audit_logs`). Set `reverse_logistics_payer` only from a confirmed rule; otherwise leave UNDECIDED.
-- Admin review view must show: customer, order, exact item, product, purchased size, type, reason, explanation, evidence, Blueprint recommended vs selected size and mode, fault classification, status, decision, notes, timestamps.
-- Status changes go through `return_statuses`; every change writes `return_request_events`. Refund execution is NOT built (policy pending).
+Engine (one pure function, unit-tested with the client's real chart values):
+1. Product -> `measurement_profile_id` -> required (chart group, measurement) pairs. Validate the submitted set EXACTLY (reject missing or extra codes with `BLUEPRINT_MEASUREMENTS_INVALID`). Positive numbers; convert cm to inches (round to 0.1); store inches. Plausibility bounds belong in config, not invented here.
+2. For each pair load the ACTIVE chart of the group. Required size = the smallest size (by `sizes.sort_order`) whose `max_inches >= value`. Ranges may overlap between neighbouring sizes (e.g. sleeve 25 in M and L) and gaps exist (e.g. female bust 38 -> 42): this one rule resolves both. If no size covers the value return `BLUEPRINT_OUT_OF_RANGE` naming the measurement.
+3. Recommended outfit size = the size with the highest `sort_order` among all required sizes (largest-required-size rule). A two-piece set yields ONE size, never separate top and trouser purchases.
+4. Fit preference is recorded only. It never moves the size.
+
+Endpoints (customer auth required):
+- `POST /blueprint/recommend` `{ productId, measurements, unit, fitPreference }` (or `bodyScanSessionId`) -> recommended size, per-measurement breakdown, chart versions. Persists nothing.
+- `POST /blueprint/decisions` (or the add-to-cart call) `{ same input, selectedSizeId }`: the SERVER re-runs the engine, sets mode LOCKED_RECOMMENDATION when selected = recommended else OVERRIDE, checks the selected variant is active and in stock, then in ONE transaction inserts the `blueprint_decisions` row (with `chart_snapshot` jsonb) and every `blueprint_measurements` row (chart id, value, required size). The DB verifies at commit that all required measurements exist and the recommended size is the largest required. Changing size later creates a NEW decision; never update one.
+- Body Scan: `POST /blueprint/body-scans` creates a session (customer + product, status CREATED); provider callback/fetch moves it to IN_PROGRESS/COMPLETED/FAILED and stores only minimal result measurements (no images). Code against a `BodyScanProvider` interface with a clearly labelled MOCK adapter until the team picks a provider; do not invent capture distances, poses or calibration. A completed session feeds the SAME engine; the decision records method BODY_SCAN and the session id. After the decision is stored the raw result may be purged (`result_purged_at`).
+- Charts and profiles are loaded by developers (seed/migration scripts). A new version = new draft chart + rows, then retire the old chart and activate the new one in one transaction. Never edit active chart rows (the DB refuses).
+- Do not infer or hard-code anything not in the charts. The seeded profiles are TEAM DESIGN built from the document's examples: confirm with the tailor.
+
+## 9c. Recipe: Return / Exchange / Fault-Line
+
+- Customer: `POST /me/orders/:orderId/items/:itemId/returns` with `requestType` (RETURN|EXCHANGE), `reasonCode`, explanation, `quantity`, `exchangeSizeId` (EXCHANGE only), evidence media ids. The service checks: order belongs to the customer, paid and delivered, no open request for the item (`RETURN_ALREADY_OPEN`), evidence present when `return_reasons.evidence_requirement = 'required'` (wrong item and damaged: required; does not fit: optional; changed mind: none; `EVIDENCE_REQUIRED`). Read window/condition rules from the active `return_policies` row; a NULL rule means "not enforced yet", never invent a default. Store `policy_id`.
+- Evidence uploads use the media flow with `visibility = 'private'` (the DB rejects public assets as evidence). Never expose evidence as a public URL; admins get short-lived signed URLs.
+- Responsibility at creation (backend decides; record `fault_basis`, `responsibility_set_by = 'SYSTEM'`): does_not_fit + decision OVERRIDE => CUSTOMER_FAULT, cause CUSTOMER_OVERRODE_RECOMMENDATION, payer CUSTOMER (scenario A); changed_mind => CUSTOMER_FAULT, cause CHANGED_MIND, payer CUSTOMER (scenario C); does_not_fit + decision LOCKED_RECOMMENDATION => REVIEW_REQUIRED; wrong_item, damaged_faulty, other, and does_not_fit on a product with no Blueprint decision => REVIEW_REQUIRED (not defined by the client). After review the admin may set BRAND_FAULT with cause BLUEPRINT_FAILURE (scenario B), WRONG_ITEM_DELIVERED or DEFECTIVE_ITEM, with payer BRAND. Default payer: CUSTOMER_FAULT -> CUSTOMER, BRAND_FAULT -> BRAND, REVIEW_REQUIRED -> UNDECIDED. Responsibility is NOT the workflow status; keep both.
+- Admin actions: Approve (-> APPROVED, then AWAITING_RETURN), Reject (-> REJECTED), Request more information (-> AWAITING_CUSTOMER). When the customer submits the requested evidence the SAME request returns to UNDER_REVIEW; never create a second request. Every change writes `return_request_events` and `admin_audit_logs` in the same transaction.
+- Exchange: resolve and store `replacement_variant_id`; check stock and reserve with one conditional update plus a `stock_reservations` row owned by `return_request_id` (no order). Proposal (TEAM DESIGN, confirm): reserve when the request becomes APPROVED; release if it ends REJECTED or CANCELLED. The replacement stays linked to the original request and order item.
+- Returned stock: at RETURN_RECEIVED an admin records the inspection (`inspection_outcome`, inspector, time, notes). Only RESELLABLE items go back to sellable stock: in one transaction increase `stock_on_hand` and append a `stock_movements` row of type `return` referencing the request (the DB refuses it otherwise, and refuses more than the returned quantity). NOT_RESELLABLE items never re-enter inventory.
+- Admin review view shows: customer, order, exact item, product, purchased size, type, reason, explanation, evidence, Blueprint method / measurements / recommended vs selected size / mode / chart version, fit preference, responsibility and cause, status, payer, decision, notes, timestamps.
+- Refund execution and exact return-policy values are not built (open team decision); REFUND_PROCESSING exists only as a status.
 
 ## 10. Recipe: media (video) upload and replacement
 
@@ -154,7 +172,7 @@ Transaction: `UPDATE product_variants SET stock_on_hand = :new WHERE id = :id AN
 
 - Shop list: `status = 'active'`, order by `display_order, id`, 20 per page. Return poster + video URL + name + price. Do not return more than the page needs.
 - Search: whole catalog, not the current page. Match product `name`, `search_keywords`, clothing type translated name and `search_keywords` using `ILIKE` with the trigram indexes (escape `%` and `_` in user input). Same paging as the shop. Empty result: the API returns an empty list and the clients show the localized `search.no_results` string.
-- Enforce the 100 active-product cap (`catalog.max_active_products`) in the service when activating or creating products.
+- There is NO hard-coded product maximum or page count. `catalog.max_active_products` is NULL (no cap); enforce it only if the client later sets a number.
 
 ## 12. Auth rules
 
@@ -166,11 +184,11 @@ Transaction: `UPDATE product_variants SET stock_on_hand = :new WHERE id = :id AN
 
 ## 13. Audit logging
 
-Every admin write (products, variants, prices, stock, content, QR, zones, settings, order status) writes `admin_audit_logs` with admin id, action, entity, before/after JSON, IP. Do it in the same transaction as the change.
+Every admin write (products, variants, prices, stock, media, zones, settings, order status, returns decisions and inspections, serial imports and deactivations) writes `admin_audit_logs` with admin id, action, entity, before/after JSON, IP. Do it in the same transaction as the change.
 
 ## 14. Migrations
 
-The baseline is `db/schema_v2.sql`. Never edit it after it was applied. Every change is a new `db/migrations/NNNN_description.sql` that is safe to run once, written for PostgreSQL 16, and followed by regenerating Kysely types.
+The baseline is `db/schema_v2.sql`; `0001_auth_session_rotation`, `0002_requirements_v2` and `0003_backend_design_9oct` are applied on top by `pnpm db:migrate` (the runner wraps each file in a transaction and records it in `schema_migrations`, so migration files contain no BEGIN/COMMIT or bookkeeping). Re-runnable sample/reference data lives in `db/seeds/seed_NNNN_*.sql` (`pnpm db:seed`). Never edit applied files. Every change is a new `db/migrations/NNNN_description.sql` that is safe to run once, written for PostgreSQL 16, and followed by regenerating Kysely types.
 
 ## 15. Anti-patterns (do not do these)
 
@@ -180,8 +198,10 @@ The baseline is `db/schema_v2.sql`. Never edit it after it was applied. Every ch
 - Business logic in controllers; SQL outside repositories; returning raw DB rows.
 - Hard-coding delivery fees, sizing rules, contact details, policy text, or the Pidgin strings.
 - Deleting products/orders/payments (archive instead).
-- Changing a QR slug or locked token, exposing secret pages in any list, adding admin editing of secret-page content; overwriting a media file key in place.
-- Recalculating an old Blueprint recommendation with newer rules; trusting a client-sent recommendation; guessing a size when no rule matches.
+- Changing a QR slug or locked route token, exposing hidden pages in any list, adding admin editing of hidden-page content; overwriting a media file key in place.
+- Using height or weight for sizing; letting Fit Preference change the chart size; recalculating an old Blueprint decision with newer charts; trusting a client-sent recommendation or responsibility.
+- Deciding serial category from a prefix (LE/GN); storing or returning plaintext serials; distinguishing unknown/inactive/wrong-page serials in the API reply; marking serials used.
+- Putting returned items back into stock without inspection; exposing return evidence as public files.
 - Inventing a pending client decision instead of making it configurable and labelling it.
 
 ## 16. Definition of done

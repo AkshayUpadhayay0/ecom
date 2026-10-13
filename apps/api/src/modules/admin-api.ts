@@ -8,12 +8,11 @@ import { createCatalogController } from './catalog/catalog.controller.js';
 import { createCatalogRouter } from './catalog/catalog.routes.js';
 import { createClothingTypesRepository } from './catalog/clothing-types.repository.js';
 import { createClothingTypesService } from './catalog/clothing-types.service.js';
-import { createGarmentCutsRepository } from './catalog/garment-cuts.repository.js';
-import { createGarmentCutsService } from './catalog/garment-cuts.service.js';
 import { createProductsRepository } from './catalog/products.repository.js';
 import { createProductsService } from './catalog/products.service.js';
 import { createSizesRepository } from './catalog/sizes.repository.js';
 import { createSizesService } from './catalog/sizes.service.js';
+import { createMeasurementProfilesRepository } from './blueprint/measurement-profiles.repository.js';
 import { createContentBlocksController } from './content/content-blocks.controller.js';
 import { createContentBlocksRepository } from './content/content-blocks.repository.js';
 import { createContentBlocksRouter } from './content/content-blocks.routes.js';
@@ -26,8 +25,6 @@ import { createInventoryController } from './inventory/inventory.controller.js';
 import { createInventoryRouter } from './inventory/inventory.routes.js';
 import { createInventoryService } from './inventory/inventory.service.js';
 import { createVariantsRepository } from './inventory/variants.repository.js';
-import { createLanguagesRepository } from './localization/languages.repository.js';
-import { createTranslationsService } from './localization/translations.service.js';
 import { createMediaAssetsRepository } from './media/media-assets.repository.js';
 import { createMediaAssetsService } from './media/media-assets.service.js';
 import { createSettingsController } from './settings/settings.controller.js';
@@ -46,10 +43,8 @@ export interface AdminApiDeps {
 /** Phase 2 admin API: catalog, inventory, delivery zones, settings, content, audit logs. */
 export function createAdminApiRouter({ db, requireAdmin }: AdminApiDeps): Router {
   const settings = createSettingsService({ db, repository: createSettingsRepository() });
-  const translations = createTranslationsService(createLanguagesRepository());
   const media = createMediaAssetsService(createMediaAssetsRepository());
   const clothingTypesRepository = createClothingTypesRepository();
-  const garmentCutsRepository = createGarmentCutsRepository();
   const sizesRepository = createSizesRepository();
   const productsRepository = createProductsRepository();
   const requireSuperAdmin = requireAdminRole('super_admin');
@@ -62,17 +57,14 @@ export function createAdminApiRouter({ db, requireAdmin }: AdminApiDeps): Router
         clothingTypes: createClothingTypesService({
           db,
           repository: clothingTypesRepository,
-          translations,
           settings,
         }),
         sizes: createSizesService({ db, repository: sizesRepository, settings }),
-        garmentCuts: createGarmentCutsService({ db, repository: garmentCutsRepository, settings }),
         products: createProductsService({
           db,
           repository: productsRepository,
           clothingTypes: clothingTypesRepository,
-          garmentCuts: garmentCutsRepository,
-          translations,
+          measurementProfiles: createMeasurementProfilesRepository(),
           media,
           settings,
         }),
@@ -108,7 +100,6 @@ export function createAdminApiRouter({ db, requireAdmin }: AdminApiDeps): Router
         createContentBlocksService({
           db,
           repository: createContentBlocksRepository(),
-          translations,
           media,
           settings,
         }),

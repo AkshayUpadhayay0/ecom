@@ -189,7 +189,7 @@ export function createInventoryService(deps: InventoryServiceDeps): InventorySer
           quantityDelta: change.stockOnHand - change.previousOnHand,
           referenceType: ADMIN_REFERENCE,
           referenceId: null,
-          note: input.note ?? null,
+          note: input.note,
           adminId: actor.adminId,
         });
         await writeAuditLog(trx, {

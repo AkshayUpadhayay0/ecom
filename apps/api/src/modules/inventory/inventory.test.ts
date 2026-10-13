@@ -67,7 +67,7 @@ describe.skipIf(!hasTestDatabase)('admin inventory API', () => {
       slug: 'adire-trouser',
       clothingTypeId: await seededClothingTypeId(ctx, 'trouser'),
       priceMinor: 1_800_000,
-      translations: { en: { description: 'Hand-dyed adire trouser.' } },
+      description: 'Hand-dyed adire trouser.',
     });
     expect(res.status).toBe(201);
     product = bodyOf<ApiData<ProductDto>>(res).data;
@@ -157,7 +157,11 @@ describe.skipIf(!hasTestDatabase)('admin inventory API', () => {
     it('writes a ledger row (with the admin) and an audit row for each change', async () => {
       const variant = await createVariant();
 
-      const initial = await adjust(variant.id, { type: 'initial', newOnHand: 10 });
+      const initial = await adjust(variant.id, {
+        type: 'initial',
+        newOnHand: 10,
+        note: 'Opening count',
+      });
       expect(initial.status).toBe(201);
       const result = bodyOf<ApiData<StockAdjustmentResultDto>>(initial).data;
       expect(result.variant.stockOnHand).toBe(10);
@@ -197,10 +201,48 @@ describe.skipIf(!hasTestDatabase)('admin inventory API', () => {
       expect(listed.data[0]?.type).toBe('adjustment');
     });
 
-    it('allows "initial" only before any movement and requires a note for adjustments', async () => {
+    it('requires a reason (note) for every admin adjustment', async () => {
       const variant = await createVariant();
-      await adjust(variant.id, { type: 'restock', quantity: 3 });
-      const initial = await adjust(variant.id, { type: 'initial', newOnHand: 10 });
+      for (const body of [
+        { type: 'initial', newOnHand: 5 },
+        { type: 'restock', quantity: 5 },
+        { type: 'adjustment', quantity: -1 },
+        { type: 'restock', quantity: 5, note: '   ' },
+      ]) {
+        const res = await adjust(variant.id, body);
+        expect(res.status).toBe(400);
+        expect(errorCode(res)).toBe('VALIDATION_ERROR');
+      }
+      expect(await ledgerSum(variant.id)).toBe(0);
+    });
+
+    it('never lets concurrent decrements take stock below zero', async () => {
+      const variant = await createVariant();
+      const startingStock = 5;
+      const attempts = 12;
+      await adjust(variant.id, { type: 'initial', newOnHand: startingStock, note: 'Count' });
+
+      const results = await Promise.all(
+        Array.from({ length: attempts }, (_, i) =>
+          adjust(variant.id, { type: 'adjustment', quantity: -1, note: `Sold offline ${i}` }),
+        ),
+      );
+      expect(results.filter((res) => res.status === 201)).toHaveLength(startingStock);
+      const refused = results.filter((res) => res.status === 409);
+      expect(refused).toHaveLength(attempts - startingStock);
+      expect(refused.every((res) => errorCode(res) === 'STOCK_BELOW_RESERVED')).toBe(true);
+      expect(await stockOf(variant.id)).toEqual({ onHand: 0, reserved: 0 });
+      expect(await ledgerSum(variant.id)).toBe(0);
+    });
+
+    it('allows "initial" only before any movement and accepts exactly one of quantity/newOnHand', async () => {
+      const variant = await createVariant();
+      await adjust(variant.id, { type: 'restock', quantity: 3, note: 'Delivery' });
+      const initial = await adjust(variant.id, {
+        type: 'initial',
+        newOnHand: 10,
+        note: 'Opening count',
+      });
       expect(initial.status).toBe(409);
       expect(errorCode(initial)).toBe('INVALID_STATE');
       expect((await adjust(variant.id, { type: 'adjustment', quantity: 1 })).status).toBe(400);
@@ -213,7 +255,7 @@ describe.skipIf(!hasTestDatabase)('admin inventory API', () => {
 
     it('refuses to go below reserved units (STOCK_BELOW_RESERVED) and writes nothing', async () => {
       const variant = await createVariant();
-      await adjust(variant.id, { type: 'initial', newOnHand: 10 });
+      await adjust(variant.id, { type: 'initial', newOnHand: 10, note: 'Opening count' });
       expect(await reserve(ctx.db, variant.id, 4)).toBe(true);
 
       const tooLow = await adjust(variant.id, { type: 'adjustment', newOnHand: 3, note: 'Count' });
@@ -235,11 +277,11 @@ describe.skipIf(!hasTestDatabase)('admin inventory API', () => {
 
     it('never produces negative available stock under concurrent adjustments and reservations', async () => {
       const variant = await createVariant();
-      await adjust(variant.id, { type: 'initial', newOnHand: 20 });
+      await adjust(variant.id, { type: 'initial', newOnHand: 20, note: 'Opening count' });
 
       const adjustments = Array.from({ length: 12 }, (_, i) =>
         i % 3 === 0
-          ? adjust(variant.id, { type: 'restock', quantity: 2 })
+          ? adjust(variant.id, { type: 'restock', quantity: 2, note: 'Delivery' })
           : adjust(variant.id, { type: 'adjustment', quantity: -3, note: `Loss ${i}` }),
       );
       const reservations = Array.from({ length: 15 }, () => reserve(ctx.db, variant.id, 2));
@@ -263,8 +305,8 @@ describe.skipIf(!hasTestDatabase)('admin inventory API', () => {
   it('lists low-stock variants (available <= threshold) of non-archived products', async () => {
     const low = await createVariant('ADT-M');
     const healthy = await createVariant('ADT-L', await seededSizeId(ctx, 'L'));
-    await adjust(low.id, { type: 'initial', newOnHand: 2 });
-    await adjust(healthy.id, { type: 'initial', newOnHand: 50 });
+    await adjust(low.id, { type: 'initial', newOnHand: 2, note: 'Opening count' });
+    await adjust(healthy.id, { type: 'initial', newOnHand: 50, note: 'Opening count' });
 
     const res = await api.get('/inventory/low-stock');
     const list = bodyOf<ApiList<LowStockVariantDto>>(res);

@@ -6,9 +6,12 @@ import type { PageRequest } from '../../lib/pagination.js';
 
 /**
  * Transaction-scoped advisory lock serialising every change that can increase the number of
- * active products, so two concurrent activations cannot both pass the cap check.
+ * active products, so two concurrent activations cannot both pass an (optional) cap check.
  */
 const ACTIVE_CAP_LOCK_KEY = 'catalog.max_active_products';
+
+/** The default language, read from data (never hard-coded). */
+const DEFAULT_LANGUAGE = sql<string>`(SELECT code FROM languages WHERE is_default LIMIT 1)`;
 
 export interface ProductRow {
   id: string;
@@ -16,11 +19,11 @@ export interface ProductRow {
   name: string;
   clothingTypeId: string;
   clothingTypeSlug: string;
-  /** Name in the default language (null if that translation is missing). */
+  /** Name in the default language (null if that row is missing). */
   clothingTypeName: string | null;
-  garmentCutId: string | null;
-  garmentCutCode: string | null;
-  garmentCutName: string | null;
+  measurementProfileId: string | null;
+  measurementProfileCode: string | null;
+  measurementProfileName: string | null;
   priceMinor: string;
   currency: string;
   status: ProductStatus;
@@ -35,7 +38,7 @@ export interface ProductFilters {
   q?: string | undefined;
   status?: ProductStatus | undefined;
   clothingTypeId?: string | undefined;
-  garmentCutId?: string | undefined;
+  measurementProfileId?: string | undefined;
   sort: 'displayOrder' | 'name' | 'priceMinor' | 'createdAt' | 'updatedAt';
   order: 'asc' | 'desc';
 }
@@ -44,7 +47,7 @@ export interface ProductValues {
   name: string;
   slug: string;
   clothingTypeId: string;
-  garmentCutId: string | null;
+  measurementProfileId: string | null;
   priceMinor: number;
   searchKeywords: string;
   displayOrder: number;
@@ -65,15 +68,11 @@ function baseQuery(db: Database) {
   return db
     .selectFrom('products as p')
     .innerJoin('clothing_types as ct', 'ct.id', 'p.clothing_type_id')
-    .leftJoin('garment_cuts as gc', 'gc.id', 'p.garment_cut_id')
+    .leftJoin('measurement_profiles as mp', 'mp.id', 'p.measurement_profile_id')
     .leftJoin('clothing_type_translations as ctt', (join) =>
       join
         .onRef('ctt.clothing_type_id', '=', 'ct.id')
-        .on(
-          'ctt.language_code',
-          '=',
-          sql<string>`(SELECT code FROM languages WHERE is_default LIMIT 1)`,
-        ),
+        .on('ctt.language_code', '=', DEFAULT_LANGUAGE),
     );
 }
 
@@ -84,9 +83,9 @@ const COLUMNS = [
   'p.clothing_type_id as clothingTypeId',
   'ct.slug as clothingTypeSlug',
   'ctt.name as clothingTypeName',
-  'p.garment_cut_id as garmentCutId',
-  'gc.code as garmentCutCode',
-  'gc.name as garmentCutName',
+  'p.measurement_profile_id as measurementProfileId',
+  'mp.code as measurementProfileCode',
+  'mp.name as measurementProfileName',
   'p.price_minor as priceMinor',
   'p.currency',
   'p.status',
@@ -110,15 +109,18 @@ export interface ProductsRepository {
   ): Promise<{ rows: ProductRow[]; total: number }>;
   /** `lock` takes a row lock on the product (inside a transaction). */
   findById(db: Database, id: string, lock?: boolean): Promise<ProductRow | undefined>;
-  descriptionsFor(db: Database, id: string): Promise<Record<string, string>>;
+  /** Canonical description (default-language row), or null. */
+  descriptionOf(db: Database, id: string): Promise<string | null>;
+  setDescription(db: Database, id: string, description: string): Promise<void>;
+  imageAssetIds(db: Database, id: string): Promise<string[]>;
+  /** Replaces the image list; array order = display order. */
+  setImages(db: Database, id: string, mediaAssetIds: string[]): Promise<void>;
   /** Returns undefined if the slug is taken. */
   insert(db: Database, values: ProductValues): Promise<string | undefined>;
   /** Returns false if the new slug is taken. */
   update(db: Database, id: string, patch: ProductPatch): Promise<boolean>;
   setStatus(db: Database, id: string, status: ProductStatus): Promise<void>;
   setVideo(db: Database, id: string, mediaAssetId: string): Promise<void>;
-  upsertDescriptions(db: Database, id: string, descriptions: Record<string, string>): Promise<void>;
-  deleteDescriptions(db: Database, id: string, languageCodes: string[]): Promise<void>;
   /** Blocks until no other transaction can change the active-product count. */
   lockActiveCap(db: Database): Promise<void>;
   countActive(db: Database): Promise<number>;
@@ -132,8 +134,8 @@ export function createProductsRepository(): ProductsRepository {
       if (filters.clothingTypeId !== undefined) {
         query = query.where('p.clothing_type_id', '=', filters.clothingTypeId);
       }
-      if (filters.garmentCutId !== undefined) {
-        query = query.where('p.garment_cut_id', '=', filters.garmentCutId);
+      if (filters.measurementProfileId !== undefined) {
+        query = query.where('p.measurement_profile_id', '=', filters.measurementProfileId);
       }
       if (filters.q !== undefined) {
         const pattern = `%${escapeLike(filters.q)}%`;
@@ -165,13 +167,52 @@ export function createProductsRepository(): ProductsRepository {
       return row && toProductRow(row);
     },
 
-    async descriptionsFor(db, id) {
-      const rows = await db
+    async descriptionOf(db, id) {
+      const row = await db
         .selectFrom('product_translations')
-        .select(['language_code as languageCode', 'description'])
+        .select('description')
         .where('product_id', '=', id)
+        .where('language_code', '=', DEFAULT_LANGUAGE)
+        .executeTakeFirst();
+      return row?.description ?? null;
+    },
+
+    async setDescription(db, id, description) {
+      await db
+        .insertInto('product_translations')
+        .values({ product_id: id, language_code: DEFAULT_LANGUAGE, description })
+        .onConflict((oc) =>
+          oc
+            .columns(['product_id', 'language_code'])
+            .doUpdateSet((eb) => ({ description: eb.ref('excluded.description') })),
+        )
         .execute();
-      return Object.fromEntries(rows.map((row) => [row.languageCode, row.description]));
+    },
+
+    async imageAssetIds(db, id) {
+      const rows = await db
+        .selectFrom('product_images')
+        .select('media_asset_id')
+        .where('product_id', '=', id)
+        .orderBy('sort_order')
+        .orderBy('id')
+        .execute();
+      return rows.map((row) => row.media_asset_id);
+    },
+
+    async setImages(db, id, mediaAssetIds) {
+      await db.deleteFrom('product_images').where('product_id', '=', id).execute();
+      if (mediaAssetIds.length === 0) return;
+      await db
+        .insertInto('product_images')
+        .values(
+          mediaAssetIds.map((mediaAssetId, index) => ({
+            product_id: id,
+            media_asset_id: mediaAssetId,
+            sort_order: index + 1,
+          })),
+        )
+        .execute();
     },
 
     async insert(db, values) {
@@ -182,7 +223,7 @@ export function createProductsRepository(): ProductsRepository {
             name: values.name,
             slug: values.slug,
             clothing_type_id: values.clothingTypeId,
-            garment_cut_id: values.garmentCutId,
+            measurement_profile_id: values.measurementProfileId,
             price_minor: values.priceMinor,
             search_keywords: values.searchKeywords,
             display_order: values.displayOrder,
@@ -198,20 +239,20 @@ export function createProductsRepository(): ProductsRepository {
     },
 
     async update(db, id, patch) {
+      const changes = {
+        ...(patch.name !== undefined && { name: patch.name }),
+        ...(patch.slug !== undefined && { slug: patch.slug }),
+        ...(patch.clothingTypeId !== undefined && { clothing_type_id: patch.clothingTypeId }),
+        ...(patch.measurementProfileId !== undefined && {
+          measurement_profile_id: patch.measurementProfileId,
+        }),
+        ...(patch.priceMinor !== undefined && { price_minor: patch.priceMinor }),
+        ...(patch.searchKeywords !== undefined && { search_keywords: patch.searchKeywords }),
+        ...(patch.displayOrder !== undefined && { display_order: patch.displayOrder }),
+      };
+      if (Object.keys(changes).length === 0) return true;
       try {
-        await db
-          .updateTable('products')
-          .set({
-            ...(patch.name !== undefined && { name: patch.name }),
-            ...(patch.slug !== undefined && { slug: patch.slug }),
-            ...(patch.clothingTypeId !== undefined && { clothing_type_id: patch.clothingTypeId }),
-            ...(patch.garmentCutId !== undefined && { garment_cut_id: patch.garmentCutId }),
-            ...(patch.priceMinor !== undefined && { price_minor: patch.priceMinor }),
-            ...(patch.searchKeywords !== undefined && { search_keywords: patch.searchKeywords }),
-            ...(patch.displayOrder !== undefined && { display_order: patch.displayOrder }),
-          })
-          .where('id', '=', id)
-          .execute();
+        await db.updateTable('products').set(changes).where('id', '=', id).execute();
         return true;
       } catch (err) {
         if (isPgErrorCode(err, PG_ERROR.UNIQUE_VIOLATION)) return false;
@@ -228,33 +269,6 @@ export function createProductsRepository(): ProductsRepository {
         .updateTable('products')
         .set({ video_asset_id: mediaAssetId })
         .where('id', '=', id)
-        .execute();
-    },
-
-    async upsertDescriptions(db, id, descriptions) {
-      const rows = Object.entries(descriptions).map(([languageCode, description]) => ({
-        product_id: id,
-        language_code: languageCode,
-        description,
-      }));
-      if (rows.length === 0) return;
-      await db
-        .insertInto('product_translations')
-        .values(rows)
-        .onConflict((oc) =>
-          oc
-            .columns(['product_id', 'language_code'])
-            .doUpdateSet((eb) => ({ description: eb.ref('excluded.description') })),
-        )
-        .execute();
-    },
-
-    async deleteDescriptions(db, id, languageCodes) {
-      if (languageCodes.length === 0) return;
-      await db
-        .deleteFrom('product_translations')
-        .where('product_id', '=', id)
-        .where('language_code', 'in', languageCodes)
         .execute();
     },
 

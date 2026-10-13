@@ -2,7 +2,6 @@ import type {
   ApiData,
   ApiList,
   ClothingTypeDto,
-  GarmentCutDto,
   ProductDto,
   ProductSummaryDto,
   SizeDto,
@@ -17,6 +16,7 @@ import {
   resetAdminApiData,
   restoreSettings,
   seededClothingTypeId,
+  seededProfileId,
   signInAdmin,
   snapshotSettings,
   type AdminClient,
@@ -32,7 +32,8 @@ import {
   type TestContext,
 } from '../../../test/helpers.js';
 
-const DEFAULT_ACTIVE_CAP = 100;
+/** The old v2.0 cap; the 9 Oct design removed it, so going past it must work. */
+const FORMER_PRODUCT_CAP = 100;
 
 describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
   let ctx: TestContext;
@@ -64,9 +65,9 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       name: 'Agbada Linen Shirt',
       slug: 'agbada-linen-shirt',
       clothingTypeId: shirtTypeId,
+      description: 'A breathable linen shirt.',
       priceMinor: 2_500_000,
       searchKeywords: 'linen agbada',
-      translations: { en: { description: 'A breathable linen shirt.' } },
       ...overrides,
     };
   }
@@ -77,7 +78,7 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
     return bodyOf<ApiData<ProductDto>>(res).data;
   }
 
-  /** Fast fixture: `count` active products inserted directly (the cap test needs 100). */
+  /** Fast fixture: `count` active products inserted directly. */
   async function insertActiveProducts(count: number): Promise<void> {
     await sql`
       INSERT INTO products (slug, name, clothing_type_id, price_minor, status)
@@ -85,16 +86,24 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       FROM generate_series(1, ${count}::int) AS n`.execute(ctx.db);
   }
 
+  async function setCap(limit: number | null): Promise<void> {
+    await ctx.db
+      .updateTable('app_settings')
+      .set({ value: limit === null ? null : JSON.stringify(limit) })
+      .where('setting_key', '=', 'catalog.max_active_products')
+      .execute();
+  }
+
   describe('clothing types', () => {
-    it('creates with translations, searches, updates and deactivates (audited)', async () => {
+    it('creates with one canonical name, searches, renames and deactivates (audited)', async () => {
       const created = await api.post('/clothing-types', {
         slug: 't-kaftan',
+        name: 'Kaftan',
         searchKeywords: 'boubou robe',
-        translations: { en: { name: 'Kaftan' }, pcm: { name: 'Kaftan (pcm)' } },
       });
       expect(created.status).toBe(201);
       const type = bodyOf<ApiData<ClothingTypeDto>>(created).data;
-      expect(type.translations).toEqual({ en: { name: 'Kaftan' }, pcm: { name: 'Kaftan (pcm)' } });
+      expect(type).toMatchObject({ slug: 't-kaftan', name: 'Kaftan', isActive: true });
 
       const search = await api.get('/clothing-types?q=boubou');
       expect(bodyOf<ApiList<ClothingTypeDto>>(search).data.map((t) => t.slug)).toEqual([
@@ -102,113 +111,97 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       ]);
 
       const updated = await api.patch(`/clothing-types/${type.id}`, {
+        name: 'Kaftan Robe',
         isActive: false,
-        translations: { pcm: null },
       });
-      expect(updated.status).toBe(200);
       expect(bodyOf<ApiData<ClothingTypeDto>>(updated).data).toMatchObject({
+        name: 'Kaftan Robe',
         isActive: false,
-        translations: { en: { name: 'Kaftan' } },
       });
+      const reactivated = await api.patch(`/clothing-types/${type.id}`, { isActive: true });
+      expect(bodyOf<ApiData<ClothingTypeDto>>(reactivated).data.isActive).toBe(true);
+
       expect(await auditCount(ctx, { action: 'clothing_type.create', entityId: type.id })).toBe(1);
-      expect(await auditCount(ctx, { action: 'clothing_type.update', entityId: type.id })).toBe(1);
+      expect(await auditCount(ctx, { action: 'clothing_type.update', entityId: type.id })).toBe(2);
     });
 
-    it('requires English, rejects unknown languages, duplicate slugs and removing English', async () => {
-      const noEnglish = await api.post('/clothing-types', {
-        slug: 't-a',
-        translations: { pcm: { name: 'A' } },
-      });
-      expect(noEnglish.status).toBe(400);
-
-      const unknownLanguage = await api.post('/clothing-types', {
-        slug: 't-b',
-        translations: { en: { name: 'B' }, fr: { name: 'B' } },
-      });
-      expect(unknownLanguage.status).toBe(400);
-
-      const duplicate = await api.post('/clothing-types', {
-        slug: 'shirt',
-        translations: { en: { name: 'Shirt again' } },
-      });
+    it('rejects duplicate slugs and has no translation input', async () => {
+      const duplicate = await api.post('/clothing-types', { slug: 'shirt', name: 'Shirt again' });
       expect(duplicate.status).toBe(409);
       expect(errorCode(duplicate)).toBe('ALREADY_EXISTS');
-
-      const removeEnglish = await api.patch(`/clothing-types/${shirtTypeId}`, {
-        translations: { en: null },
+      const translations = await api.patch(`/clothing-types/${shirtTypeId}`, {
+        translations: { pcm: { name: 'Shirt' } },
       });
-      expect(removeEnglish.status).toBe(400);
+      expect(translations.status).toBe(400);
     });
   });
 
   describe('sizes', () => {
-    it('creates, rejects duplicate codes, deactivates and reorders', async () => {
-      const created = await api.post('/sizes', { code: 'T3XL', label: '3X Large' });
-      expect(created.status).toBe(201);
-      const size = bodyOf<ApiData<SizeDto>>(created).data;
-      expect(size.sortOrder).toBe(6);
-
-      expect((await api.post('/sizes', { code: 'M', label: 'Medium' })).status).toBe(409);
-
-      const deactivated = await api.patch(`/sizes/${size.id}`, { isActive: false });
-      expect(bodyOf<ApiData<SizeDto>>(deactivated).data.isActive).toBe(false);
-
+    it('lists the seeded sizes and reorders them (audited); no create or edit', async () => {
       const all = bodyOf<ApiList<SizeDto>>(await api.get('/sizes?pageSize=50')).data;
-      const reversed = all.map((s) => s.id).reverse();
-      const reordered = await api.put('/sizes/order', { ids: reversed });
-      expect(reordered.status).toBe(200);
-      expect(bodyOf<ApiData<SizeDto[]>>(reordered).data.map((s) => s.id)).toEqual(reversed);
+      expect(all.map((s) => s.code)).toEqual(expect.arrayContaining(['S', 'M', 'XS-6', '3XL']));
+      const original = all.map((s) => s.id);
+      try {
+        const reversed = [...original].reverse();
+        const reordered = await api.put('/sizes/order', { ids: reversed });
+        expect(reordered.status).toBe(200);
+        expect(bodyOf<ApiData<SizeDto[]>>(reordered).data.map((s) => s.id)).toEqual(reversed);
 
-      const incomplete = await api.put('/sizes/order', { ids: reversed.slice(1) });
-      expect(incomplete.status).toBe(400);
-      expect(await auditCount(ctx, { action: 'size.reorder' })).toBe(1);
-    });
-  });
-
-  describe('garment cuts', () => {
-    it('creates, updates notes and deactivates; products may reference an active cut', async () => {
-      const created = await api.post('/garment-cuts', { code: 'slim', name: 'Slim fit' });
-      expect(created.status).toBe(201);
-      const cut = bodyOf<ApiData<GarmentCutDto>>(created).data;
-
-      const product = await createProduct({ garmentCutId: cut.id });
-      expect(product.garmentCut).toEqual({ id: cut.id, code: 'slim', name: 'Slim fit' });
-
-      await api.patch(`/garment-cuts/${cut.id}`, { notes: 'Tailor notes', isActive: false });
-      const rejected = await api.post(
-        '/products',
-        productBody({ slug: 'second', garmentCutId: cut.id }),
-      );
-      expect(rejected.status).toBe(400);
-      expect(await auditCount(ctx, { action: 'garment_cut.update', entityId: cut.id })).toBe(1);
+        const incomplete = await api.put('/sizes/order', { ids: reversed.slice(1) });
+        expect(incomplete.status).toBe(400);
+        expect(await auditCount(ctx, { action: 'size.reorder' })).toBe(1);
+      } finally {
+        // Restore the seeded order exactly (Blueprint compares sizes.sort_order).
+        for (const size of all) {
+          await ctx.db
+            .updateTable('sizes')
+            .set({ sort_order: size.sortOrder })
+            .where('id', '=', size.id)
+            .execute();
+        }
+      }
+      expect((await api.post('/sizes', { code: 'TQ', label: 'Test' })).status).toBe(404);
+      expect((await api.patch(`/sizes/${original[0] ?? ''}`, { label: 'X' })).status).toBe(404);
     });
   });
 
   describe('products', () => {
-    it('creates a draft, lists with search/filter, updates price and translations', async () => {
-      const product = await createProduct();
+    it('creates with description and measurement profile, lists, filters, updates price', async () => {
+      const profileId = await seededProfileId(ctx, 'male_top');
+      const product = await createProduct({ measurementProfileId: profileId });
       expect(product).toMatchObject({
         status: 'draft',
         priceMinor: 2_500_000,
         currency: 'NGN',
+        description: 'A breathable linen shirt.',
         clothingType: { id: shirtTypeId, slug: 'shirt' },
-        translations: { en: { description: 'A breathable linen shirt.' } },
+        measurementProfile: { id: profileId, code: 'male_top' },
+        imageAssetIds: [],
       });
-      await createProduct({ name: 'Plain Tee', slug: 'plain-tee', searchKeywords: '' });
+      const plain = await createProduct({
+        name: 'Plain Tee',
+        slug: 'plain-tee',
+        searchKeywords: '',
+      });
+      expect(plain.measurementProfile).toBeNull();
 
       const search = await api.get('/products?q=agbada&status=draft');
       const found = bodyOf<ApiList<ProductSummaryDto>>(search);
       expect(found.data.map((p) => p.slug)).toEqual(['agbada-linen-shirt']);
       expect(found.meta).toMatchObject({ page: 1, total: 1, totalPages: 1 });
+      const byProfile = await api.get(`/products?measurementProfileId=${profileId}`);
+      expect(bodyOf<ApiList<ProductSummaryDto>>(byProfile).meta.total).toBe(1);
 
       const updated = await api.patch(`/products/${product.id}`, {
         priceMinor: 2_750_000,
-        translations: { pcm: { description: 'Fine linen shirt (pcm).' } },
+        description: 'Fine linen.',
+        measurementProfileId: null,
       });
       expect(updated.status).toBe(200);
       expect(bodyOf<ApiData<ProductDto>>(updated).data).toMatchObject({
         priceMinor: 2_750_000,
-        translations: { en: {}, pcm: { description: 'Fine linen shirt (pcm).' } },
+        description: 'Fine linen.',
+        measurementProfile: null,
       });
       const audit = await ctx.db
         .selectFrom('admin_audit_logs')
@@ -220,36 +213,40 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       expect(audit.after_data).toMatchObject({ priceMinor: 2_750_000 });
     });
 
-    it('rejects float prices, duplicate slugs and caps pageSize at 50', async () => {
+    it('rejects unknown profiles, float prices, duplicate slugs and pageSize > 50', async () => {
+      const unknownProfile = await api.post(
+        '/products',
+        productBody({ measurementProfileId: '00000000-0000-4000-8000-000000000000' }),
+      );
+      expect(unknownProfile.status).toBe(400);
       expect((await api.post('/products', productBody({ priceMinor: 25.5 }))).status).toBe(400);
-      await createProduct();
+      expect((await api.post('/products', productBody({ garmentCutId: shirtTypeId }))).status).toBe(
+        201,
+      ); // unknown keys are ignored; there is no garment cut any more
       const duplicate = await api.post('/products', productBody());
-      expect(duplicate.status).toBe(409);
       expect(errorCode(duplicate)).toBe('ALREADY_EXISTS');
       expect((await api.get('/products?pageSize=51')).status).toBe(400);
     });
 
-    it('rejects the 101st active product (catalog.max_active_products default 100)', async () => {
-      await insertActiveProducts(DEFAULT_ACTIVE_CAP);
+    it('has NO product cap by default: more than 100 products can be active', async () => {
+      await insertActiveProducts(FORMER_PRODUCT_CAP);
 
       const created = await api.post('/products', productBody({ status: 'active' }));
-      expect(created.status).toBe(409);
-      expect(errorCode(created)).toBe('ACTIVE_PRODUCT_LIMIT_REACHED');
+      expect(created.status).toBe(201);
+      const draft = await createProduct({ slug: 'one-more', name: 'One more' });
+      const activated = await api.post(`/products/${draft.id}/status`, { status: 'active' });
+      expect(activated.status).toBe(200);
 
-      // Activating an existing draft is refused the same way.
-      const draft = await createProduct();
-      const activate = await api.post(`/products/${draft.id}/status`, { status: 'active' });
-      expect(activate.status).toBe(409);
-      expect(errorCode(activate)).toBe('ACTIVE_PRODUCT_LIMIT_REACHED');
+      const list = await api.get('/products?status=active&pageSize=20');
+      expect(bodyOf<ApiList<ProductSummaryDto>>(list).meta).toMatchObject({
+        total: FORMER_PRODUCT_CAP + 2,
+        totalPages: 6,
+      });
     });
 
-    it('reads the cap from settings and never exceeds it under concurrent activations', async () => {
+    it('enforces an optional cap only when the setting holds a number, also under concurrency', async () => {
       const limit = 3;
-      await ctx.db
-        .updateTable('app_settings')
-        .set({ value: JSON.stringify(limit) })
-        .where('setting_key', '=', 'catalog.max_active_products')
-        .execute();
+      await setCap(limit);
       await insertActiveProducts(limit - 1);
       const drafts = await Promise.all(
         [1, 2, 3, 4, 5].map((n) => createProduct({ slug: `draft-${n}`, name: `Draft ${n}` })),
@@ -259,20 +256,19 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
         drafts.map((draft) => api.post(`/products/${draft.id}/status`, { status: 'active' })),
       );
       expect(results.filter((res) => res.status === 200)).toHaveLength(1);
-      expect(results.filter((res) => res.status === 409)).toHaveLength(drafts.length - 1);
-      const active = await ctx.db
-        .selectFrom('products')
-        .select((eb) => eb.fn.countAll<string>().as('n'))
-        .where('status', '=', 'active')
-        .executeTakeFirstOrThrow();
-      expect(Number(active.n)).toBe(limit);
+      const refused = results.filter((res) => res.status === 409);
+      expect(refused).toHaveLength(drafts.length - 1);
+      expect(refused.every((res) => errorCode(res) === 'ACTIVE_PRODUCT_LIMIT_REACHED')).toBe(true);
+
+      await setCap(null);
+      const free = await api.post(`/products/${drafts[4]?.id ?? ''}/status`, { status: 'active' });
+      expect(free.status).toBe(200);
     });
 
     it('archives instead of deleting; archived products are read-only until restored', async () => {
       const product = await createProduct();
 
-      const deleted = await api.delete(`/products/${product.id}`);
-      expect(deleted.status).toBe(404);
+      expect((await api.delete(`/products/${product.id}`)).status).toBe(404);
 
       const archived = await api.post(`/products/${product.id}/status`, { status: 'archived' });
       expect(bodyOf<ApiData<ProductDto>>(archived).data.status).toBe('archived');
@@ -289,24 +285,49 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       );
     });
 
-    it('assigns only an existing READY video asset', async () => {
+    it('assigns only existing READY, PUBLIC, non-retired media (video and images)', async () => {
       const product = await createProduct();
-      const ready = await insertMediaAsset(ctx, { kind: 'video', status: 'ready' });
+      const video = await insertMediaAsset(ctx, { kind: 'video', status: 'ready' });
       const processing = await insertMediaAsset(ctx, { kind: 'video', status: 'processing' });
-      const image = await insertMediaAsset(ctx, { kind: 'image', status: 'ready' });
+      const privateVideo = await insertMediaAsset(ctx, {
+        kind: 'video',
+        status: 'ready',
+        visibility: 'private',
+      });
+      const retired = await insertMediaAsset(ctx, {
+        kind: 'video',
+        status: 'ready',
+        retired: true,
+      });
+      const image1 = await insertMediaAsset(ctx, { kind: 'image', status: 'ready' });
+      const image2 = await insertMediaAsset(ctx, { kind: 'image', status: 'ready' });
 
-      const notReady = await api.put(`/products/${product.id}/video`, { mediaAssetId: processing });
-      expect(notReady.status).toBe(409);
-      expect(errorCode(notReady)).toBe('MEDIA_NOT_READY');
-      const notVideo = await api.put(`/products/${product.id}/video`, { mediaAssetId: image });
-      expect(errorCode(notVideo)).toBe('INVALID_MEDIA_TYPE');
+      const putVideo = (mediaAssetId: string) =>
+        api.put(`/products/${product.id}/video`, { mediaAssetId });
+      expect(errorCode(await putVideo(processing))).toBe('MEDIA_NOT_READY');
+      expect((await putVideo(privateVideo)).status).toBe(404);
+      expect(errorCode(await putVideo(retired))).toBe('INVALID_STATE');
+      expect(errorCode(await putVideo(image1))).toBe('INVALID_MEDIA_TYPE');
+      const assigned = await putVideo(video);
+      expect(bodyOf<ApiData<ProductDto>>(assigned).data.videoAssetId).toBe(video);
 
-      const assigned = await api.put(`/products/${product.id}/video`, { mediaAssetId: ready });
-      expect(assigned.status).toBe(200);
-      expect(bodyOf<ApiData<ProductDto>>(assigned).data.videoAssetId).toBe(ready);
+      const images = await api.put(`/products/${product.id}/images`, {
+        mediaAssetIds: [image2, image1],
+      });
+      expect(bodyOf<ApiData<ProductDto>>(images).data.imageAssetIds).toEqual([image2, image1]);
+      const withVideo = await api.put(`/products/${product.id}/images`, {
+        mediaAssetIds: [image1, video],
+      });
+      expect(errorCode(withVideo)).toBe('INVALID_MEDIA_TYPE');
+      const cleared = await api.put(`/products/${product.id}/images`, { mediaAssetIds: [] });
+      expect(bodyOf<ApiData<ProductDto>>(cleared).data.imageAssetIds).toEqual([]);
+
       expect(await auditCount(ctx, { action: 'product.video_replace', entityId: product.id })).toBe(
         1,
       );
+      expect(
+        await auditCount(ctx, { action: 'product.images_replace', entityId: product.id }),
+      ).toBe(2);
     });
   });
 });

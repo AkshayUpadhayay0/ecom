@@ -78,7 +78,7 @@ describe.skipIf(!hasTestDatabase)('admin content blocks API', () => {
     await ctx.db.destroy();
   });
 
-  it('lists blocks (no secret QR pages) and returns one with its translations', async () => {
+  it('lists blocks (no hidden pages) and returns one with its (read-only) text', async () => {
     const list = bodyOf<ApiList<ContentBlockSummaryDto>>(await api.get('/content-blocks'));
     expect(list.data.map((b) => b.key)).toContain(HERO);
     expect(list.data.some((b) => b.key.startsWith('qr'))).toBe(false);
@@ -88,29 +88,17 @@ describe.skipIf(!hasTestDatabase)('admin content blocks API', () => {
     expect((await api.get('/content-blocks/does.not.exist')).status).toBe(404);
   });
 
-  it('updates a translation per language and strips HTML from the Markdown body', async () => {
-    const res = await api.put(`/content-blocks/${HERO}/translations/pcm`, {
-      title: 'New season <b>drop</b>',
-      body: '**Bold** text <script>alert(1)</script> &lt;img src=x onerror=alert(1)&gt; 2 < 3 & R&D',
-      ctaLabel: 'Shop now',
-    });
-    expect(res.status).toBe(200);
-    const block = bodyOf<ApiData<ContentBlockDto>>(res).data;
-    expect(block.translations.pcm).toEqual({
-      title: 'New season drop',
-      body: '**Bold** text   2 < 3 & R&D',
-      ctaLabel: 'Shop now',
-    });
-    expect(block.updatedBy).not.toBeNull();
-    expect((await api.put(`/content-blocks/${HERO}/translations/fr`, { title: 'x' })).status).toBe(
-      400,
-    );
-    expect(
-      await auditCount(ctx, { action: 'content_block.translation_update', entityId: HERO }),
-    ).toBe(1);
+  it('has no admin text/translation editing (static copy is developer-managed)', async () => {
+    const res = await api.put(`/content-blocks/${HERO}/translations/pcm`, { title: 'New' });
+    expect(res.status).toBe(404);
+    const unchanged = await ctx.db
+      .selectFrom('content_block_translations')
+      .select((eb) => eb.fn.countAll<string>().as('n'))
+      .executeTakeFirstOrThrow();
+    expect(Number(unchanged.n)).toBe(original.translations.length);
   });
 
-  it('publishes / unpublishes and sets the hero video to a READY asset only', async () => {
+  it('publishes / unpublishes and sets the hero video to a READY, PUBLIC asset only', async () => {
     const unpublished = await api.post(`/content-blocks/${HERO}/unpublish`);
     expect(bodyOf<ApiData<ContentBlockDto>>(unpublished).data.isPublished).toBe(false);
     const published = await api.post(`/content-blocks/${HERO}/publish`);
@@ -119,6 +107,14 @@ describe.skipIf(!hasTestDatabase)('admin content blocks API', () => {
     const pending = await insertMediaAsset(ctx, { kind: 'video', status: 'pending' });
     const notReady = await api.put(`/content-blocks/${HERO}/media`, { mediaAssetId: pending });
     expect(errorCode(notReady)).toBe('MEDIA_NOT_READY');
+
+    const privateVideo = await insertMediaAsset(ctx, {
+      kind: 'video',
+      status: 'ready',
+      visibility: 'private',
+    });
+    const hidden = await api.put(`/content-blocks/${HERO}/media`, { mediaAssetId: privateVideo });
+    expect(hidden.status).toBe(404);
 
     const ready = await insertMediaAsset(ctx, { kind: 'video', status: 'ready' });
     const set = await api.put(`/content-blocks/${HERO}/media`, { mediaAssetId: ready });

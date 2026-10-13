@@ -18,16 +18,17 @@ const hexColourSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'must be a #RRGGBB
  */
 export const SETTING_DEFINITIONS = {
   'catalog.page_size': { schema: z.number().int().min(1).max(MAX_PAGE_SIZE), default: 20 },
-  'catalog.max_active_products': { schema: z.number().int().min(1).max(10_000), default: 100 },
+  // 9 Oct design: no product cap unless the client sets one (NULL = unlimited).
+  'catalog.max_active_products': { schema: z.number().int().min(1).max(100_000) },
   'checkout.reservation_minutes': { schema: z.number().int().min(1).max(120), default: 15 },
   'cart.max_quantity_per_item': { schema: z.number().int().min(1).max(100), default: 10 },
+  // Team decision still open: NULL = hidden-page access grants never expire.
   'qr.grant_ttl_minutes': {
     schema: z
       .number()
       .int()
       .min(1)
       .max(30 * MINUTES_PER_DAY),
-    default: MINUTES_PER_DAY,
   },
   // Pending Client Decisions: no defaults, NULL until the client supplies them.
   'support.email': { schema: z.email().max(254) },
