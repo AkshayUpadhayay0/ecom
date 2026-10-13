@@ -61,6 +61,10 @@ const ADMIN_ROUTES: [Method, string][] = [
   ['post', '/serial-imports'],
   ['get', '/serial-batches'],
   ['post', '/serials/deactivate'],
+  ['get', '/size-chart-groups'],
+  ['get', `/size-chart-groups/${ID}/charts`],
+  ['get', `/size-charts/${ID}`],
+  ['get', '/measurement-profiles'],
 ];
 
 describe.skipIf(!hasTestDatabase)('admin API access control', () => {

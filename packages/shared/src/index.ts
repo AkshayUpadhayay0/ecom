@@ -5,6 +5,7 @@ export * from './admin-content.js';
 export * from './admin-delivery.js';
 export * from './admin-inventory.js';
 export * from './admin-settings.js';
+export * from './admin-size-charts.js';
 export * from './api.js';
 export * from './auth.js';
 export * from './error-codes.js';

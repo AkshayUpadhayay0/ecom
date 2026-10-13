@@ -14,6 +14,10 @@ import { createProductsService } from './catalog/products.service.js';
 import { createSizesRepository } from './catalog/sizes.repository.js';
 import { createSizesService } from './catalog/sizes.service.js';
 import { createMeasurementProfilesRepository } from './blueprint/measurement-profiles.repository.js';
+import { createSizeChartsController } from './blueprint/size-charts.controller.js';
+import { createSizeChartsRepository } from './blueprint/size-charts.repository.js';
+import { createSizeChartsRouter } from './blueprint/size-charts.routes.js';
+import { createSizeChartsService } from './blueprint/size-charts.service.js';
 import { createContentBlocksController } from './content/content-blocks.controller.js';
 import { createContentBlocksRepository } from './content/content-blocks.repository.js';
 import { createContentBlocksRouter } from './content/content-blocks.routes.js';
@@ -118,6 +122,13 @@ export function createAdminApiRouter({ env, db, requireAdmin }: AdminApiDeps): R
           media,
           settings,
         }),
+      ),
+    ),
+  );
+  router.use(
+    createSizeChartsRouter(
+      createSizeChartsController(
+        createSizeChartsService({ db, repository: createSizeChartsRepository(), settings }),
       ),
     ),
   );
