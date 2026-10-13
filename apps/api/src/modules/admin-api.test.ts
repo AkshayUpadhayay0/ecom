@@ -55,6 +55,12 @@ const ADMIN_ROUTES: [Method, string][] = [
   ['post', '/content-blocks/home.hero/unpublish'],
   ['put', '/content-blocks/home.hero/media'],
   ['get', '/audit-logs'],
+  ['get', '/hidden-pages'],
+  ['get', `/hidden-pages/${ID}`],
+  ['put', `/hidden-pages/${ID}/content`],
+  ['post', '/serial-imports'],
+  ['get', '/serial-batches'],
+  ['post', '/serials/deactivate'],
 ];
 
 describe.skipIf(!hasTestDatabase)('admin API access control', () => {

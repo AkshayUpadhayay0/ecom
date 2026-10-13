@@ -3,7 +3,7 @@ import type { Logger } from 'pino';
 import type { Env } from '../../config/env.js';
 import type { Database } from '../../db/database.js';
 import { authRateLimit } from '../../middleware/auth-rate-limit.js';
-import { requireCustomer } from '../../middleware/require-customer.js';
+import { optionalCustomer, requireCustomer } from '../../middleware/require-customer.js';
 import type { EmailOutboxRepository } from '../notifications/email-outbox.repository.js';
 import { createCustomerAuthController } from './auth.controller.js';
 import { createAuthRepository } from './auth.repository.js';
@@ -19,6 +19,8 @@ export const CUSTOMER_REFRESH_COOKIE = 'ui_rt';
 export interface CustomerAuthModule {
   router: Router;
   requireCustomer: RequestHandler;
+  /** Sets req.customer when a valid customer token is sent; never rejects. */
+  optionalCustomer: RequestHandler;
   service: CustomerAuthService;
 }
 
@@ -75,5 +77,10 @@ export function createCustomerAuthModule({
   });
 
   // Mounted under CUSTOMER_AUTH_PATH by the caller.
-  return { router: authRouter, requireCustomer: guard, service };
+  return {
+    router: authRouter,
+    requireCustomer: guard,
+    optionalCustomer: optionalCustomer(accessTokens),
+    service,
+  };
 }

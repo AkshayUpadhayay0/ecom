@@ -18,6 +18,7 @@ export const hasTestDatabase = testDatabaseUrl !== undefined && testDatabaseUrl 
 export const TEST_SECRETS = {
   JWT_ACCESS_SECRET: 'test-customer-secret-0123456789-abcdefghijklmnop',
   JWT_ADMIN_ACCESS_SECRET: 'test-admin-secret-0123456789-abcdefghijklmnopqrs',
+  SERIAL_HMAC_SECRET: 'test-serial-hmac-secret-0123456789-abcdefghijkl',
 } as const;
 
 export function makeTestEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env {
@@ -65,6 +66,8 @@ export async function resetAuthTables(db: Database): Promise<void> {
   await db.updateTable('app_settings').set({ updated_by: null }).execute();
   await db.updateTable('content_blocks').set({ updated_by: null }).execute();
   await db.updateTable('media_assets').set({ uploaded_by: null }).execute();
+  await db.deleteFrom('page_access_grants').execute();
+  await db.updateTable('serial_import_batches').set({ admin_id: null }).execute();
   await db.deleteFrom('auth_sessions').execute();
   await db.deleteFrom('email_verification_tokens').execute();
   await db.deleteFrom('password_reset_tokens').execute();

@@ -14,6 +14,8 @@ import { ADMIN_API_PATH, createAdminApiRouter } from './modules/admin-api.js';
 import { createAdminAuthModule } from './modules/admin-users/admin-auth.module.js';
 import { createCustomerAuthModule } from './modules/auth/auth.module.js';
 import { CUSTOMER_AUTH_PATH } from './modules/auth/auth.routes.js';
+import { createHiddenPagesPublicRouter } from './modules/hidden-pages/hidden-pages.module.js';
+import { HIDDEN_PAGES_PATH } from './modules/hidden-pages/hidden-pages.routes.js';
 import { createHealthController } from './modules/health/health.controller.js';
 import { createHealthRepository } from './modules/health/health.repository.js';
 import { HEALTH_PATH, createHealthRouter } from './modules/health/health.routes.js';
@@ -69,7 +71,17 @@ export function createApp({ env, logger, db }: AppDeps): Express {
   const adminAuth = createAdminAuthModule({ env, db, logger, basePath: API_BASE_PATH });
   v1.use(ADMIN_AUTH_PATH, adminAuth.router);
   // Every other /admin route requires an admin token (mounted after /admin/auth).
-  v1.use(ADMIN_API_PATH, createAdminApiRouter({ db, requireAdmin: adminAuth.requireAdmin }));
+  v1.use(ADMIN_API_PATH, createAdminApiRouter({ env, db, requireAdmin: adminAuth.requireAdmin }));
+  v1.use(
+    HIDDEN_PAGES_PATH,
+    createHiddenPagesPublicRouter({
+      env,
+      db,
+      logger,
+      basePath: API_BASE_PATH,
+      optionalCustomer: customerAuth.optionalCustomer,
+    }),
+  );
 
   app.use(API_BASE_PATH, v1);
   app.use(notFound);

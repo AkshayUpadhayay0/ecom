@@ -20,3 +20,22 @@ export function requireCustomer(accessTokens: AccessTokens): RequestHandler {
     next();
   };
 }
+
+/**
+ * Public routes that behave better for signed-in customers: sets req.customer when a valid
+ * customer token is present, and otherwise continues anonymously (never rejects).
+ */
+export function optionalCustomer(accessTokens: AccessTokens): RequestHandler {
+  return async (req, _res, next) => {
+    const token = readBearerToken(req.get('authorization'));
+    if (token !== undefined) {
+      try {
+        const claims = await accessTokens.verify(token);
+        req.customer = { id: claims.subjectId, sessionId: claims.sessionId };
+      } catch {
+        // An expired or foreign token on a public route is treated as "not signed in".
+      }
+    }
+    next();
+  };
+}

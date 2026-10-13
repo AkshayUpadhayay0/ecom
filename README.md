@@ -174,6 +174,31 @@ deactivated (`isActive: false`), products are archived.
 - **Not admin-managed**: translations / static copy, hidden-page content, slugs and tokens, size
   charts and measurement profiles (developer-loaded), serials (Phase 2b).
 
+## Hidden pages and serial access (Phase 2b)
+
+A QR code carries a page's **route token** (identifies the page; not a secret). A **serial**
+unlocks it: GENERAL serials open only their own page and never the exclusive-only page; EXCLUSIVE
+serials open every page. Serials are stored only as `HMAC-SHA256(serial, SERIAL_HMAC_SECRET)` plus
+a masked hint; no endpoint returns or lists serials. Set `SERIAL_HMAC_SECRET` (32+ chars) in
+`.env`; the API refuses to start without it.
+
+| Endpoint                                        | Auth        | Notes                                                                                                    |
+| ----------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/hidden-pages/:routeToken`          | public      | `{ locked: true }` or `{ locked: false, page: { title, body } }`; unknown token 404                      |
+| `POST /api/v1/hidden-pages/:routeToken/unlock`  | public      | `{ serial }`; any failure: 403 `SERIAL_NOT_VALID` with one generic message                               |
+| `GET /api/v1/admin/hidden-pages`, `GET .../:id` | admin       | slot, slug, `routeToken`, `publicUrl` (`PUBLIC_WEB_URL/h/<token>`), content                              |
+| `PUT /api/v1/admin/hidden-pages/:id/content`    | admin       | `{ title, body }`; route token never changes                                                             |
+| `POST /api/v1/admin/serial-imports`             | super admin | body = CSV (`Content-Type: text/csv`), header `serial,category,pageSlot`; `?dryRun=true`, `?sourceName=` |
+| `GET /api/v1/admin/serial-batches`              | super admin | batches with counts (no serials)                                                                         |
+| `POST /api/v1/admin/serials/deactivate`         | super admin | `{ serial }`; also withdraws access it granted                                                           |
+
+- A successful unlock stores a `page_access_grants` row bound to an HttpOnly `ui_hp` cookie (only
+  its hash is stored) and to the customer when signed in. Grants accumulate, never expire, and
+  serials are never marked used. A copied page URL in another browser stays locked.
+- Unlock attempts are rate-limited per IP and per route token (`HIDDEN_UNLOCK_*`; only failed
+  attempts count). Every attempt is recorded in `qr_access_events`; logs record the internal
+  rejection reason, never the serial.
+
 ## Tests
 
 - Unit and HTTP tests run without a database.

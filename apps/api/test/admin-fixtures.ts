@@ -117,6 +117,10 @@ export async function restoreSettings(ctx: TestContext, snapshot: SettingsSnapsh
  */
 export async function resetAdminApiData(ctx: TestContext): Promise<void> {
   const { db } = ctx;
+  await db.deleteFrom('page_access_grants').execute();
+  await db.deleteFrom('qr_access_events').execute();
+  await db.deleteFrom('serial_numbers').execute();
+  await db.deleteFrom('serial_import_batches').execute();
   await db.deleteFrom('stock_movements').execute();
   await db.deleteFrom('product_variants').execute();
   await db.deleteFrom('product_translations').execute();

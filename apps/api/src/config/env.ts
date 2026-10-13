@@ -67,6 +67,17 @@ export const envSchema = z.object({
   // [PENDING] sender address; the email provider is not chosen yet (MOCK sender in use).
   EMAIL_FROM: z.string().min(3).default('Urban Ibile <no-reply@example.invalid>'),
   EMAIL_OUTBOX_POLL_MS: z.coerce.number().int().min(500).default(5_000),
+
+  // --- Hidden pages / serial access ---
+  // Key for HMAC-SHA256 of serial numbers (only the hash is stored). Changing it invalidates
+  // every imported serial, so keep it stable and secret.
+  SERIAL_HMAC_SECRET: z
+    .string({ error: 'is required' })
+    .min(MIN_SECRET_LENGTH, `must be at least ${MIN_SECRET_LENGTH} characters`),
+  // Unlock attempts: failed attempts count against both limits.
+  HIDDEN_UNLOCK_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
+  HIDDEN_UNLOCK_MAX_PER_IP: z.coerce.number().int().min(1).default(10),
+  HIDDEN_UNLOCK_MAX_PER_PAGE: z.coerce.number().int().min(1).default(50),
 });
 
 const refinedEnvSchema = envSchema
@@ -74,6 +85,12 @@ const refinedEnvSchema = envSchema
     path: ['JWT_ADMIN_ACCESS_SECRET'],
     message: 'must differ from JWT_ACCESS_SECRET',
   })
+  .refine(
+    (env) =>
+      env.SERIAL_HMAC_SECRET !== env.JWT_ACCESS_SECRET &&
+      env.SERIAL_HMAC_SECRET !== env.JWT_ADMIN_ACCESS_SECRET,
+    { path: ['SERIAL_HMAC_SECRET'], message: 'must differ from the JWT secrets' },
+  )
   .transform((env) => ({
     ...env,
     COOKIE_SECURE: env.COOKIE_SECURE || env.NODE_ENV === 'production',

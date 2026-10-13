@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from 'express';
+import type { Env } from '../config/env.js';
 import type { Database } from '../db/database.js';
 import { requireAdminRole } from '../middleware/require-role.js';
 import { createAuditController } from './audit/audit.controller.js';
@@ -21,12 +22,21 @@ import { createDeliveryZonesController } from './delivery/delivery-zones.control
 import { createDeliveryZonesRepository } from './delivery/delivery-zones.repository.js';
 import { createDeliveryZonesRouter } from './delivery/delivery-zones.routes.js';
 import { createDeliveryZonesService } from './delivery/delivery-zones.service.js';
+import { createHiddenPagesAdminService } from './hidden-pages/hidden-pages-admin.service.js';
+import { createHiddenPagesAdminController } from './hidden-pages/hidden-pages.controller.js';
+import { createHiddenPagesRepository } from './hidden-pages/hidden-pages.repository.js';
+import { createHiddenPagesAdminRouter } from './hidden-pages/hidden-pages.routes.js';
 import { createInventoryController } from './inventory/inventory.controller.js';
 import { createInventoryRouter } from './inventory/inventory.routes.js';
 import { createInventoryService } from './inventory/inventory.service.js';
 import { createVariantsRepository } from './inventory/variants.repository.js';
 import { createMediaAssetsRepository } from './media/media-assets.repository.js';
 import { createMediaAssetsService } from './media/media-assets.service.js';
+import { createSerialHasher } from './serial-access/serial-hash.js';
+import { createSerialsController } from './serial-access/serials.controller.js';
+import { createSerialsRepository } from './serial-access/serials.repository.js';
+import { createSerialsRouter } from './serial-access/serials.routes.js';
+import { createSerialsService } from './serial-access/serials.service.js';
 import { createSettingsController } from './settings/settings.controller.js';
 import { createSettingsRepository } from './settings/settings.repository.js';
 import { createSettingsRouter } from './settings/settings.routes.js';
@@ -35,18 +45,23 @@ import { createSettingsService } from './settings/settings.service.js';
 export const ADMIN_API_PATH = '/admin';
 
 export interface AdminApiDeps {
+  env: Pick<Env, 'PUBLIC_WEB_URL' | 'SERIAL_HMAC_SECRET'>;
   db: Database;
   /** Admin-audience access token guard; applied to every route below. */
   requireAdmin: RequestHandler;
 }
 
-/** Phase 2 admin API: catalog, inventory, delivery zones, settings, content, audit logs. */
-export function createAdminApiRouter({ db, requireAdmin }: AdminApiDeps): Router {
+/**
+ * Admin API: catalog, inventory, delivery zones, settings, content, audit logs (Phase 2) and
+ * hidden pages + serial import (Phase 2b).
+ */
+export function createAdminApiRouter({ env, db, requireAdmin }: AdminApiDeps): Router {
   const settings = createSettingsService({ db, repository: createSettingsRepository() });
   const media = createMediaAssetsService(createMediaAssetsRepository());
   const clothingTypesRepository = createClothingTypesRepository();
   const sizesRepository = createSizesRepository();
   const productsRepository = createProductsRepository();
+  const hiddenPagesRepository = createHiddenPagesRepository();
   const requireSuperAdmin = requireAdminRole('super_admin');
 
   const router = Router();
@@ -105,6 +120,32 @@ export function createAdminApiRouter({ db, requireAdmin }: AdminApiDeps): Router
         }),
       ),
     ),
+  );
+  router.use(
+    createHiddenPagesAdminRouter(
+      createHiddenPagesAdminController(
+        createHiddenPagesAdminService({
+          db,
+          repository: hiddenPagesRepository,
+          settings,
+          publicWebUrl: env.PUBLIC_WEB_URL,
+        }),
+      ),
+    ),
+  );
+  router.use(
+    createSerialsRouter({
+      controller: createSerialsController(
+        createSerialsService({
+          db,
+          repository: createSerialsRepository(),
+          pages: hiddenPagesRepository,
+          hasher: createSerialHasher(env.SERIAL_HMAC_SECRET),
+          settings,
+        }),
+      ),
+      requireSuperAdmin,
+    }),
   );
   router.use(
     createAuditRouter({

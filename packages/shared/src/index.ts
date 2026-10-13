@@ -8,3 +8,4 @@ export * from './admin-settings.js';
 export * from './api.js';
 export * from './auth.js';
 export * from './error-codes.js';
+export * from './hidden-pages.js';

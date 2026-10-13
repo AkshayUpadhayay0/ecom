@@ -38,6 +38,8 @@ export const ERROR_CODES = [
   'MEDIA_NOT_READY',
   'INVALID_MEDIA_TYPE',
   'UNKNOWN_SETTING',
+  // Added in Phase 2b (hidden pages). One generic code for every serial failure.
+  'SERIAL_NOT_VALID',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
