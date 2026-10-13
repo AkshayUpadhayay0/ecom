@@ -11,7 +11,7 @@ import type { Database } from '../../db/database.js';
 import { notFoundError } from '../../lib/errors.js';
 import { toPageMeta, toPageRequest, type Page } from '../../lib/pagination.js';
 import type { SettingsService } from '../settings/settings.service.js';
-import { checkChart, type CheckCell } from './chart-check.js';
+import { checkChart } from './chart-check.js';
 import type { ChartRow, GroupRow, SizeChartsRepository } from './size-charts.repository.js';
 
 /** Products shown per profile in the profiles list (the full list is the products endpoint). */
@@ -21,7 +21,7 @@ export const PROFILE_PRODUCTS_PREVIEW = 50;
 export interface SizeChartsService {
   listGroups(query: PaginationQuery): Promise<Page<SizeChartGroupDto>>;
   listCharts(groupId: string, query: PaginationQuery): Promise<Page<SizeChartSummaryDto>>;
-  /** Full grid plus review warnings (gaps / overlaps); never adjusts data. */
+  /** Full grid plus max-based review findings (see chart-check.ts); never adjusts data. */
   getChart(chartId: string): Promise<SizeChartDto>;
   listProfiles(query: PaginationQuery): Promise<Page<MeasurementProfileDto>>;
 }
@@ -109,7 +109,9 @@ export function createSizeChartsService({
       const columns = measurements.get(chart.groupId) ?? [];
 
       const rowsBySize = new Map<string, SizeChartGridRowDto>();
-      const checkColumns = new Map<string, CheckCell[]>(columns.map((m) => [m.code, []]));
+      const maxByColumn = new Map<string, Map<string, number>>(
+        columns.map((m) => [m.code, new Map()]),
+      );
       for (const cell of cells) {
         let row = rowsBySize.get(cell.sizeId);
         if (!row) {
@@ -127,22 +129,27 @@ export function createSizeChartsService({
         const minInches = Number(cell.minInches);
         const maxInches = Number(cell.maxInches);
         row.cells[cell.measurementCode] = { minInches, maxInches };
-        checkColumns.get(cell.measurementCode)?.push({
-          sizeCode: cell.sizeCode,
-          sortOrder: cell.sortOrder,
-          minInches,
-          maxInches,
-        });
+        maxByColumn.get(cell.measurementCode)?.set(cell.sizeCode, maxInches);
       }
+
+      // Cells arrive ordered by sizes.sort_order, so insertion order is the row order.
+      const rows = [...rowsBySize.values()];
+      const check = checkChart(
+        rows.map((row) => ({ code: row.size.code, sortOrder: row.size.sortOrder })),
+        columns.map((m) => ({
+          code: m.code,
+          label: m.label,
+          maxBySize: maxByColumn.get(m.code) ?? new Map<string, number>(),
+        })),
+      );
 
       return {
         ...toSummary(chart),
         group: { id: chart.groupId, code: chart.groupCode, name: chart.groupName },
         sourceNote: chart.sourceNote,
         measurementTypes: columns,
-        // Cells arrive ordered by sizes.sort_order, so insertion order is the row order.
-        rows: [...rowsBySize.values()],
-        check: checkChart(checkColumns),
+        rows,
+        check,
       };
     },
 

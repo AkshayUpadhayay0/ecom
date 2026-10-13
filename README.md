@@ -159,7 +159,7 @@ deactivated (`isActive: false`), products are archived.
 | Settings                       | `GET /settings`, `PATCH /settings/:key` (super admin)                                                                                                                                           |
 | Content blocks                 | `GET /content-blocks`, `GET /content-blocks/:key`, `POST /content-blocks/:key/publish` / `unpublish`, `PUT /content-blocks/:key/media`                                                          |
 | Audit log                      | `GET /audit-logs` (`?entityType=&entityId=&adminId=&action=&from=&to=`, super admin)                                                                                                            |
-| Size charts (read-only)        | `GET /size-chart-groups`, `GET /size-chart-groups/:groupId/charts`, `GET /size-charts/:chartId` (grid + gap/overlap warnings), `GET /measurement-profiles`                                      |
+| Size charts (read-only)        | `GET /size-chart-groups`, `GET /size-chart-groups/:groupId/charts`, `GET /size-charts/:chartId` (grid + max-based checks), `GET /measurement-profiles`                                          |
 
 - **Products** are canonical: one `name` (never translated) and one `description`. A nullable
   `measurementProfileId` says which body measurements Blueprint needs (null = no Blueprint).
@@ -173,9 +173,9 @@ deactivated (`isActive: false`), products are archived.
   (videos for product/hero video, images for product images). Uploads are Phase 3.
 - **Sizes**: reordering changes Blueprint results (it compares `sizes.sort_order`).
 - **Size charts** are read-only here (developers load them; editing comes with the Blueprint
-  phase). Each chart response includes a `check` with gaps and overlaps between consecutive sizes
-  per measurement: review warnings only, never applied. Blueprint resolves both with the chart's
-  boundary rule (`SMALLEST_COVERING_SIZE`).
+  phase). Matching uses only `max_inches` (smallest size whose max covers the value), so each chart
+  response includes a `check` with `MAX_NOT_INCREASING` and `MISSING_CELL` (warnings), `MAX_TIE`
+  (notice) and `UPPER_LIMIT` (info) per measurement. Review findings only; nothing is changed.
 - **Not admin-managed**: translations / static copy, hidden-page content, slugs and tokens, size
   charts and measurement profiles (developer-loaded), serials (Phase 2b).
 

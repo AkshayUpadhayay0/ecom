@@ -54,43 +54,39 @@ export interface SizeChartGridRowDto {
   cells: Record<string, SizeChartCellDto | null>;
 }
 
-/** Uncovered range between two consecutive sizes (in sort order). */
-export interface SizeChartGapDto {
-  lowerSize: string;
-  upperSize: string;
-  /** Exclusive bounds: values strictly between these are covered by no size. */
-  fromInches: number;
-  toInches: number;
-  widthInches: number;
-  /**
-   * True when both bounds are whole inches one inch apart (e.g. 40 then 41), i.e. the ranges
-   * touch when the chart is read in whole inches. Shown so reviewers can judge; nothing is changed.
-   */
-  wholeInchContiguous: boolean;
-}
+export const SIZE_CHART_CHECK_CODES = [
+  'MAX_NOT_INCREASING',
+  'MAX_TIE',
+  'MISSING_CELL',
+  'UPPER_LIMIT',
+] as const;
+export type SizeChartCheckCode = (typeof SIZE_CHART_CHECK_CODES)[number];
 
-/** Range covered by two consecutive sizes at once. */
-export interface SizeChartOverlapDto {
-  lowerSize: string;
-  upperSize: string;
-  fromInches: number;
-  toInches: number;
-}
-
-export interface SizeChartMeasurementCheckDto {
-  measurementType: string;
-  gaps: SizeChartGapDto[];
-  overlaps: SizeChartOverlapDto[];
-}
+/** warning: likely chart error; notice: worth a look; info: context, never counted. */
+export type SizeChartCheckSeverity = 'warning' | 'notice' | 'info';
 
 /**
- * Review WARNINGS only. Blueprint resolves both cases with the chart's boundary rule
- * (SMALLEST_COVERING_SIZE): a value in a gap maps to the next size up; a value in an overlap maps
- * to the smaller size. The tailor decides whether the chart itself should change.
+ * One finding of the chart check. Blueprint matches each measurement to the SMALLEST size whose
+ * max_inches >= value (SMALLEST_COVERING_SIZE), so only max values matter here; min values are
+ * informational and gaps/overlaps between ranges are not findings.
  */
+export interface SizeChartCheckItemDto {
+  code: SizeChartCheckCode;
+  severity: SizeChartCheckSeverity;
+  measurementType: string;
+  /** Sizes involved, in sizes.sort_order. */
+  sizes: string[];
+  /** The max values involved (empty for MISSING_CELL). */
+  values: { size: string; maxInches: number }[];
+  message: string;
+}
+
+/** Review findings only: nothing in the chart is changed. */
 export interface SizeChartCheckDto {
   warningCount: number;
-  measurements: SizeChartMeasurementCheckDto[];
+  noticeCount: number;
+  infoCount: number;
+  items: SizeChartCheckItemDto[];
 }
 
 export interface SizeChartDto extends SizeChartSummaryDto {

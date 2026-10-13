@@ -1,6 +1,7 @@
 import type {
   MeasurementProfileDto,
   MeasurementTypeDto,
+  SizeChartCheckItemDto,
   SizeChartDto,
   SizeChartGroupDto,
   SizeChartSummaryDto,
@@ -90,6 +91,21 @@ const size = (code: string, label: string, sortOrder: number) => ({
 });
 const cell = (minInches: number, maxInches: number) => ({ minInches, maxInches });
 
+function upperLimit(
+  measurementType: string,
+  sizeCode: string,
+  maxInches: number,
+): SizeChartCheckItemDto {
+  return {
+    code: 'UPPER_LIMIT',
+    severity: 'info',
+    measurementType,
+    sizes: [sizeCode],
+    values: [{ size: sizeCode, maxInches }],
+    message: `Largest max is ${maxInches} in (${sizeCode}). Values above this are out of range. Handling is pending client decision.`,
+  };
+}
+
 export const MALE_TOP_CHART: SizeChartDto = {
   ...summary('c-male-top-2', 'g-male-top', 2, 'active'),
   group: { id: 'g-male-top', code: 'male_top', name: GROUPS[1]?.name ?? '' },
@@ -125,30 +141,33 @@ export const MALE_TOP_CHART: SizeChartDto = {
     },
   ],
   check: {
-    warningCount: 3,
-    measurements: [
+    warningCount: 1,
+    noticeCount: 1,
+    infoCount: 4,
+    items: [
       {
-        measurementType: 'chest',
-        gaps: [
-          {
-            lowerSize: 'M',
-            upperSize: 'L',
-            fromInches: 40,
-            toInches: 41,
-            widthInches: 1,
-            wholeInchContiguous: true,
-          },
-        ],
-        overlaps: [],
-      },
-      {
+        code: 'MAX_TIE',
+        severity: 'notice',
         measurementType: 'sleeve',
-        gaps: [],
-        overlaps: [
-          { lowerSize: 'M', upperSize: 'L', fromInches: 25, toInches: 25 },
-          { lowerSize: 'L', upperSize: 'XL', fromInches: 25, toInches: 26 },
+        sizes: ['L', 'XL'],
+        values: [
+          { size: 'L', maxInches: 26 },
+          { size: 'XL', maxInches: 26 },
         ],
+        message: 'L, XL share the same max (26 in): only L can be recommended for Sleeve.',
       },
+      {
+        code: 'MISSING_CELL',
+        severity: 'warning',
+        measurementType: 'top_length',
+        sizes: ['XL'],
+        values: [],
+        message: 'XL has no value for Top length, so it cannot be matched on this measurement.',
+      },
+      upperLimit('chest', 'XL', 46),
+      upperLimit('shoulder', 'XL', 19.5),
+      upperLimit('sleeve', 'L', 26),
+      upperLimit('top_length', 'L', 36),
     ],
   },
 };
@@ -162,7 +181,12 @@ export const FEMALE_CHART: SizeChartDto = {
     { size: size('XS-6', 'XS (6)', 11), cells: { bust: cell(33, 33), waist: cell(25, 26) } },
     { size: size('S-8', 'S (8)', 12), cells: { bust: cell(36, 36), waist: cell(27, 28) } },
   ],
-  check: { warningCount: 0, measurements: [] },
+  check: {
+    warningCount: 0,
+    noticeCount: 0,
+    infoCount: 2,
+    items: [upperLimit('bust', 'S-8', 36), upperLimit('waist', 'S-8', 28)],
+  },
 };
 
 export const CHARTS: Record<string, SizeChartDto> = {

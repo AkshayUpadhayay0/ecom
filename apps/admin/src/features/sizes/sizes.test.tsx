@@ -4,7 +4,13 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { API, apiState, server } from '@/test/api-mock';
 import { renderApp } from '@/test/render-app';
-import { buildWarnings, formatRange, warningSummary, warningsByCell } from './chart-warnings';
+import {
+  EXPLANATION,
+  buildFindings,
+  findingSummary,
+  findingsByCell,
+  formatRange,
+} from './chart-warnings';
 import { CHARTS, GROUPS, MALE_TOP_CHART, PROFILES, SIZES, VERSIONS } from './sizes.fixtures';
 
 function list<T>(data: T[]): ApiList<T> {
@@ -36,20 +42,22 @@ beforeEach(() => {
   server.use(...sizeChartHandlers);
 });
 
-describe('chart warning helpers', () => {
-  it('formats ranges and single points in inches', () => {
+describe('chart check helpers', () => {
+  it('formats ranges, and a single value when min equals max', () => {
     expect(formatRange(38, 40)).toBe('38 – 40 in');
     expect(formatRange(17.5, 18)).toBe('17.5 – 18 in');
     expect(formatRange(33, 33)).toBe('33 in');
   });
 
-  it('summarises and maps warnings to both cells of each pair', () => {
-    const warnings = buildWarnings(MALE_TOP_CHART);
-    expect(warningSummary(warnings)).toBe('1 gap, 2 overlaps');
-    const byCell = warningsByCell(warnings);
-    expect([...(byCell.get('L|sleeve') ?? [])]).toEqual(['overlap']);
-    expect([...(byCell.get('M|chest') ?? [])]).toEqual(['gap']);
-    expect(byCell.has('M|shoulder')).toBe(false);
+  it('counts warnings and notices only, and highlights only their cells', () => {
+    expect(findingSummary(MALE_TOP_CHART.check)).toBe('1 warning, 1 notice');
+    const byCell = findingsByCell(buildFindings(MALE_TOP_CHART));
+    expect([...(byCell.get('L|sleeve') ?? [])]).toEqual(['MAX_TIE']);
+    expect([...(byCell.get('XL|sleeve') ?? [])]).toEqual(['MAX_TIE']);
+    expect([...(byCell.get('XL|top_length') ?? [])]).toEqual(['MISSING_CELL']);
+    // UPPER_LIMIT is info: listed, never highlighted.
+    expect(byCell.has('XL|chest')).toBe(false);
+    expect(byCell.size).toBe(3);
   });
 });
 
@@ -72,7 +80,6 @@ describe('Sizes & Charts section', () => {
     // Single values are shown as a point, not a range.
     expect(await screen.findByText('33 in')).toBeInTheDocument();
     expect(screen.getByText('25 – 26 in')).toBeInTheDocument();
-    expect(screen.getByText(/No gaps or overlaps/)).toBeInTheDocument();
   });
 
   it('defaults to the active version, lists every version with status, and has no edit actions', async () => {
@@ -94,28 +101,46 @@ describe('Sizes & Charts section', () => {
     expect(screen.queryByRole('button', { name: /edit|delete|create|add|new/i })).toBeNull();
   });
 
-  it('shows the warning summary and highlights the cells of a clicked warning', async () => {
+  it('summarises findings, highlights only involved cells, and outlines a clicked finding', async () => {
     const { user } = renderApp('/sizes/charts?group=male_top');
-    const summary = await screen.findByRole('button', { name: /1 gap, 2 overlaps/ });
-    expect(summary).toHaveTextContent(
-      'These are for review with the tailor. Nothing has been changed.',
-    );
+    const summary = await screen.findByRole('button', { name: /1 warning, 1 notice/ });
+    expect(summary).toHaveTextContent(EXPLANATION);
     expect(summary).toHaveAttribute('aria-expanded', 'false');
 
-    // Cells involved in warnings carry an icon + text label, not only colour.
+    // Involved cells carry an icon + text label; normal cells stay plain.
     const sleeveL = document.getElementById('chart-cell-L-sleeve');
-    expect(sleeveL).toHaveAttribute('data-warning', 'overlap');
-    expect(sleeveL).toHaveTextContent('Overlap');
+    expect(sleeveL).toHaveAttribute('data-findings', 'MAX_TIE');
+    expect(sleeveL).toHaveTextContent('Same max');
+    expect(document.getElementById('chart-cell-XL-top_length')).toHaveTextContent('Missing value');
+    expect(document.getElementById('chart-cell-M-sleeve')).not.toHaveAttribute('data-findings');
+    expect(document.getElementById('chart-cell-XL-chest')).not.toHaveAttribute('data-findings');
 
     await user.click(summary);
-    const warning = screen.getByRole('button', { name: /Sleeve: L and XL overlap at 25 – 26 in/ });
-    expect(screen.getByText(/touch when the chart is read in whole inches/)).toBeInTheDocument();
-    await user.click(warning);
+    // Info items are listed (not counted).
+    expect(
+      screen.getAllByText(
+        /Values above this are out of range\. Handling is pending client decision\./,
+      ),
+    ).toHaveLength(4);
+    await user.click(screen.getByRole('button', { name: /Same max.*Sleeve/ }));
 
     expect(document.getElementById('chart-cell-L-sleeve')).toHaveAttribute('data-focused', 'true');
     expect(document.getElementById('chart-cell-XL-sleeve')).toHaveAttribute('data-focused', 'true');
     expect(document.getElementById('chart-cell-M-sleeve')).not.toHaveAttribute('data-focused');
-    expect(warning).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('explains on each cell which max is used for matching', async () => {
+    const { user } = renderApp('/sizes/charts?group=male_top');
+    await user.hover(await screen.findByText('38 – 40 in'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Max used for matching: 40 in');
+  });
+
+  it('shows a clean summary for a chart without warnings or notices', async () => {
+    renderApp('/sizes/charts?group=female');
+    expect(
+      await screen.findByRole('button', { name: /0 warnings, 0 notices/ }),
+    ).toBeInTheDocument();
+    expect(document.querySelector('[data-findings]')).toBeNull();
   });
 
   it('shows "No chart found for this group" when a group has no version', async () => {

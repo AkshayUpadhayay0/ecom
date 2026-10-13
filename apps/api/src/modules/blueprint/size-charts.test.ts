@@ -111,31 +111,56 @@ describe.skipIf(!hasTestDatabase)('admin size charts viewer (read-only)', () => 
     expect(sortOrders).toEqual([...sortOrders].sort((a, b) => a - b));
   });
 
-  it('reports the female bust gaps and the male sleeve overlaps as review warnings', async () => {
+  it('reports max-based findings: female length ties, no bust/chest warnings, an upper limit per measurement', async () => {
     const female = await activeChart('female');
-    const bust = female.check.measurements.find((m) => m.measurementType === 'bust');
-    expect(bust?.overlaps).toEqual([]);
-    expect(bust?.gaps.map((g) => [g.lowerSize, g.upperSize, g.fromInches, g.toInches])).toEqual([
-      ['XS-6', 'S-8', 33, 36],
-      ['S-8', 'S-10', 36, 38],
-      ['S-10', 'M-12', 38, 42],
-      ['M-12', 'L-14', 42, 44],
-      ['L-14', 'XL-16', 44, 46],
-      ['XL-16', 'XL-18', 46, 48],
-      ['XL-18', 'XXL-20', 49, 50],
+    const codesFor = (chart: SizeChartDto, measurement: string) =>
+      chart.check.items.filter((i) => i.measurementType === measurement).map((i) => i.code);
+    const tiesFor = (chart: SizeChartDto, measurement: string) =>
+      chart.check.items
+        .filter((i) => i.measurementType === measurement && i.code === 'MAX_TIE')
+        .map((i) => i.sizes);
+
+    // Seeded female lengths repeat the same max across sizes (e.g. long length 62, 62, 62).
+    expect(tiesFor(female, 'long_length')).toEqual([
+      ['XS-6', 'S-8', 'S-10'],
+      ['M-12', 'L-14', 'XL-16', 'XL-18', 'XXL-20'],
     ]);
-    expect(bust?.gaps.find((g) => g.lowerSize === 'S-10')?.widthInches).toBe(4);
+    expect(tiesFor(female, 'short_length')).toEqual([
+      ['S-8', 'S-10'],
+      ['M-12', 'L-14', 'XL-16'],
+      ['XL-18', 'XXL-20'],
+    ]);
+    expect(tiesFor(female, 'trouser_length')).toEqual([
+      ['XS-6', 'S-8', 'S-10'],
+      ['XL-16', 'XL-18', 'XXL-20'],
+    ]);
+    // Bust 33 / 36 / 38 / 42 ...: the old range "gaps" are not findings any more.
+    expect(codesFor(female, 'bust')).toEqual(['UPPER_LIMIT']);
+    expect(female.check.items.some((i) => i.code === 'MAX_NOT_INCREASING')).toBe(false);
+    expect(female.check.warningCount).toBe(0);
+    expect(female.check.noticeCount).toBe(7);
 
     const maleTop = await activeChart('male_top');
-    const sleeve = maleTop.check.measurements.find((m) => m.measurementType === 'sleeve');
-    expect(sleeve?.gaps).toEqual([]);
-    expect(sleeve?.overlaps).toEqual([
-      { lowerSize: 'M', upperSize: 'L', fromInches: 25, toInches: 25 },
-      { lowerSize: 'L', upperSize: 'XL', fromInches: 25, toInches: 26 },
-      { lowerSize: 'XL', upperSize: 'XXL', fromInches: 26, toInches: 26 },
-      { lowerSize: 'XXL', upperSize: '3XL', fromInches: 26, toInches: 27 },
-    ]);
-    expect(maleTop.check.warningCount).toBeGreaterThan(0);
+    expect(codesFor(maleTop, 'chest')).toEqual(['UPPER_LIMIT']);
+    expect(maleTop.check.items.some((i) => i.code === 'MAX_NOT_INCREASING')).toBe(false);
+
+    for (const chart of [female, maleTop]) {
+      const limits = chart.check.items.filter((i) => i.code === 'UPPER_LIMIT');
+      expect(limits.map((i) => i.measurementType)).toEqual(
+        chart.measurementTypes.map((m) => m.code),
+      );
+      expect(chart.check.infoCount).toBe(chart.measurementTypes.length);
+      for (const limit of limits) {
+        expect(limit.severity).toBe('info');
+        expect(limit.message).toContain(
+          'Values above this are out of range. Handling is pending client decision.',
+        );
+      }
+    }
+    expect(
+      maleTop.check.items.find((i) => i.measurementType === 'chest' && i.code === 'UPPER_LIMIT')
+        ?.values,
+    ).toEqual([{ size: '3XL', maxInches: 53 }]);
   });
 
   it('lists measurement profiles with items, chart groups and the products using them', async () => {

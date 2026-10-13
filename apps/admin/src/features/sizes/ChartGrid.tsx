@@ -1,46 +1,48 @@
-import { AlertTriangle, Layers } from 'lucide-react';
-import type { SizeChartDto } from '@urban-ibile/shared';
+import { AlertTriangle, Equal } from 'lucide-react';
+import type { SizeChartCheckCode, SizeChartDto } from '@urban-ibile/shared';
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
+  CODE_LABEL,
   cellDomId,
   cellKey,
+  formatInches,
   formatRange,
-  type ChartWarning,
-  type WarningKind,
+  type ChartFinding,
 } from './chart-warnings';
 
 interface ChartGridProps {
   chart: SizeChartDto;
-  warningsByCell: ReadonlyMap<string, ReadonlySet<WarningKind>>;
-  /** Warning picked from the list: its cells get a strong highlight. */
-  focused: ChartWarning | null;
+  /** Warnings/notices per cell; cells without findings stay unhighlighted. */
+  findingsByCell: ReadonlyMap<string, ReadonlySet<SizeChartCheckCode>>;
+  /** Finding picked from the list: its cells get a strong outline. */
+  focused: ChartFinding | null;
 }
 
-const KIND_LABEL: Record<WarningKind, string> = { gap: 'Gap', overlap: 'Overlap' };
-
-function CellWarning({ kinds }: { kinds: ReadonlySet<WarningKind> }) {
+function CellFindings({ codes }: { codes: ReadonlySet<SizeChartCheckCode> }) {
+  const hasWarning = codes.has('MAX_NOT_INCREASING') || codes.has('MISSING_CELL');
+  const Icon = hasWarning ? AlertTriangle : Equal;
   return (
-    <span className="mt-1 flex items-center gap-1 text-[0.6875rem] font-medium text-warning">
-      {kinds.has('gap') ? <AlertTriangle className="size-3" aria-hidden="true" /> : null}
-      {kinds.has('overlap') ? <Layers className="size-3" aria-hidden="true" /> : null}
-      {[...kinds].map((kind) => KIND_LABEL[kind]).join(' · ')}
+    <span
+      className={cn(
+        'mt-1 flex items-center gap-1 text-[0.6875rem] font-medium',
+        hasWarning ? 'text-warning' : 'text-info',
+      )}
+    >
+      <Icon className="size-3 shrink-0" aria-hidden="true" />
+      {[...codes].map((code) => CODE_LABEL[code]).join(' · ')}
     </span>
   );
 }
 
 /**
- * Read-only size chart grid: rows = sizes (already in sizes.sort_order from the API), columns =
- * the group's measurements. Sticky header and first column inside its own scroll box.
+ * Read-only size chart grid: rows = sizes (in sizes.sort_order from the API), columns = the
+ * group's measurements. Only max_inches is used for matching; min is shown for reference.
  */
-export function ChartGrid({ chart, warningsByCell, focused }: ChartGridProps) {
+export function ChartGrid({ chart, findingsByCell, focused }: ChartGridProps) {
   const focusedCells = new Set(
-    focused
-      ? [
-          cellKey(focused.lowerSize, focused.measurementCode),
-          cellKey(focused.upperSize, focused.measurementCode),
-        ]
-      : [],
+    focused ? focused.sizes.map((size) => cellKey(size, focused.measurementType)) : [],
   );
 
   return (
@@ -73,7 +75,7 @@ export function ChartGrid({ chart, warningsByCell, focused }: ChartGridProps) {
             <TableRow key={row.size.id} className="hover:bg-transparent">
               <TableHead
                 scope="row"
-                className="sticky left-0 z-10 border-b bg-card py-3 shadow-[1px_0_0_var(--border)] normal-case tracking-normal"
+                className="sticky left-0 z-10 border-b bg-card py-3 tracking-normal normal-case shadow-[1px_0_0_var(--border)]"
               >
                 <span className="font-mono text-xs font-semibold text-foreground">
                   {row.size.code}
@@ -85,29 +87,41 @@ export function ChartGrid({ chart, warningsByCell, focused }: ChartGridProps) {
               {chart.measurementTypes.map((measurement) => {
                 const cell = row.cells[measurement.code];
                 const key = cellKey(row.size.code, measurement.code);
-                const kinds = warningsByCell.get(key);
+                const codes = findingsByCell.get(key);
                 const isFocused = focusedCells.has(key);
                 return (
                   <TableCell
                     key={measurement.code}
                     id={cellDomId(row.size.code, measurement.code)}
-                    data-warning={kinds ? [...kinds].join(' ') : undefined}
+                    data-findings={codes ? [...codes].join(' ') : undefined}
                     data-focused={isFocused || undefined}
                     className={cn(
                       'border-b align-top tabular-nums transition-shadow',
-                      kinds && 'bg-warning-soft/60',
-                      isFocused && 'bg-warning-soft ring-2 ring-accent ring-inset',
+                      codes && 'bg-warning-soft/60',
+                      isFocused && 'ring-2 ring-accent ring-inset',
                     )}
                   >
                     {cell ? (
-                      formatRange(cell.minInches, cell.maxInches)
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="cursor-help rounded-sm text-left tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {formatRange(cell.minInches, cell.maxInches)}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Max used for matching: {formatInches(cell.maxInches)} in
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <span className="text-muted-foreground">
                         <span aria-hidden="true">—</span>
                         <span className="sr-only">No value</span>
                       </span>
                     )}
-                    {kinds ? <CellWarning kinds={kinds} /> : null}
+                    {codes ? <CellFindings codes={codes} /> : null}
                   </TableCell>
                 );
               })}

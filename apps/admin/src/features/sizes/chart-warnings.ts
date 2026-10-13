@@ -1,30 +1,41 @@
-import type { SizeChartDto, SizeChartStatus } from '@urban-ibile/shared';
+import type {
+  SizeChartCheckCode,
+  SizeChartCheckItemDto,
+  SizeChartCheckSeverity,
+  SizeChartDto,
+  SizeChartStatus,
+} from '@urban-ibile/shared';
 import type { BadgeTone } from '@/components/ui/badge';
 
-export type WarningKind = 'gap' | 'overlap';
-
-/** One review warning from the API's chart check, flattened for display. */
-export interface ChartWarning {
+/** One finding of the API's chart check, with a stable id for the UI. */
+export interface ChartFinding extends SizeChartCheckItemDto {
   id: string;
-  kind: WarningKind;
-  measurementCode: string;
   measurementLabel: string;
-  lowerSize: string;
-  upperSize: string;
-  fromInches: number;
-  toInches: number;
-  /** Gaps only. */
-  widthInches?: number;
-  /** Gaps only: the two ranges touch when the chart is read in whole inches. */
-  wholeInchContiguous?: boolean;
 }
+
+export const EXPLANATION =
+  'Each measurement is matched to the smallest size whose max is large enough. These checks are for review with the tailor. Nothing has been changed.';
+
+/** Short label shown next to the icon (cells and list), so meaning never relies on colour. */
+export const CODE_LABEL: Record<SizeChartCheckCode, string> = {
+  MAX_NOT_INCREASING: 'Max not increasing',
+  MAX_TIE: 'Same max',
+  MISSING_CELL: 'Missing value',
+  UPPER_LIMIT: 'Upper limit',
+};
+
+export const SEVERITY_LABEL: Record<SizeChartCheckSeverity, string> = {
+  warning: 'Warning',
+  notice: 'Notice',
+  info: 'Info',
+};
 
 /** "38" or "17.5": charts store one decimal; whole inches drop it. */
 export function formatInches(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-/** "38 – 40 in", or "33 in" when the chart gives a single point. */
+/** "38 – 40 in", or "33 in" when min and max are the same. */
 export function formatRange(minInches: number, maxInches: number): string {
   return minInches === maxInches
     ? `${formatInches(minInches)} in`
@@ -40,50 +51,32 @@ export function cellDomId(sizeCode: string, measurementCode: string): string {
   return `chart-cell-${sizeCode}-${measurementCode}`.replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
-export function buildWarnings(chart: SizeChartDto): ChartWarning[] {
+export function buildFindings(chart: SizeChartDto): ChartFinding[] {
   const labels = new Map(chart.measurementTypes.map((m) => [m.code, m.label]));
-  const warnings: ChartWarning[] = [];
-  for (const measurement of chart.check.measurements) {
-    const label = labels.get(measurement.measurementType) ?? measurement.measurementType;
-    measurement.gaps.forEach((gap, index) => {
-      warnings.push({
-        id: `gap-${measurement.measurementType}-${index}`,
-        kind: 'gap',
-        measurementCode: measurement.measurementType,
-        measurementLabel: label,
-        lowerSize: gap.lowerSize,
-        upperSize: gap.upperSize,
-        fromInches: gap.fromInches,
-        toInches: gap.toInches,
-        widthInches: gap.widthInches,
-        wholeInchContiguous: gap.wholeInchContiguous,
-      });
-    });
-    measurement.overlaps.forEach((overlap, index) => {
-      warnings.push({
-        id: `overlap-${measurement.measurementType}-${index}`,
-        kind: 'overlap',
-        measurementCode: measurement.measurementType,
-        measurementLabel: label,
-        lowerSize: overlap.lowerSize,
-        upperSize: overlap.upperSize,
-        fromInches: overlap.fromInches,
-        toInches: overlap.toInches,
-      });
-    });
-  }
-  return warnings;
+  return chart.check.items.map((item, index) => ({
+    ...item,
+    id: `${item.code}-${item.measurementType}-${index}`,
+    measurementLabel: labels.get(item.measurementType) ?? item.measurementType,
+  }));
 }
 
-/** Which warning kinds touch each cell (both sizes of a pair are involved). */
-export function warningsByCell(warnings: readonly ChartWarning[]): Map<string, Set<WarningKind>> {
-  const byCell = new Map<string, Set<WarningKind>>();
-  for (const warning of warnings) {
-    for (const size of [warning.lowerSize, warning.upperSize]) {
-      const key = cellKey(size, warning.measurementCode);
-      const kinds = byCell.get(key) ?? new Set<WarningKind>();
-      kinds.add(warning.kind);
-      byCell.set(key, kinds);
+/** True for findings that highlight cells and count in the summary (info items do neither). */
+export function isCounted(finding: SizeChartCheckItemDto): boolean {
+  return finding.severity !== 'info';
+}
+
+/** Codes of the warnings/notices touching each cell. Normal cells are absent. */
+export function findingsByCell(
+  findings: readonly ChartFinding[],
+): Map<string, Set<SizeChartCheckCode>> {
+  const byCell = new Map<string, Set<SizeChartCheckCode>>();
+  for (const finding of findings) {
+    if (!isCounted(finding)) continue;
+    for (const size of finding.sizes) {
+      const key = cellKey(size, finding.measurementType);
+      const codes = byCell.get(key) ?? new Set<SizeChartCheckCode>();
+      codes.add(finding.code);
+      byCell.set(key, codes);
     }
   }
   return byCell;
@@ -93,21 +86,9 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-/** "3 gaps, 5 overlaps" */
-export function warningSummary(warnings: readonly ChartWarning[]): string {
-  const gaps = warnings.filter((w) => w.kind === 'gap').length;
-  return `${plural(gaps, 'gap')}, ${plural(warnings.length - gaps, 'overlap')}`;
-}
-
-/** One sentence describing a warning (list text and screen readers). */
-export function describeWarning(warning: ChartWarning): string {
-  const sizes = `${warning.lowerSize} and ${warning.upperSize}`;
-  if (warning.kind === 'overlap') {
-    return `${warning.measurementLabel}: ${sizes} overlap at ${formatRange(warning.fromInches, warning.toInches)}`;
-  }
-  const width =
-    warning.widthInches === undefined ? '' : ` (${formatInches(warning.widthInches)} in wide)`;
-  return `${warning.measurementLabel}: gap between ${sizes}, nothing covers ${formatInches(warning.fromInches)} – ${formatInches(warning.toInches)} in${width}`;
+/** "2 warnings, 3 notices" (info items are not counted). */
+export function findingSummary(check: SizeChartDto['check']): string {
+  return `${plural(check.warningCount, 'warning')}, ${plural(check.noticeCount, 'notice')}`;
 }
 
 export const CHART_STATUS_DISPLAY: Record<SizeChartStatus, { label: string; tone: BadgeTone }> = {

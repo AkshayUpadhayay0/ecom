@@ -19,10 +19,10 @@ import { ChartGrid } from './ChartGrid';
 import { ChartWarningsPanel } from './ChartWarningsPanel';
 import {
   CHART_STATUS_DISPLAY,
-  buildWarnings,
+  buildFindings,
   cellDomId,
-  warningsByCell,
-  type ChartWarning,
+  findingsByCell,
+  type ChartFinding,
 } from './chart-warnings';
 import { useChart, useChartGroups, useChartVersions } from './sizes.queries';
 
@@ -125,14 +125,15 @@ function VersionPicker({
 
 function ChartView({ chartId }: { chartId: string }) {
   const { data: chart, isPending, isError, refetch } = useChart(chartId);
-  const [focused, setFocused] = useState<ChartWarning | null>(null);
-  const warnings = useMemo(() => (chart ? buildWarnings(chart) : []), [chart]);
-  const byCell = useMemo(() => warningsByCell(warnings), [warnings]);
+  const [focused, setFocused] = useState<ChartFinding | null>(null);
+  const findings = useMemo(() => (chart ? buildFindings(chart) : []), [chart]);
+  const byCell = useMemo(() => findingsByCell(findings), [findings]);
 
   useEffect(() => {
-    if (!focused) return;
+    const [firstSize] = focused?.sizes ?? [];
+    if (!focused || firstSize === undefined) return;
     document
-      .getElementById(cellDomId(focused.lowerSize, focused.measurementCode))
+      .getElementById(cellDomId(firstSize, focused.measurementType))
       ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   }, [focused]);
 
@@ -151,11 +152,12 @@ function ChartView({ chartId }: { chartId: string }) {
   return (
     <div className="space-y-4">
       <ChartWarningsPanel
-        warnings={warnings}
+        check={chart.check}
+        findings={findings}
         focusedId={focused?.id ?? null}
         onSelect={setFocused}
       />
-      <ChartGrid chart={chart} warningsByCell={byCell} focused={focused} />
+      <ChartGrid chart={chart} findingsByCell={byCell} focused={focused} />
       {chart.sourceNote ? (
         <p className="text-xs text-muted-foreground">Source: {chart.sourceNote}</p>
       ) : null}
