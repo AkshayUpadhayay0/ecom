@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
@@ -8,11 +8,16 @@ interface SidebarNavProps {
   onNavigate?: () => void;
 }
 
+function isUnderPrefix(pathname: string, prefix: string | undefined): boolean {
+  return prefix !== undefined && (pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
+  const { pathname } = useLocation();
   return (
     <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
       <ul className="space-y-1">
-        {NAV_ITEMS.map(({ label, path, icon: Icon, comingSoon }) => {
+        {NAV_ITEMS.map(({ label, path, icon: Icon, comingSoon, activePrefix }) => {
           const link = (
             <NavLink
               to={path}
@@ -22,7 +27,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
                 cn(
                   'group flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
                   collapsed && 'justify-center px-0',
-                  isActive
+                  isActive || isUnderPrefix(pathname, activePrefix)
                     ? 'bg-sidebar-active text-sidebar-active-foreground shadow-sm'
                     : 'text-sidebar-foreground/75 hover:bg-muted hover:text-sidebar-foreground',
                 )

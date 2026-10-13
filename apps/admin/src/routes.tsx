@@ -1,5 +1,9 @@
 import { Navigate, type RouteObject } from 'react-router';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { MeasurementProfilesPage } from '@/features/sizes/MeasurementProfilesPage';
+import { SizeChartsPage } from '@/features/sizes/SizeChartsPage';
+import { SizesLayout } from '@/features/sizes/SizesLayout';
+import { SizesPage } from '@/features/sizes/SizesPage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import {
   DEFAULT_AUTHED_PATH,
@@ -36,6 +40,16 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to={DEFAULT_AUTHED_PATH} replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
+      {
+        // Read-only Sizes & Charts section (sub-tabs share SizesLayout).
+        path: 'sizes',
+        element: <SizesLayout />,
+        children: [
+          { index: true, element: <SizesPage /> },
+          { path: 'charts', element: <SizeChartsPage /> },
+          { path: 'profiles', element: <MeasurementProfilesPage /> },
+        ],
+      },
       ...comingSoonRoutes,
       { path: '*', element: <Navigate to={DEFAULT_AUTHED_PATH} replace /> },
     ],
