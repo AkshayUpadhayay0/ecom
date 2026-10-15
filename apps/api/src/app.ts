@@ -34,6 +34,13 @@ import { SITE_PATH, createSiteConfigRouter } from './modules/content/site-config
 import { createSiteConfigService } from './modules/content/site-config.service.js';
 import { createSettingsRepository } from './modules/settings/settings.repository.js';
 import { createSettingsService } from './modules/settings/settings.service.js';
+import {
+  BLUEPRINT_PATH,
+  BODY_SCAN_PATH,
+  BODY_SCAN_WEBHOOK_PATH,
+  MY_BLUEPRINT_PATH,
+  createBlueprintModule,
+} from './modules/blueprint/blueprint.module.js';
 import { createHealthController } from './modules/health/health.controller.js';
 import { createHealthRepository } from './modules/health/health.repository.js';
 import { HEALTH_PATH, createHealthRouter } from './modules/health/health.routes.js';
@@ -59,6 +66,11 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
   app.use(requestLogger(logger));
   app.use(helmet());
   app.use(corsAllowList(env.CORS_ORIGINS));
+
+  // Provider webhooks need the raw body (signature check), so they are mounted before the JSON
+  // router below; the module is built later with the customer guard.
+  const webhookSlot = express.Router();
+  app.use(`${API_BASE_PATH}${BODY_SCAN_WEBHOOK_PATH}`, webhookSlot);
 
   const v1 = express.Router();
   v1.use(
@@ -100,6 +112,16 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
     ADMIN_API_PATH,
     createAdminApiRouter({ env, db, storage, logger, requireAdmin: adminAuth.requireAdmin }),
   );
+  const blueprint = createBlueprintModule({
+    env,
+    db,
+    logger,
+    requireCustomer: customerAuth.requireCustomer,
+  });
+  webhookSlot.use(blueprint.webhookRouter);
+  v1.use(BLUEPRINT_PATH, blueprint.blueprintRouter);
+  v1.use(MY_BLUEPRINT_PATH, blueprint.myRouter);
+  v1.use(BODY_SCAN_PATH, blueprint.bodyScanRouter);
   v1.use(
     CUSTOMER_MEDIA_PATH,
     customerAuth.requireCustomer,

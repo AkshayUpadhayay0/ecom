@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AdminAuthDto, ApiData, ApiErrorBody } from '@urban-ibile/shared';
+import { sql } from 'kysely';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { createAccessTokens } from '../src/modules/auth/core/access-tokens.js';
@@ -115,8 +116,55 @@ export async function restoreSettings(ctx: TestContext, snapshot: SettingsSnapsh
  * then the auth tables. Seeded reference data (languages, sizes, size charts, measurement
  * profiles, seeded types, sample zones, content blocks) is kept.
  */
+/** Prefix of test-only size chart groups / profiles (removed by resetBlueprintData). */
+export const TEST_CHART_PREFIX = 't_bp_';
+
+/**
+ * TEST-ONLY cleanup of append-only Blueprint data. The DB forbids updating/deleting decisions,
+ * their measurements and published charts; here those specific triggers are disabled inside ONE
+ * transaction (the test user owns the tables) and re-enabled before it commits.
+ */
+export async function resetBlueprintData(ctx: TestContext): Promise<void> {
+  await ctx.db.transaction().execute(async (trx) => {
+    await sql`ALTER TABLE blueprint_measurements DISABLE TRIGGER trg_measurements_immutable`.execute(
+      trx,
+    );
+    await sql`ALTER TABLE blueprint_decisions DISABLE TRIGGER trg_decisions_guard`.execute(trx);
+    await sql`ALTER TABLE size_chart_rows DISABLE TRIGGER trg_size_chart_rows_guard`.execute(trx);
+    await sql`ALTER TABLE size_charts DISABLE TRIGGER trg_size_charts_guard`.execute(trx);
+    await sql`DELETE FROM blueprint_measurements`.execute(trx);
+    await sql`DELETE FROM blueprint_decisions`.execute(trx);
+    await sql`DELETE FROM body_scan_sessions`.execute(trx);
+    const prefix = `${TEST_CHART_PREFIX}%`;
+    await sql`DELETE FROM measurement_profile_items WHERE profile_id IN (SELECT id FROM measurement_profiles WHERE code LIKE ${prefix})`.execute(
+      trx,
+    );
+    await sql`UPDATE products SET measurement_profile_id = NULL WHERE measurement_profile_id IN (SELECT id FROM measurement_profiles WHERE code LIKE ${prefix})`.execute(
+      trx,
+    );
+    await sql`DELETE FROM measurement_profiles WHERE code LIKE ${prefix}`.execute(trx);
+    await sql`DELETE FROM size_chart_rows WHERE group_id IN (SELECT id FROM size_chart_groups WHERE code LIKE ${prefix})`.execute(
+      trx,
+    );
+    await sql`DELETE FROM size_charts WHERE group_id IN (SELECT id FROM size_chart_groups WHERE code LIKE ${prefix})`.execute(
+      trx,
+    );
+    await sql`DELETE FROM size_chart_group_measurements WHERE group_id IN (SELECT id FROM size_chart_groups WHERE code LIKE ${prefix})`.execute(
+      trx,
+    );
+    await sql`DELETE FROM size_chart_groups WHERE code LIKE ${prefix}`.execute(trx);
+    await sql`ALTER TABLE size_charts ENABLE TRIGGER trg_size_charts_guard`.execute(trx);
+    await sql`ALTER TABLE size_chart_rows ENABLE TRIGGER trg_size_chart_rows_guard`.execute(trx);
+    await sql`ALTER TABLE blueprint_decisions ENABLE TRIGGER trg_decisions_guard`.execute(trx);
+    await sql`ALTER TABLE blueprint_measurements ENABLE TRIGGER trg_measurements_immutable`.execute(
+      trx,
+    );
+  });
+}
+
 export async function resetAdminApiData(ctx: TestContext): Promise<void> {
   const { db } = ctx;
+  await resetBlueprintData(ctx);
   await db.deleteFrom('page_access_grants').execute();
   await db.deleteFrom('qr_access_events').execute();
   await db.deleteFrom('serial_numbers').execute();

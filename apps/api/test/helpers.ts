@@ -34,6 +34,8 @@ export function makeTestEnv(overrides: Partial<Record<keyof Env, string>> = {}):
     // tests that check these override them.
     HIDDEN_UNLOCK_FAILURE_DELAY_MS: '0',
     PUBLIC_RATE_LIMIT_MAX: '100000',
+    BODY_SCAN_PROVIDER: 'mock',
+    BODY_SCAN_MOCK_WEBHOOK_SECRET: 'test-body-scan-webhook-secret-0123456789-ab',
     ...overrides,
   });
 }

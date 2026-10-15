@@ -6,6 +6,20 @@ const SECONDS_PER_DAY = 24 * 60 * 60;
 /** Technical ceiling for any single upload (5 GB, the S3 single-PUT limit). */
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
 const MAX_DIMENSION = 7680;
+const MAX_MEASUREMENT_INCHES = 200;
+const inchRangeSchema = z
+  .object({
+    min: z.number().min(0).max(MAX_MEASUREMENT_INCHES),
+    max: z.number().min(0).max(MAX_MEASUREMENT_INCHES),
+  })
+  .refine((range) => range.min < range.max, 'min must be below max');
+/** Sane input range per measurement code (rejects typos); not size rules. */
+const measurementLimitsSchema = z.object({
+  default: inchRangeSchema,
+  byMeasurement: z.record(z.string().regex(/^[a-z][a-z0-9_]*$/), inchRangeSchema),
+});
+export type MeasurementLimits = z.infer<typeof measurementLimitsSchema>;
+
 /** Ascending list of pixel sizes (rendition heights / image widths). */
 const dimensionListSchema = z
   .array(z.number().int().min(16).max(MAX_DIMENSION))
@@ -72,6 +86,16 @@ export const SETTING_DEFINITIONS = {
   'media.preview_seconds': { schema: z.number().int().min(1).max(60), default: 6 },
   'media.video_heights': { schema: dimensionListSchema, default: [480, 720, 1080] },
   'media.image_widths': { schema: dimensionListSchema, default: [320, 640, 1280, 1920] },
+  // Blueprint (Phase 5a) [SAMPLE limits; reject_below_chart_min is a Pending Client Decision].
+  'blueprint.measurement_limits': {
+    schema: measurementLimitsSchema,
+    default: { default: { min: 5, max: 90 }, byMeasurement: {} },
+  },
+  'blueprint.reject_below_chart_min': { schema: z.boolean(), default: false },
+  'body_scan.session_ttl_minutes': {
+    schema: z.number().int().min(1).max(MINUTES_PER_DAY),
+    default: 30,
+  },
   // Pending Client Decisions: no defaults, NULL until the client supplies them.
   'support.email': { schema: z.email().max(254) },
   'support.phone': { schema: phoneSchema },

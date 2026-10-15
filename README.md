@@ -242,6 +242,16 @@ in [docs/public-api.md](docs/public-api.md): `GET /catalog/products`, `GET /cata
 hidden-page routes (`GET /hidden-pages/:routeToken`, `POST …/unlock`, `GET …/content`). No login;
 stricter per-IP limit (`PUBLIC_RATE_LIMIT_*`); `Cache-Control` + ETag/304 on catalogue and site.
 
+## Blueprint engine (Phase 5a)
+
+Size recommendation from body measurements (inches) against the active size charts; customer
+login required. Endpoints and rules: [docs/blueprint-api.md](docs/blueprint-api.md)
+(`GET /blueprint/products/:id/requirements`, `POST /blueprint/recommendations`,
+`POST /blueprint/decisions`, `GET /blueprint/decisions/:id`, `GET /me/blueprint/decisions`, Body
+Scan sessions + signed webhook). Body Scan is **MOCKED** (`BODY_SCAN_PROVIDER=mock`, refused in
+production). Out-of-range measurements are refused (`BLUEPRINT_OUT_OF_RANGE`) until the client
+decides how to handle them.
+
 ## Tests
 
 - Unit and HTTP tests run without a database.

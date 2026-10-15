@@ -92,6 +92,13 @@ export const envSchema = z.object({
   // Cache-Control max-age for catalog/site responses (ETags make revalidation cheap).
   PUBLIC_CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
 
+  // --- Blueprint / Body Scan (Phase 5a) ---
+  // 'none' = Body Scan unavailable. 'mock' = MOCK adapter with fixed sample results (dev/test
+  // only; refused in production). Real providers are a team decision (not built).
+  BODY_SCAN_PROVIDER: z.enum(['none', 'mock']).default('none'),
+  // Signs MOCK provider webhooks. Random per process when unset.
+  BODY_SCAN_MOCK_WEBHOOK_SECRET: z.string().min(MIN_SECRET_LENGTH).optional(),
+
   // --- Media (Phase 3) ---
   // 'local' = files on disk + signed routes on this API (dev/test, no keys). 'r2' = Cloudflare R2.
   // Production requires 'r2'.
@@ -135,6 +142,10 @@ const refinedEnvSchema = envSchema
   .refine((env) => env.JWT_ACCESS_SECRET !== env.JWT_ADMIN_ACCESS_SECRET, {
     path: ['JWT_ADMIN_ACCESS_SECRET'],
     message: 'must differ from JWT_ACCESS_SECRET',
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.BODY_SCAN_PROVIDER !== 'mock', {
+    path: ['BODY_SCAN_PROVIDER'],
+    message: 'the MOCK Body Scan provider cannot be used in production',
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.MEDIA_STORAGE_DRIVER === 'r2', {
     path: ['MEDIA_STORAGE_DRIVER'],

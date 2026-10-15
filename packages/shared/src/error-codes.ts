@@ -47,6 +47,13 @@ export const ERROR_CODES = [
   'UPLOAD_EXPIRED',
   'UPLOAD_MISMATCH',
   'MEDIA_IN_USE',
+  // Added in Phase 5a (Blueprint).
+  'BLUEPRINT_MEASUREMENTS_INVALID',
+  'BLUEPRINT_OUT_OF_RANGE',
+  'BLUEPRINT_NOT_APPLICABLE',
+  'BLUEPRINT_CHART_UNAVAILABLE',
+  'BODY_SCAN_NOT_READY',
+  'BODY_SCAN_UNAVAILABLE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

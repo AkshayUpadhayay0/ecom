@@ -5,7 +5,7 @@ import {
   type SettingDto,
   type SettingKey,
 } from '@urban-ibile/shared';
-import { ZodError } from 'zod';
+import { ZodError, type z } from 'zod';
 import type { Database } from '../../db/database.js';
 import { AppError } from '../../lib/errors.js';
 import { HTTP_STATUS } from '../../lib/http-status.js';
@@ -18,6 +18,12 @@ import type { SettingsRepository } from './settings.repository.js';
 export type LimitSettingKey = {
   [K in SettingKey]: (typeof SETTING_DEFINITIONS)[K] extends { default: number } ? K : never;
 }[SettingKey];
+
+/** Every setting that has a documented default. */
+export type DefaultedSettingKey = {
+  [K in SettingKey]: (typeof SETTING_DEFINITIONS)[K] extends { default: unknown } ? K : never;
+}[SettingKey];
+export type SettingValue<K extends SettingKey> = z.infer<(typeof SETTING_DEFINITIONS)[K]['schema']>;
 
 /** Settings holding an ascending list of pixel sizes (with a default). */
 export type DimensionListSettingKey = 'media.video_heights' | 'media.image_widths';
@@ -33,6 +39,8 @@ export interface SettingsService {
    * (or invalid). Pass a transaction to read inside it.
    */
   getLimit(db: Database, key: LimitSettingKey): Promise<number>;
+  /** Typed value of any defaulted setting (stored value, or the default while NULL/invalid). */
+  getSetting<K extends DefaultedSettingKey>(db: Database, key: K): Promise<SettingValue<K>>;
   /** Current list, or its documented default while the stored value is NULL (or invalid). */
   getDimensionList(db: Database, key: DimensionListSettingKey): Promise<number[]>;
   /** Current value, or null when the setting is NULL / unset ("no limit"). */
@@ -101,6 +109,14 @@ export function createSettingsService({ db, repository }: SettingsServiceDeps): 
       const row = await repository.findByKey(executor, key);
       const result = definition.schema.safeParse(row?.value);
       return result.success ? result.data : definition.default;
+    },
+
+    async getSetting<K extends DefaultedSettingKey>(executor: Database, key: K) {
+      const definition = SETTING_DEFINITIONS[key];
+      const row = await repository.findByKey(executor, key);
+      const result = definition.schema.safeParse(row?.value);
+      // The registry guarantees `default` matches the schema for defaulted keys.
+      return (result.success ? result.data : definition.default) as SettingValue<K>;
     },
 
     async getDimensionList(executor, key) {

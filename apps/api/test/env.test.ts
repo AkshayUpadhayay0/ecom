@@ -65,6 +65,13 @@ describe('parseEnv', () => {
     );
   });
 
+  it('refuses the MOCK Body Scan provider in production', () => {
+    expect(parseEnv(VALID).BODY_SCAN_PROVIDER).toBe('none');
+    expect(() => parseEnv({ ...PRODUCTION, BODY_SCAN_PROVIDER: 'mock' })).toThrow(
+      /BODY_SCAN_PROVIDER: the MOCK Body Scan provider cannot be used in production/,
+    );
+  });
+
   it('requires every R2 variable when the r2 driver is selected', () => {
     const { R2_PRIVATE_BUCKET: _omit, ...partial } = R2;
     expect(() => parseEnv({ ...VALID, ...partial, MEDIA_STORAGE_DRIVER: 'r2' })).toThrow(
