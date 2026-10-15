@@ -9,6 +9,7 @@ export * from './admin-settings.js';
 export * from './admin-size-charts.js';
 export * from './api.js';
 export * from './blueprint.js';
+export * from './commerce.js';
 export * from './auth.js';
 export * from './error-codes.js';
 export * from './hidden-pages.js';

@@ -63,7 +63,8 @@ pnpm admin:create     # create an admin account (prompts; password input is hidd
 | `pnpm db:codegen`                   | Regenerate Kysely DB types (run after every migration)     |
 | `pnpm db:test:setup`                | Create and prepare the integration-test database           |
 | `pnpm db:migrate`                   | Apply pending SQL migrations to `ecom`                     |
-| `pnpm worker:media`                 | Media processing worker (needs ffmpeg for videos)          |
+| `pnpm worker`                       | Background worker: media + reservation expiry              |
+| `pnpm worker:media`                 | Same worker (old name, kept)                               |
 | `pnpm db:seed`                      | Apply re-runnable sample data from `db/seeds/` to `ecom`   |
 | `pnpm admin:create`                 | Create an admin account interactively                      |
 
@@ -251,6 +252,14 @@ login required. Endpoints and rules: [docs/blueprint-api.md](docs/blueprint-api.
 Scan sessions + signed webhook). Body Scan is **MOCKED** (`BODY_SCAN_PROVIDER=mock`, refused in
 production). Out-of-range measurements are refused (`BLUEPRINT_OUT_OF_RANGE`) until the client
 decides how to handle them.
+
+## Cart, checkout and orders (Phase 5b)
+
+Customer login required. Endpoints and rules: [docs/commerce-api.md](docs/commerce-api.md)
+(`/me/addresses`, `/cart`, `GET /delivery/zones`, `POST /checkout/quote`, `POST /checkout/orders`
+with an `Idempotency-Key` header, `/me/orders`). Checkout holds stock for
+`checkout.reservation_minutes`; `pnpm worker` releases expired holds. No payment yet (Phase 6).
+Delivery zones are SAMPLE data until the client confirms areas and fees.
 
 ## Tests
 

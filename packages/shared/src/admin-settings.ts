@@ -96,6 +96,15 @@ export const SETTING_DEFINITIONS = {
     schema: z.number().int().min(1).max(MINUTES_PER_DAY),
     default: 30,
   },
+  // Commerce (Phase 5b).
+  'store.currency': {
+    schema: z.string().regex(/^[A-Z]{3}$/, 'must be an ISO 4217 code'),
+    default: 'NGN',
+  },
+  'checkout.reservation_max_total_minutes': {
+    schema: z.number().int().min(1).max(MINUTES_PER_DAY),
+    default: 45,
+  },
   // Pending Client Decisions: no defaults, NULL until the client supplies them.
   'support.email': { schema: z.email().max(254) },
   'support.phone': { schema: phoneSchema },

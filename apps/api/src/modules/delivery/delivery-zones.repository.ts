@@ -63,6 +63,8 @@ export interface DeliveryZonesRepository {
     page: PageRequest,
   ): Promise<{ rows: DeliveryZoneRow[]; total: number }>;
   findById(db: Database, id: string, lock?: boolean): Promise<DeliveryZoneRow | undefined>;
+  /** Zones customers can order to: active with a fee (the DB requires a fee when active). */
+  listOrderable(db: Database): Promise<DeliveryZoneRow[]>;
   insert(db: Database, values: DeliveryZoneValues): Promise<DeliveryZoneRow | ZoneWriteFailure>;
   update(
     db: Database,
@@ -99,6 +101,17 @@ export function createDeliveryZonesRepository(): DeliveryZonesRepository {
       let query = db.selectFrom('delivery_zones').select(COLUMNS).where('id', '=', id);
       if (lock) query = query.forUpdate();
       return query.executeTakeFirst();
+    },
+
+    async listOrderable(db) {
+      return db
+        .selectFrom('delivery_zones')
+        .select(COLUMNS)
+        .where('is_active', '=', true)
+        .where('fee_minor', 'is not', null)
+        .orderBy('sort_order')
+        .orderBy('name')
+        .execute();
     },
 
     async insert(db, values) {

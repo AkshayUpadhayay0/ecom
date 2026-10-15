@@ -13,6 +13,7 @@ Read this file fully before every task. Source documents live in the repo:
 - `db/migrations/0004_media_pipeline.sql` - media upload lifecycle columns ('uploaded' status, attempts/backoff/lease, purge) and `media.*` settings
 - `db/migrations/0005_catalog_indexes.sql` - partial indexes for storefront sort orders
 - `db/migrations/0006_blueprint_settings.sql` - Blueprint input limits (SAMPLE), below-chart flag (pending), Body Scan session TTL
+- `db/migrations/0007_cart_checkout.sql` - `cart_items.added_unit_price_minor` (PRICE_CHANGED warning), settings `store.currency` (ASSUMPTION NGN) and `checkout.reservation_max_total_minutes` (TEAM DESIGN)
 - `db/seeds/obsolete/seed_0002_blueprint_qr.sql` - OBSOLETE (height/weight sample rules). Not run by the seed runner.
 - `db/seeds/seed_0003_charts.sql` - the client's real size charts (inches), measurement profiles, default return policy, hidden-page placeholders (`pnpm db:seed`; re-runnable)
 - `db/seed_v2.sql` - seed data (sample values are flagged)

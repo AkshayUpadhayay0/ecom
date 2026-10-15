@@ -99,6 +99,14 @@ export const envSchema = z.object({
   // Signs MOCK provider webhooks. Random per process when unset.
   BODY_SCAN_MOCK_WEBHOOK_SECRET: z.string().min(MIN_SECRET_LENGTH).optional(),
 
+  // --- Cart + checkout (Phase 5b) ---
+  CART_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  CART_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
+  CHECKOUT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  CHECKOUT_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
+  // How many expired reservations one sweep releases (worker; FOR UPDATE SKIP LOCKED).
+  RESERVATION_SWEEP_BATCH: z.coerce.number().int().min(1).max(10_000).default(200),
+
   // --- Media (Phase 3) ---
   // 'local' = files on disk + signed routes on this API (dev/test, no keys). 'r2' = Cloudflare R2.
   // Production requires 'r2'.

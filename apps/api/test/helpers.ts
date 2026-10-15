@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { pino } from 'pino';
 import type { Response } from 'supertest';
 import { createApp } from '../src/app.js';
@@ -35,6 +36,8 @@ export function makeTestEnv(overrides: Partial<Record<keyof Env, string>> = {}):
     HIDDEN_UNLOCK_FAILURE_DELAY_MS: '0',
     PUBLIC_RATE_LIMIT_MAX: '100000',
     BODY_SCAN_PROVIDER: 'mock',
+    CART_RATE_LIMIT_MAX: '100000',
+    CHECKOUT_RATE_LIMIT_MAX: '100000',
     BODY_SCAN_MOCK_WEBHOOK_SECRET: 'test-body-scan-webhook-secret-0123456789-ab',
     ...overrides,
   });
@@ -66,7 +69,17 @@ export function bodyOf<T>(res: Response): T {
  * Deletes rows written by auth tests. Plain DELETEs in dependency order (not TRUNCATE CASCADE,
  * which would also wipe seeded tables that reference admin_users).
  */
+/**
+ * TEST-ONLY: removes carts, orders, reservations and addresses (Phase 5b). Orders are never
+ * deleted in the app; tests truncate them so customers / products / decisions can be removed.
+ */
+export async function resetCommerceTables(db: Database): Promise<void> {
+  await sql`TRUNCATE stock_reservations, order_status_history, order_items, orders,
+    idempotency_keys, cart_items, carts, customer_addresses CASCADE`.execute(db);
+}
+
 export async function resetAuthTables(db: Database): Promise<void> {
+  await resetCommerceTables(db);
   // Phase 2 tables keep a reference to the admin who made a change; detach before deleting admins.
   await db.updateTable('stock_movements').set({ admin_id: null }).execute();
   await db.updateTable('app_settings').set({ updated_by: null }).execute();

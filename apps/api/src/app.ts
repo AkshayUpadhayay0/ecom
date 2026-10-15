@@ -46,6 +46,7 @@ import { createHealthRepository } from './modules/health/health.repository.js';
 import { HEALTH_PATH, createHealthRouter } from './modules/health/health.routes.js';
 import { createHealthService } from './modules/health/health.service.js';
 import { createEmailOutboxRepository } from './modules/notifications/email-outbox.repository.js';
+import { createCommerceRouter } from './modules/commerce.module.js';
 
 export const API_BASE_PATH = '/api/v1';
 const JSON_BODY_LIMIT = '100kb';
@@ -162,6 +163,16 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
       logger,
       basePath: API_BASE_PATH,
       optionalCustomer: customerAuth.optionalCustomer,
+    }),
+  );
+
+  v1.use(
+    createCommerceRouter({
+      env,
+      db,
+      logger,
+      settings,
+      requireCustomer: customerAuth.requireCustomer,
     }),
   );
 

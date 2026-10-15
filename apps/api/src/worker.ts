@@ -1,9 +1,11 @@
 /**
- * Media worker: processes uploaded media (DB queue with FOR UPDATE SKIP LOCKED, no Redis).
+ * Background worker (DB queues with FOR UPDATE SKIP LOCKED, no Redis):
+ *  - processes uploaded media;
+ *  - releases stock held by unpaid orders whose reservation expired.
  *
- *   pnpm worker:media
+ *   pnpm worker        (alias: pnpm worker:media)
  *
- * Several workers may run at once; each asset is claimed by exactly one.
+ * Several workers may run at once; each asset / expired order is claimed by exactly one.
  */
 import { tmpdir } from 'node:os';
 import type { MediaKind } from '@urban-ibile/shared';
@@ -19,6 +21,9 @@ import {
 import { createImageProcessor } from './modules/media/processing/image-processor.js';
 import { createMediaProcessor } from './modules/media/processing/media-processor.js';
 import { createStorage } from './modules/media/storage/create-storage.js';
+import { releaseExpiredReservations } from './modules/checkout/reservation-expiry.js';
+import { createReservationsRepository } from './modules/inventory/reservations.repository.js';
+import { createOrdersRepository } from './modules/orders/orders.repository.js';
 import { createSettingsRepository } from './modules/settings/settings.repository.js';
 import { createSettingsService } from './modules/settings/settings.service.js';
 
@@ -40,8 +45,14 @@ const db = createDatabase({
   connectionString: env.DATABASE_URL,
   maxConnections: env.DB_POOL_MAX,
   logger,
-  applicationName: 'urban-ibile-media-worker',
+  applicationName: 'urban-ibile-worker',
 });
+const expiryDeps = {
+  db,
+  orders: createOrdersRepository(),
+  reservations: createReservationsRepository(),
+  logger,
+};
 const ffmpeg = createFfmpegRunner({ ffmpegPath: env.FFMPEG_PATH, ffprobePath: env.FFPROBE_PATH });
 const processor = createMediaProcessor({
   db,
@@ -95,6 +106,11 @@ async function main(): Promise<void> {
   }
 
   while (isRunning()) {
+    try {
+      await releaseExpiredReservations(expiryDeps, env.RESERVATION_SWEEP_BATCH);
+    } catch (err) {
+      logger.error({ err }, 'reservation expiry error');
+    }
     try {
       await processor.drain(kinds);
     } catch (err) {

@@ -128,6 +128,7 @@ export interface BodyScanSessions {
 }
 
 export interface CartItems {
+  added_unit_price_minor: Int8 | null;
   blueprint_decision_id: string | null;
   cart_id: string;
   created_at: Generated<Timestamp>;

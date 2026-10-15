@@ -5,7 +5,13 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { createAccessTokens } from '../src/modules/auth/core/access-tokens.js';
 import type { AdminRole } from '../src/modules/admin-users/admin-users.repository.js';
-import { bodyOf, createTestAdmin, resetAuthTables, type TestContext } from './helpers.js';
+import {
+  bodyOf,
+  createTestAdmin,
+  resetAuthTables,
+  resetCommerceTables,
+  type TestContext,
+} from './helpers.js';
 
 export const ADMIN = '/api/v1/admin';
 const ADMIN_PASSWORD = 'Ankara-Velvet-2026!';
@@ -125,6 +131,8 @@ export const TEST_CHART_PREFIX = 't_bp_';
  * transaction (the test user owns the tables) and re-enabled before it commits.
  */
 export async function resetBlueprintData(ctx: TestContext): Promise<void> {
+  // Cart and order lines reference decisions.
+  await resetCommerceTables(ctx.db);
   await ctx.db.transaction().execute(async (trx) => {
     await sql`ALTER TABLE blueprint_measurements DISABLE TRIGGER trg_measurements_immutable`.execute(
       trx,
