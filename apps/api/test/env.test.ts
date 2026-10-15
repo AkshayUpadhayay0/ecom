@@ -3,6 +3,16 @@ import { EnvValidationError, parseEnv } from '../src/config/env.js';
 import { TEST_SECRETS } from './helpers.js';
 
 const VALID = { DATABASE_URL: 'postgres://u:p@localhost:5432/ecom', ...TEST_SECRETS };
+/** Fake R2 settings (never real keys). */
+const R2 = {
+  R2_ACCOUNT_ID: 'test-account',
+  R2_ACCESS_KEY_ID: 'test-key-id',
+  R2_SECRET_ACCESS_KEY: 'test-secret',
+  R2_PUBLIC_BUCKET: 'ui-public',
+  R2_PRIVATE_BUCKET: 'ui-private',
+  R2_PUBLIC_BASE_URL: 'https://media.example.com',
+};
+const PRODUCTION = { ...VALID, ...R2, NODE_ENV: 'production', MEDIA_STORAGE_DRIVER: 'r2' };
 
 describe('parseEnv', () => {
   it('applies defaults and parses the CORS allow-list', () => {
@@ -44,7 +54,24 @@ describe('parseEnv', () => {
   });
 
   it('forces secure cookies in production', () => {
-    expect(parseEnv({ ...VALID, NODE_ENV: 'production' }).COOKIE_SECURE).toBe(true);
+    expect(parseEnv({ ...PRODUCTION }).COOKIE_SECURE).toBe(true);
     expect(parseEnv(VALID).COOKIE_SECURE).toBe(false);
+  });
+
+  it('uses local media storage by default and refuses it in production', () => {
+    expect(parseEnv(VALID).MEDIA_STORAGE_DRIVER).toBe('local');
+    expect(() => parseEnv({ ...VALID, NODE_ENV: 'production' })).toThrow(
+      /MEDIA_STORAGE_DRIVER: must be 'r2' in production/,
+    );
+  });
+
+  it('requires every R2 variable when the r2 driver is selected', () => {
+    const { R2_PRIVATE_BUCKET: _omit, ...partial } = R2;
+    expect(() => parseEnv({ ...VALID, ...partial, MEDIA_STORAGE_DRIVER: 'r2' })).toThrow(
+      /R2_PRIVATE_BUCKET: is required when MEDIA_STORAGE_DRIVER is 'r2'/,
+    );
+    expect(parseEnv({ ...VALID, ...R2, MEDIA_STORAGE_DRIVER: 'r2' }).R2_PUBLIC_BUCKET).toBe(
+      'ui-public',
+    );
   });
 });

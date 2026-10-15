@@ -1,6 +1,8 @@
 import { Router, type RequestHandler } from 'express';
+import type { Logger } from 'pino';
 import type { Env } from '../config/env.js';
 import type { Database } from '../db/database.js';
+import { apiRateLimit } from '../middleware/rate-limit.js';
 import { requireAdminRole } from '../middleware/require-role.js';
 import { createAuditController } from './audit/audit.controller.js';
 import { createAuditRouter } from './audit/audit.routes.js';
@@ -36,6 +38,9 @@ import { createInventoryService } from './inventory/inventory.service.js';
 import { createVariantsRepository } from './inventory/variants.repository.js';
 import { createMediaAssetsRepository } from './media/media-assets.repository.js';
 import { createMediaAssetsService } from './media/media-assets.service.js';
+import { buildMediaController } from './media/media.module.js';
+import { createMediaRouter } from './media/media.routes.js';
+import type { StorageProvider } from './media/storage/storage-provider.js';
 import { createSerialHasher } from './serial-access/serial-hash.js';
 import { createSerialsController } from './serial-access/serials.controller.js';
 import { createSerialsRepository } from './serial-access/serials.repository.js';
@@ -49,8 +54,16 @@ import { createSettingsService } from './settings/settings.service.js';
 export const ADMIN_API_PATH = '/admin';
 
 export interface AdminApiDeps {
-  env: Pick<Env, 'PUBLIC_WEB_URL' | 'SERIAL_HMAC_SECRET'>;
+  env: Pick<
+    Env,
+    | 'PUBLIC_WEB_URL'
+    | 'SERIAL_HMAC_SECRET'
+    | 'MEDIA_UPLOAD_RATE_LIMIT_WINDOW_MS'
+    | 'MEDIA_UPLOAD_RATE_LIMIT_MAX'
+  >;
   db: Database;
+  storage: StorageProvider;
+  logger: Logger;
   /** Admin-audience access token guard; applied to every route below. */
   requireAdmin: RequestHandler;
 }
@@ -59,7 +72,13 @@ export interface AdminApiDeps {
  * Admin API: catalog, inventory, delivery zones, settings, content, audit logs (Phase 2) and
  * hidden pages + serial import (Phase 2b).
  */
-export function createAdminApiRouter({ env, db, requireAdmin }: AdminApiDeps): Router {
+export function createAdminApiRouter({
+  env,
+  db,
+  storage,
+  logger,
+  requireAdmin,
+}: AdminApiDeps): Router {
   const settings = createSettingsService({ db, repository: createSettingsRepository() });
   const media = createMediaAssetsService(createMediaAssetsRepository());
   const clothingTypesRepository = createClothingTypesRepository();
@@ -155,6 +174,16 @@ export function createAdminApiRouter({ env, db, requireAdmin }: AdminApiDeps): R
           settings,
         }),
       ),
+      requireSuperAdmin,
+    }),
+  );
+  router.use(
+    createMediaRouter({
+      controller: buildMediaController({ db, storage, logger }),
+      uploadLimit: apiRateLimit({
+        windowMs: env.MEDIA_UPLOAD_RATE_LIMIT_WINDOW_MS,
+        max: env.MEDIA_UPLOAD_RATE_LIMIT_MAX,
+      }),
       requireSuperAdmin,
     }),
   );

@@ -239,16 +239,22 @@ export function createProductsService(deps: ProductsServiceDeps): ProductsServic
     },
 
     async setVideo(actor, id, mediaAssetId) {
-      return mutate(actor, id, 'product.video_replace', async (trx) => {
+      return mutate(actor, id, 'product.video_replace', async (trx, before) => {
         await deps.media.assertReadyVideo(trx, mediaAssetId);
         await repository.setVideo(trx, id, mediaAssetId);
+        // The old video is kept (retired, not deleted) unless something else still uses it.
+        if (before.videoAssetId !== null && before.videoAssetId !== mediaAssetId) {
+          await deps.media.retireUnreferenced(trx, actor, [before.videoAssetId]);
+        }
       });
     },
 
     async setImages(actor, id, mediaAssetIds) {
-      return mutate(actor, id, 'product.images_replace', async (trx) => {
+      return mutate(actor, id, 'product.images_replace', async (trx, before) => {
         await deps.media.assertReadyImages(trx, mediaAssetIds);
         await repository.setImages(trx, id, mediaAssetIds);
+        const removed = before.imageAssetIds.filter((assetId) => !mediaAssetIds.includes(assetId));
+        await deps.media.retireUnreferenced(trx, actor, removed);
       });
     },
   };

@@ -1,6 +1,8 @@
 import type { Database } from '../../db/database.js';
 import { AppError } from '../../lib/errors.js';
 import { HTTP_STATUS } from '../../lib/http-status.js';
+import { writeAuditLog } from '../audit/audit-log.repository.js';
+import type { AuditActor } from '../audit/audit-actor.js';
 import type { MediaAssetStatusRow, MediaAssetsRepository } from './media-assets.repository.js';
 
 const READY_STATUS = 'ready';
@@ -14,6 +16,12 @@ export interface MediaAssetsService {
   assertReadyVideo(db: Database, id: string): Promise<void>;
   /** Same rules for every id, as images. */
   assertReadyImages(db: Database, ids: string[]): Promise<void>;
+  /**
+   * Replace flow: after a reference swap (inside the same transaction), retires the replaced
+   * assets that nothing references any more. They are kept (not deleted) so history stays
+   * valid; objects are removed only by an explicit purge. Writes one audit row per asset.
+   */
+  retireUnreferenced(db: Database, actor: AuditActor, ids: readonly string[]): Promise<string[]>;
 }
 
 function assertUsable(asset: MediaAssetStatusRow | undefined, kind: MediaKind): void {
@@ -59,6 +67,28 @@ export function createMediaAssetsService(repository: MediaAssetsRepository): Med
     },
     async assertReadyImages(db, ids) {
       await assertAll(db, ids, 'image');
+    },
+
+    async retireUnreferenced(db, actor, ids) {
+      const candidates = [...new Set(ids)];
+      if (candidates.length === 0) return [];
+      const inUse = await repository.referencedIds(db, candidates);
+      const retired = await repository.retire(
+        db,
+        candidates.filter((id) => !inUse.has(id)),
+      );
+      for (const id of retired) {
+        await writeAuditLog(db, {
+          adminId: actor.adminId,
+          action: 'media.retire',
+          entityType: 'media_asset',
+          entityId: id,
+          before: { retired: false },
+          after: { retired: true, reason: 'replaced' },
+          ipAddress: actor.ipAddress,
+        });
+      }
+      return retired;
     },
   };
 }

@@ -5,6 +5,10 @@ import { z } from 'zod';
 // Repo-root `.env` (src/config -> repo root is four levels up; same depth from dist/config).
 // Variables already present in the process environment win over the file.
 const ROOT_ENV_FILE = fileURLToPath(new URL('../../../../.env', import.meta.url));
+// Default folder for the LOCAL media storage driver (git-ignored), at the repo root.
+const DEFAULT_MEDIA_LOCAL_DIR = fileURLToPath(
+  new URL('../../../../.media-local/', import.meta.url),
+);
 
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const;
 
@@ -78,12 +82,66 @@ export const envSchema = z.object({
   HIDDEN_UNLOCK_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
   HIDDEN_UNLOCK_MAX_PER_IP: z.coerce.number().int().min(1).default(10),
   HIDDEN_UNLOCK_MAX_PER_PAGE: z.coerce.number().int().min(1).default(50),
+
+  // --- Media (Phase 3) ---
+  // 'local' = files on disk + signed routes on this API (dev/test, no keys). 'r2' = Cloudflare R2.
+  // Production requires 'r2'.
+  MEDIA_STORAGE_DRIVER: z.enum(['local', 'r2']).default('local'),
+  MEDIA_LOCAL_DIR: z.string().min(1).default(DEFAULT_MEDIA_LOCAL_DIR),
+  // Signs local upload/download URLs. Random per process when unset (dev only).
+  MEDIA_LOCAL_SECRET: z.string().min(MIN_SECRET_LENGTH).optional(),
+  // Public base URL of this API, used to build LOCAL media URLs.
+  API_PUBLIC_URL: z.url().default('http://localhost:4000'),
+  R2_ACCOUNT_ID: z.string().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  R2_PUBLIC_BUCKET: z.string().min(1).optional(),
+  R2_PRIVATE_BUCKET: z.string().min(1).optional(),
+  // CDN / public bucket domain for public media, e.g. https://media.example.com
+  R2_PUBLIC_BASE_URL: z.url().optional(),
+  // Media worker (pnpm worker:media). Paths can be absolute on Windows.
+  FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
+  FFPROBE_PATH: z.string().min(1).default('ffprobe'),
+  FFMPEG_X264_PRESET: z
+    .enum(['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow'])
+    .default('veryfast'),
+  FFMPEG_X264_CRF: z.coerce.number().int().min(0).max(51).default(23),
+  MEDIA_WORKER_POLL_MS: z.coerce.number().int().min(250).default(5_000),
+  // Scratch folder for processing (defaults to the OS temp folder).
+  MEDIA_TEMP_DIR: z.string().min(1).optional(),
+  MEDIA_UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
+  MEDIA_UPLOAD_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),
 });
+
+const R2_REQUIRED = [
+  'R2_ACCOUNT_ID',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_PUBLIC_BUCKET',
+  'R2_PRIVATE_BUCKET',
+  'R2_PUBLIC_BASE_URL',
+] as const;
 
 const refinedEnvSchema = envSchema
   .refine((env) => env.JWT_ACCESS_SECRET !== env.JWT_ADMIN_ACCESS_SECRET, {
     path: ['JWT_ADMIN_ACCESS_SECRET'],
     message: 'must differ from JWT_ACCESS_SECRET',
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.MEDIA_STORAGE_DRIVER === 'r2', {
+    path: ['MEDIA_STORAGE_DRIVER'],
+    message: "must be 'r2' in production",
+  })
+  .superRefine((env, ctx) => {
+    if (env.MEDIA_STORAGE_DRIVER !== 'r2') return;
+    for (const key of R2_REQUIRED) {
+      if (env[key] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: "is required when MEDIA_STORAGE_DRIVER is 'r2'",
+        });
+      }
+    }
   })
   .refine(
     (env) =>

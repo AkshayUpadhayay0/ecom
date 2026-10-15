@@ -17,6 +17,9 @@ coverage/
 npm-debug.log*
 pnpm-debug.log*
 
+# local media storage (MEDIA_STORAGE_DRIVER=local)
+.media-local/
+
 # OS / editor
 .DS_Store
 Thumbs.db

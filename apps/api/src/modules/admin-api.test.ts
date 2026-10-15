@@ -65,6 +65,13 @@ const ADMIN_ROUTES: [Method, string][] = [
   ['get', `/size-chart-groups/${ID}/charts`],
   ['get', `/size-charts/${ID}`],
   ['get', '/measurement-profiles'],
+  ['post', '/media/uploads'],
+  ['post', '/media/purge-retired'],
+  ['get', '/media'],
+  ['get', `/media/${ID}`],
+  ['get', `/media/${ID}/url`],
+  ['post', `/media/${ID}/complete`],
+  ['post', `/media/${ID}/purge`],
 ];
 
 describe.skipIf(!hasTestDatabase)('admin API access control', () => {

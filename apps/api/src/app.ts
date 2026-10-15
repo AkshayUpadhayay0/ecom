@@ -14,6 +14,12 @@ import { ADMIN_API_PATH, createAdminApiRouter } from './modules/admin-api.js';
 import { createAdminAuthModule } from './modules/admin-users/admin-auth.module.js';
 import { createCustomerAuthModule } from './modules/auth/auth.module.js';
 import { CUSTOMER_AUTH_PATH } from './modules/auth/auth.routes.js';
+import { buildMediaController } from './modules/media/media.module.js';
+import { CUSTOMER_MEDIA_PATH, createCustomerMediaRouter } from './modules/media/media.routes.js';
+import { createStorage, isLocalStorage } from './modules/media/storage/create-storage.js';
+import { LOCAL_MEDIA_PATH } from './modules/media/storage/local-storage.js';
+import { createLocalMediaRouter } from './modules/media/storage/local-media.routes.js';
+import type { StorageProvider } from './modules/media/storage/storage-provider.js';
 import { createHiddenPagesPublicRouter } from './modules/hidden-pages/hidden-pages.module.js';
 import { HIDDEN_PAGES_PATH } from './modules/hidden-pages/hidden-pages.routes.js';
 import { createHealthController } from './modules/health/health.controller.js';
@@ -29,10 +35,12 @@ export interface AppDeps {
   env: Env;
   logger: Logger;
   db: Database;
+  /** Injected in tests; otherwise built from MEDIA_STORAGE_DRIVER. */
+  storage?: StorageProvider;
 }
 
 /** Builds the Express app. Has no side effects (no listen), so tests can use it directly. */
-export function createApp({ env, logger, db }: AppDeps): Express {
+export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps): Express {
   const app = express();
   app.set('trust proxy', env.TRUST_PROXY);
 
@@ -68,10 +76,23 @@ export function createApp({ env, logger, db }: AppDeps): Express {
     basePath: API_BASE_PATH,
   });
   v1.use(CUSTOMER_AUTH_PATH, customerAuth.router);
+  const storage = injectedStorage ?? createStorage(env, API_BASE_PATH);
+  if (isLocalStorage(storage)) {
+    // MOCK presigned URLs for local dev/test (never with R2 / in production).
+    v1.use(LOCAL_MEDIA_PATH, createLocalMediaRouter(storage));
+  }
   const adminAuth = createAdminAuthModule({ env, db, logger, basePath: API_BASE_PATH });
   v1.use(ADMIN_AUTH_PATH, adminAuth.router);
   // Every other /admin route requires an admin token (mounted after /admin/auth).
-  v1.use(ADMIN_API_PATH, createAdminApiRouter({ env, db, requireAdmin: adminAuth.requireAdmin }));
+  v1.use(
+    ADMIN_API_PATH,
+    createAdminApiRouter({ env, db, storage, logger, requireAdmin: adminAuth.requireAdmin }),
+  );
+  v1.use(
+    CUSTOMER_MEDIA_PATH,
+    customerAuth.requireCustomer,
+    createCustomerMediaRouter(buildMediaController({ db, storage, logger })),
+  );
   v1.use(
     HIDDEN_PAGES_PATH,
     createHiddenPagesPublicRouter({

@@ -19,6 +19,9 @@ export type LimitSettingKey = {
   [K in SettingKey]: (typeof SETTING_DEFINITIONS)[K] extends { default: number } ? K : never;
 }[SettingKey];
 
+/** Settings holding an ascending list of pixel sizes (with a default). */
+export type DimensionListSettingKey = 'media.video_heights' | 'media.image_widths';
+
 /** Numeric settings with NO default: NULL means "no limit" (e.g. the optional product cap). */
 export type OptionalLimitSettingKey = 'catalog.max_active_products' | 'qr.grant_ttl_minutes';
 
@@ -30,6 +33,8 @@ export interface SettingsService {
    * (or invalid). Pass a transaction to read inside it.
    */
   getLimit(db: Database, key: LimitSettingKey): Promise<number>;
+  /** Current list, or its documented default while the stored value is NULL (or invalid). */
+  getDimensionList(db: Database, key: DimensionListSettingKey): Promise<number[]>;
   /** Current value, or null when the setting is NULL / unset ("no limit"). */
   getOptionalLimit(db: Database, key: OptionalLimitSettingKey): Promise<number | null>;
 }
@@ -96,6 +101,13 @@ export function createSettingsService({ db, repository }: SettingsServiceDeps): 
       const row = await repository.findByKey(executor, key);
       const result = definition.schema.safeParse(row?.value);
       return result.success ? result.data : definition.default;
+    },
+
+    async getDimensionList(executor, key) {
+      const definition = SETTING_DEFINITIONS[key];
+      const row = await repository.findByKey(executor, key);
+      const result = definition.schema.safeParse(row?.value);
+      return result.success ? result.data : [...definition.default];
     },
 
     async getOptionalLimit(executor, key) {

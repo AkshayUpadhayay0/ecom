@@ -11,6 +11,8 @@ const REDACT_PATHS = [
   '*.token',
   '*.refreshToken',
   '*.accessToken',
+  '*.secretAccessKey',
+  '*.R2_SECRET_ACCESS_KEY',
   // Hidden-page serial numbers are access secrets.
   '*.serial',
   'req.body',

@@ -94,6 +94,10 @@ export function createContentBlocksService(deps: ContentBlocksServiceDeps): Cont
       return mutate(actor, key, 'content_block.media_replace', async (trx, block) => {
         if (mediaAssetId !== null) await deps.media.assertReadyVideo(trx, mediaAssetId);
         await repository.touch(trx, block.id, actor.adminId, { mediaAssetId });
+        // Replaced hero media is kept (retired) unless something else still uses it.
+        if (block.mediaAssetId !== null && block.mediaAssetId !== mediaAssetId) {
+          await deps.media.retireUnreferenced(trx, actor, [block.mediaAssetId]);
+        }
       });
     },
   };

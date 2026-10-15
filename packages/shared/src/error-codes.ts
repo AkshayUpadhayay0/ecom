@@ -40,6 +40,13 @@ export const ERROR_CODES = [
   'UNKNOWN_SETTING',
   // Added in Phase 2b (hidden pages). One generic code for every serial failure.
   'SERIAL_NOT_VALID',
+  // Added in Phase 3 (media pipeline).
+  'UNSUPPORTED_MEDIA_TYPE',
+  'FILE_TOO_LARGE',
+  'UPLOAD_NOT_FOUND',
+  'UPLOAD_EXPIRED',
+  'UPLOAD_MISMATCH',
+  'MEDIA_IN_USE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

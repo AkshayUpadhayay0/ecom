@@ -312,18 +312,27 @@ export interface MeasurementTypes {
 
 export interface MediaAssets {
   created_at: Generated<Timestamp>;
+  dominant_color: string | null;
   duration_ms: number | null;
   height: number | null;
   id: Generated<string>;
   is_temporary: Generated<boolean>;
   kind: string;
   mime_type: string;
+  next_attempt_at: Timestamp | null;
+  original_filename: string | null;
   original_key: string;
   poster_asset_id: string | null;
+  processing_attempts: Generated<number>;
+  processing_error: string | null;
+  processing_started_at: Timestamp | null;
   processing_status: Generated<string>;
+  purged_at: Timestamp | null;
   retired_at: Timestamp | null;
   size_bytes: Int8;
   updated_at: Generated<Timestamp>;
+  upload_expires_at: Timestamp | null;
+  uploaded_at: Timestamp | null;
   uploaded_by: string | null;
   visibility: Generated<string>;
   width: number | null;

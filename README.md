@@ -63,6 +63,7 @@ pnpm admin:create     # create an admin account (prompts; password input is hidd
 | `pnpm db:codegen`                   | Regenerate Kysely DB types (run after every migration)     |
 | `pnpm db:test:setup`                | Create and prepare the integration-test database           |
 | `pnpm db:migrate`                   | Apply pending SQL migrations to `ecom`                     |
+| `pnpm worker:media`                 | Media processing worker (needs ffmpeg for videos)          |
 | `pnpm db:seed`                      | Apply re-runnable sample data from `db/seeds/` to `ecom`   |
 | `pnpm admin:create`                 | Create an admin account interactively                      |
 
@@ -203,6 +204,35 @@ a masked hint; no endpoint returns or lists serials. Set `SERIAL_HMAC_SECRET` (3
 - Unlock attempts are rate-limited per IP and per route token (`HIDDEN_UNLOCK_*`; only failed
   attempts count). Every attempt is recorded in `qr_access_events`; logs record the internal
   rejection reason, never the serial.
+
+## Media pipeline (Phase 3)
+
+Uploads go straight from the browser to storage; the API only signs URLs, verifies the object and
+queues processing. A separate worker turns uploads into renditions.
+
+| Endpoint (admin)                                                               | Notes                                                                                                                                                    |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/admin/media/uploads`                                             | `{ fileName, mimeType, sizeBytes, visibility?, isTemporary? }` -> asset (`pending`) + presigned `PUT` (exact type and size, short expiry). Rate-limited. |
+| `POST /api/v1/admin/media/:id/complete`                                        | HEAD + size/type + magic-byte check -> `uploaded` (queued). Idempotent.                                                                                  |
+| `GET /api/v1/admin/media`                                                      | `?kind=&status=&visibility=&mimeType=&retired=` paginated, with renditions                                                                               |
+| `GET /api/v1/admin/media/:id`                                                  | status, attempts, error, renditions (progress for the UI)                                                                                                |
+| `GET /api/v1/admin/media/:id/url`                                              | public: CDN URL; private: short-lived signed URL                                                                                                         |
+| `POST /api/v1/admin/media/:id/purge`, `POST /api/v1/admin/media/purge-retired` | super admin; deletes files of retired, unreferenced media (rows kept)                                                                                    |
+| `GET /api/v1/me/media/:id/url`                                                 | customer; signed URL for their own private return evidence only                                                                                          |
+
+- **Types**: video/mp4, video/quicktime, video/webm, image/jpeg, image/png, image/webp. Size limits
+  and all processing values are settings (`media.*`, seeded by migration 0004).
+- **Storage**: `MEDIA_STORAGE_DRIVER=local` (default; files in `.media-local/`, signed routes on
+  this API, MOCK presigning for dev/test) or `r2` (required in production). Private media lives in
+  the private bucket and is never given a public URL.
+- **Worker**: `pnpm worker:media` (second terminal). Claims jobs with `FOR UPDATE SKIP LOCKED`, so
+  several workers can run. Videos -> MP4 H.264/AAC at 480/720/1080 by the short side (never
+  upscaled), poster JPEG, muted preview loop. Images -> WebP widths + dominant colour (no blurhash).
+  Retries with exponential backoff; abandoned jobs are requeued after the lease.
+- **FFmpeg** (videos only): `winget install --id Gyan.FFmpeg -e` (or `choco install ffmpeg`), open
+  a new terminal, check `ffmpeg -version`. Without it the worker processes images only and says so.
+- **Replace**: assigning new product/hero media retires the old asset if nothing else uses it (kept
+  for history; files removed only by purge).
 
 ## Tests
 

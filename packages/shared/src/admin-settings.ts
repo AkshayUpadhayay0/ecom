@@ -2,6 +2,19 @@ import { z } from 'zod';
 import { MAX_PAGE_SIZE } from './admin-common.js';
 
 const MINUTES_PER_DAY = 24 * 60;
+const SECONDS_PER_DAY = 24 * 60 * 60;
+/** Technical ceiling for any single upload (5 GB, the S3 single-PUT limit). */
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
+const MAX_DIMENSION = 7680;
+/** Ascending list of pixel sizes (rendition heights / image widths). */
+const dimensionListSchema = z
+  .array(z.number().int().min(16).max(MAX_DIMENSION))
+  .min(1)
+  .max(10)
+  .refine(
+    (list) => list.every((value, i) => i === 0 || value > (list[i - 1] ?? 0)),
+    'must be ascending',
+  );
 const MAX_SOCIAL_LINKS = 20;
 const MAX_PALETTE_TOKENS = 30;
 
@@ -30,6 +43,35 @@ export const SETTING_DEFINITIONS = {
       .min(1)
       .max(30 * MINUTES_PER_DAY),
   },
+  // Media pipeline (Phase 3) [TEAM DESIGN values, seeded by migration 0004].
+  'media.max_video_bytes': {
+    schema: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
+    default: 524_288_000,
+  },
+  'media.max_image_bytes': {
+    schema: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
+    default: 20_971_520,
+  },
+  'media.upload_url_ttl_seconds': {
+    schema: z.number().int().min(60).max(SECONDS_PER_DAY),
+    default: 900,
+  },
+  'media.private_url_ttl_seconds': {
+    schema: z.number().int().min(30).max(SECONDS_PER_DAY),
+    default: 300,
+  },
+  'media.processing_max_attempts': { schema: z.number().int().min(1).max(20), default: 3 },
+  'media.processing_backoff_seconds': {
+    schema: z.number().int().min(1).max(SECONDS_PER_DAY),
+    default: 60,
+  },
+  'media.processing_lease_seconds': {
+    schema: z.number().int().min(60).max(SECONDS_PER_DAY),
+    default: 900,
+  },
+  'media.preview_seconds': { schema: z.number().int().min(1).max(60), default: 6 },
+  'media.video_heights': { schema: dimensionListSchema, default: [480, 720, 1080] },
+  'media.image_widths': { schema: dimensionListSchema, default: [320, 640, 1280, 1920] },
   // Pending Client Decisions: no defaults, NULL until the client supplies them.
   'support.email': { schema: z.email().max(254) },
   'support.phone': { schema: phoneSchema },
