@@ -24,6 +24,7 @@ export interface HiddenPageCookieConfig {
 
 export interface HiddenPagesController {
   getState: RequestHandler;
+  getContent: RequestHandler;
   unlock: RequestHandler;
 }
 
@@ -73,6 +74,15 @@ export function createHiddenPagesController(
         res,
         HTTP_STATUS.OK,
         await service.getState(routeTokenOf(req), visitorOf(req, cookie)),
+      );
+    },
+
+    getContent: async (req, res) => {
+      setPrivacyHeaders(res);
+      sendData(
+        res,
+        HTTP_STATUS.OK,
+        await service.getContent(routeTokenOf(req), visitorOf(req, cookie)),
       );
     },
 

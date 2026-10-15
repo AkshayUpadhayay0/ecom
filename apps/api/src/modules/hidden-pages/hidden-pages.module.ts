@@ -22,6 +22,7 @@ export interface HiddenPagesModuleDeps {
     | 'HIDDEN_UNLOCK_WINDOW_MS'
     | 'HIDDEN_UNLOCK_MAX_PER_IP'
     | 'HIDDEN_UNLOCK_MAX_PER_PAGE'
+    | 'HIDDEN_UNLOCK_FAILURE_DELAY_MS'
   >;
   db: Database;
   logger: Logger;
@@ -39,6 +40,7 @@ export function createHiddenPagesPublicRouter(deps: HiddenPagesModuleDeps): Rout
     serials: createSerialsRepository(),
     hasher: createSerialHasher(env.SERIAL_HMAC_SECRET),
     logger: deps.logger,
+    failureDelayMs: env.HIDDEN_UNLOCK_FAILURE_DELAY_MS,
   });
   const cookie = {
     name: HIDDEN_PAGE_COOKIE,

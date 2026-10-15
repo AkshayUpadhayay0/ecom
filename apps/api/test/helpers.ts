@@ -30,6 +30,10 @@ export function makeTestEnv(overrides: Partial<Record<keyof Env, string>> = {}):
     ...TEST_SECRETS,
     // Most tests make many auth calls from one IP; the rate-limit test lowers this.
     AUTH_RATE_LIMIT_MAX: '10000',
+    // No artificial pause on failed hidden-page unlocks, and room for many public requests;
+    // tests that check these override them.
+    HIDDEN_UNLOCK_FAILURE_DELAY_MS: '0',
+    PUBLIC_RATE_LIMIT_MAX: '100000',
     ...overrides,
   });
 }

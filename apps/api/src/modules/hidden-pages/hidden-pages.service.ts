@@ -1,4 +1,4 @@
-import type { HiddenPageStateDto } from '@urban-ibile/shared';
+import type { HiddenPageContentResultDto, HiddenPageStateDto } from '@urban-ibile/shared';
 import type { Logger } from 'pino';
 import type { Database } from '../../db/database.js';
 import { AppError, notFoundError } from '../../lib/errors.js';
@@ -34,8 +34,10 @@ export interface UnlockResult {
 }
 
 export interface HiddenPagesService {
-  /** Unknown/unpublished token -> 404. Otherwise locked state or the content. */
+  /** Unknown/unpublished token -> 404. Otherwise the lock state and a generic title only. */
   getState(routeToken: string, visitor: VisitorContext): Promise<HiddenPageStateDto>;
+  /** The page content only when a valid grant covers this page; otherwise the locked state. */
+  getContent(routeToken: string, visitor: VisitorContext): Promise<HiddenPageContentResultDto>;
   /**
    * Validates an exact serial (trim only) for this page. GENERAL: only its own page (never an
    * exclusive-only page). EXCLUSIVE: every page. Success stores a grant for this browser (and the
@@ -53,10 +55,17 @@ export interface HiddenPagesServiceDeps {
   serials: SerialsRepository;
   hasher: SerialHasher;
   logger: Logger;
+  /** Pause before answering a failed unlock (slows serial guessing). */
+  failureDelayMs: number;
 }
 
-function unlocked(page: HiddenPageRow): HiddenPageStateDto {
-  return { locked: false, page: { title: page.title ?? '', body: page.body ?? '' } };
+/** Generic title: reveals nothing about the page's content. Assumption: wording owned by the UI. */
+function stateOf(page: HiddenPageRow, locked: boolean): HiddenPageStateDto {
+  return { locked, pageNumber: page.slotNumber, title: `Hidden page ${page.slotNumber}` };
+}
+
+function delay(ms: number): Promise<void> {
+  return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
 }
 
 function serialRejected(): AppError {
@@ -91,6 +100,18 @@ export function createHiddenPagesService(deps: HiddenPagesServiceDeps): HiddenPa
     return page;
   }
 
+  async function hasAccess(page: HiddenPageRow, visitor: VisitorContext): Promise<boolean> {
+    return access.hasAccess(
+      db,
+      {
+        browserTokenHash:
+          visitor.browserToken === undefined ? null : hashBrowserToken(visitor.browserToken),
+        customerId: visitor.customerId,
+      },
+      page.id,
+    );
+  }
+
   async function reject(
     page: HiddenPageRow,
     visitor: VisitorContext,
@@ -98,6 +119,7 @@ export function createHiddenPagesService(deps: HiddenPagesServiceDeps): HiddenPa
     serialId: string | null,
   ): Promise<never> {
     await log(db, page, 'SERIAL_REJECTED', visitor, serialId);
+    await delay(deps.failureDelayMs);
     // The reason helps support/abuse review; the serial itself is never logged.
     deps.logger.warn(
       { pageSlot: page.slotNumber, reason, serialId },
@@ -109,14 +131,23 @@ export function createHiddenPagesService(deps: HiddenPagesServiceDeps): HiddenPa
   return {
     async getState(routeToken, visitor) {
       const page = await findPage(routeToken, visitor);
-      const holder = {
-        browserTokenHash:
-          visitor.browserToken === undefined ? null : hashBrowserToken(visitor.browserToken),
-        customerId: visitor.customerId,
+      const allowed = await hasAccess(page, visitor);
+      await log(db, page, allowed ? 'GRANT_VALID' : 'PAGE_LOCKED', visitor);
+      return stateOf(page, !allowed);
+    },
+
+    async getContent(routeToken, visitor) {
+      const page = await findPage(routeToken, visitor);
+      if (!(await hasAccess(page, visitor))) {
+        await log(db, page, 'PAGE_LOCKED', visitor);
+        return { ...stateOf(page, true), locked: true };
+      }
+      await log(db, page, 'PAGE_SERVED', visitor);
+      return {
+        ...stateOf(page, false),
+        locked: false,
+        page: { title: page.title ?? '', body: page.body ?? '' },
       };
-      const allowed = await access.hasAccess(db, holder, page.id);
-      await log(db, page, allowed ? 'PAGE_SERVED' : 'PAGE_LOCKED', visitor);
-      return allowed ? unlocked(page) : { locked: true };
     },
 
     async unlock(routeToken, serial, visitor) {
@@ -144,7 +175,7 @@ export function createHiddenPagesService(deps: HiddenPagesServiceDeps): HiddenPa
         await log(trx, page, 'SERIAL_ACCEPTED', visitor, found.id);
       });
       return {
-        state: unlocked(page),
+        state: stateOf(page, false),
         newBrowserToken: visitor.browserToken === undefined ? browserToken : undefined,
       };
     },

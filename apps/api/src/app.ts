@@ -1,5 +1,5 @@
 import cookieParser from 'cookie-parser';
-import express, { type Express } from 'express';
+import express, { type Express, type RequestHandler } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import type { Env } from './config/env.js';
@@ -22,6 +22,18 @@ import { createLocalMediaRouter } from './modules/media/storage/local-media.rout
 import type { StorageProvider } from './modules/media/storage/storage-provider.js';
 import { createHiddenPagesPublicRouter } from './modules/hidden-pages/hidden-pages.module.js';
 import { HIDDEN_PAGES_PATH } from './modules/hidden-pages/hidden-pages.routes.js';
+import { createPublicCatalogController } from './modules/catalog/public-catalog.controller.js';
+import { createPublicCatalogRepository } from './modules/catalog/public-catalog.repository.js';
+import {
+  PUBLIC_CATALOG_PATH,
+  createPublicCatalogRouter,
+} from './modules/catalog/public-catalog.routes.js';
+import { createPublicCatalogService } from './modules/catalog/public-catalog.service.js';
+import { createSiteConfigRepository } from './modules/content/site-config.repository.js';
+import { SITE_PATH, createSiteConfigRouter } from './modules/content/site-config.routes.js';
+import { createSiteConfigService } from './modules/content/site-config.service.js';
+import { createSettingsRepository } from './modules/settings/settings.repository.js';
+import { createSettingsService } from './modules/settings/settings.service.js';
 import { createHealthController } from './modules/health/health.controller.js';
 import { createHealthRepository } from './modules/health/health.repository.js';
 import { HEALTH_PATH, createHealthRouter } from './modules/health/health.routes.js';
@@ -92,6 +104,33 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
     CUSTOMER_MEDIA_PATH,
     customerAuth.requireCustomer,
     createCustomerMediaRouter(buildMediaController({ db, storage, logger })),
+  );
+  // Public storefront (no login): stricter per-IP limit, short shared caching + ETags.
+  const publicLimit = (): RequestHandler =>
+    apiRateLimit({ windowMs: env.PUBLIC_RATE_LIMIT_WINDOW_MS, max: env.PUBLIC_RATE_LIMIT_MAX });
+  const settings = createSettingsService({ db, repository: createSettingsRepository() });
+  v1.use(
+    PUBLIC_CATALOG_PATH,
+    createPublicCatalogRouter(
+      createPublicCatalogController(
+        createPublicCatalogService({
+          db,
+          repository: createPublicCatalogRepository(),
+          storage,
+          settings,
+        }),
+        env.PUBLIC_CACHE_MAX_AGE_SECONDS,
+      ),
+      publicLimit(),
+    ),
+  );
+  v1.use(
+    SITE_PATH,
+    createSiteConfigRouter(
+      createSiteConfigService({ db, repository: createSiteConfigRepository(), storage }),
+      publicLimit(),
+      env.PUBLIC_CACHE_MAX_AGE_SECONDS,
+    ),
   );
   v1.use(
     HIDDEN_PAGES_PATH,

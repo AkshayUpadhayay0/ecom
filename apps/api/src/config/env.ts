@@ -82,6 +82,15 @@ export const envSchema = z.object({
   HIDDEN_UNLOCK_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
   HIDDEN_UNLOCK_MAX_PER_IP: z.coerce.number().int().min(1).default(10),
   HIDDEN_UNLOCK_MAX_PER_PAGE: z.coerce.number().int().min(1).default(50),
+  // Pause before a failed unlock answer (slows guessing; also counted by the limits above).
+  HIDDEN_UNLOCK_FAILURE_DELAY_MS: z.coerce.number().int().min(0).max(5_000).default(400),
+
+  // --- Public storefront API (Phase 4) ---
+  // Per-IP limit for /catalog, /site (stricter than the global /api/v1 limit used by admin).
+  PUBLIC_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  PUBLIC_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
+  // Cache-Control max-age for catalog/site responses (ETags make revalidation cheap).
+  PUBLIC_CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
 
   // --- Media (Phase 3) ---
   // 'local' = files on disk + signed routes on this API (dev/test, no keys). 'r2' = Cloudflare R2.

@@ -11,6 +11,7 @@ Read this file fully before every task. Source documents live in the repo:
 - `db/migrations/0002_requirements_v2.sql` - Return/Exchange base tables, first Blueprint design (SUPERSEDED in part by 0003)
 - `db/migrations/0003_backend_design_9oct.sql` - measurement-based Blueprint, Fault-Line workflow, serial-gated hidden pages (applied by `pnpm db:migrate`; `schema_migrations` tracks every file by name + checksum)
 - `db/migrations/0004_media_pipeline.sql` - media upload lifecycle columns ('uploaded' status, attempts/backoff/lease, purge) and `media.*` settings
+- `db/migrations/0005_catalog_indexes.sql` - partial indexes for storefront sort orders
 - `db/seeds/obsolete/seed_0002_blueprint_qr.sql` - OBSOLETE (height/weight sample rules). Not run by the seed runner.
 - `db/seeds/seed_0003_charts.sql` - the client's real size charts (inches), measurement profiles, default return policy, hidden-page placeholders (`pnpm db:seed`; re-runnable)
 - `db/seed_v2.sql` - seed data (sample values are flagged)

@@ -5,6 +5,7 @@ import type {
   ApiErrorBody,
   ApiList,
   CustomerAuthDto,
+  HiddenPageContentResultDto,
   HiddenPageStateDto,
   SerialDto,
   SerialImportResultDto,
@@ -259,7 +260,7 @@ describe.skipIf(!hasTestDatabase)('hidden pages and serial access', () => {
       expect((await request(app).get(`${PAGES}/not-a-real-token`)).status).toBe(404);
       const locked = await getPage(1);
       expect(locked.status).toBe(200);
-      expect(stateOf(locked)).toEqual({ locked: true });
+      expect(stateOf(locked)).toEqual({ locked: true, pageNumber: 1, title: 'Hidden page 1' });
       expect(locked.headers['x-robots-tag']).toBe('noindex, nofollow');
       expect(locked.headers['cache-control']).toBe('no-store');
     });
@@ -268,10 +269,8 @@ describe.skipIf(!hasTestDatabase)('hidden pages and serial access', () => {
       const browser = request.agent(app);
       const res = await unlock(1, SERIALS.generalPage1, browser);
       expect(res.status).toBe(200);
-      expect(stateOf(res)).toMatchObject({
-        locked: false,
-        page: { title: expect.any(String) as string },
-      });
+      // State answers never carry the content (that is GET /:routeToken/content).
+      expect(stateOf(res)).toEqual({ locked: false, pageNumber: 1, title: 'Hidden page 1' });
       const cookie = String(res.headers['set-cookie']);
       expect(cookie).toMatch(/^ui_hp=/);
       expect(cookie).toMatch(/HttpOnly/);
@@ -357,6 +356,47 @@ describe.skipIf(!hasTestDatabase)('hidden pages and serial access', () => {
       expect(await auditCount(ctx(), { action: 'serial.deactivate' })).toBe(1);
     });
 
+    it('serves content only with a grant for that page; otherwise the same locked answer', async () => {
+      const contentOf = async (slot: number, browser?: request.Agent) => {
+        const path = `${PAGES}/${page(slot).routeToken}/content`;
+        const res = await (browser ? browser.get(path) : request(app).get(path));
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        return bodyOf<ApiData<HiddenPageContentResultDto>>(res).data;
+      };
+      expect(await contentOf(1)).toEqual({ locked: true, pageNumber: 1, title: 'Hidden page 1' });
+
+      const browser = request.agent(app);
+      await unlock(1, SERIALS.generalPage1, browser);
+      const unlocked = await contentOf(1, browser);
+      expect(unlocked.locked).toBe(false);
+      expect('page' in unlocked && unlocked.page.body.length > 0).toBe(true);
+      // Same browser, another page: locked answer, no content.
+      expect(await contentOf(2, browser)).toEqual({
+        locked: true,
+        pageNumber: 2,
+        title: 'Hidden page 2',
+      });
+      // The grant persists: a later request with the same cookie still gets the content.
+      expect((await contentOf(1, browser)).locked).toBe(false);
+      // Without the cookie (copied URL), no content.
+      expect((await contentOf(1)).locked).toBe(true);
+      expect((await request(app).get(`${PAGES}/no-such-token/content`)).status).toBe(404);
+    });
+
+    it('pauses before answering a failed unlock (configurable delay)', async () => {
+      const slow = buildApp(
+        makeTestEnv({ RATE_LIMIT_MAX: '100000', HIDDEN_UNLOCK_FAILURE_DELAY_MS: '250' }),
+        db,
+      );
+      const started = Date.now();
+      const res = await request(slow.app)
+        .post(`${PAGES}/${page(1).routeToken}/unlock`)
+        .send({ serial: 'NOPE-NOPE' });
+      expect(res.status).toBe(403);
+      expect(Date.now() - started).toBeGreaterThanOrEqual(240);
+    });
+
     it('remembers the signed-in customer so another browser of the same account is unlocked', async () => {
       const registered = await request(app).post('/api/v1/auth/register').send({
         email: 'hidden-page-fan@example.com',
@@ -412,9 +452,12 @@ describe.skipIf(!hasTestDatabase)('hidden pages and serial access', () => {
       expect(row.route_token).toBe(target.routeToken);
 
       const browser = request.agent(app);
-      const unlocked = await unlock(2, SERIALS.generalPage2, browser);
-      expect(stateOf(unlocked)).toEqual({
+      expect((await unlock(2, SERIALS.generalPage2, browser)).status).toBe(200);
+      const content = await browser.get(`${PAGES}/${target.routeToken}/content`);
+      expect(bodyOf<ApiData<HiddenPageContentResultDto>>(content).data).toEqual({
         locked: false,
+        pageNumber: 2,
+        title: 'Hidden page 2',
         page: { title: 'The Lagos Story', body: 'Final write-up for page 2.' },
       });
       expect(

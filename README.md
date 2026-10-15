@@ -234,6 +234,14 @@ queues processing. A separate worker turns uploads into renditions.
 - **Replace**: assigning new product/hero media retires the old asset if nothing else uses it (kept
   for history; files removed only by purge).
 
+## Public storefront API (Phase 4)
+
+Framework-neutral endpoints for the website and the mobile app, documented with example responses
+in [docs/public-api.md](docs/public-api.md): `GET /catalog/products`, `GET /catalog/search?q=`,
+`GET /catalog/products/:idOrSlug`, `GET /catalog/clothing-types`, `GET /site/config`, and the
+hidden-page routes (`GET /hidden-pages/:routeToken`, `POST …/unlock`, `GET …/content`). No login;
+stricter per-IP limit (`PUBLIC_RATE_LIMIT_*`); `Cache-Control` + ETag/304 on catalogue and site.
+
 ## Tests
 
 - Unit and HTTP tests run without a database.

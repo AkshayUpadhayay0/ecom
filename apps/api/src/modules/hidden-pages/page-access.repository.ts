@@ -4,6 +4,7 @@ import type { Database } from '../../db/database.js';
 /** qr_access_events.outcome values used by the serial flow (CHECK-constrained in the DB). */
 export type AccessOutcome =
   | 'INVALID_TOKEN'
+  | 'GRANT_VALID'
   | 'PAGE_LOCKED'
   | 'PAGE_SERVED'
   | 'SERIAL_ACCEPTED'

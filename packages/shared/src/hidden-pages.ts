@@ -30,8 +30,21 @@ export interface HiddenPageContentDto {
   body: string;
 }
 
-/** GET/POST answer: locked pages reveal nothing but their lock state. */
-export type HiddenPageStateDto = { locked: true } | { locked: false; page: HiddenPageContentDto };
+/**
+ * GET /:routeToken and POST /:routeToken/unlock: the lock state for THIS browser (or signed-in
+ * customer) and a generic title only. Never the page content.
+ */
+export interface HiddenPageStateDto {
+  locked: boolean;
+  pageNumber: number;
+  /** Generic, non-revealing title ("Hidden page 3"). */
+  title: string;
+}
+
+/** GET /:routeToken/content: the content only with a valid grant, else the locked state. */
+export type HiddenPageContentResultDto =
+  | (HiddenPageStateDto & { locked: true })
+  | (HiddenPageStateDto & { locked: false; page: HiddenPageContentDto });
 
 // ---------- Admin ----------
 

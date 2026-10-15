@@ -21,6 +21,7 @@ export interface HiddenPagesRouteDeps {
 export function createHiddenPagesRouter(deps: HiddenPagesRouteDeps): Router {
   const router = Router();
   router.get('/:routeToken', deps.optionalCustomer, deps.controller.getState);
+  router.get('/:routeToken/content', deps.optionalCustomer, deps.controller.getContent);
   router.post(
     '/:routeToken/unlock',
     ...deps.unlockLimits,
