@@ -35,6 +35,8 @@ import {
 } from '../../../test/helpers.js';
 import { createReservationsRepository } from '../inventory/reservations.repository.js';
 import { createOrdersRepository } from '../orders/orders.repository.js';
+import { createSettingsRepository } from '../settings/settings.repository.js';
+import { createSettingsService } from '../settings/settings.service.js';
 import { releaseExpiredReservations } from './reservation-expiry.js';
 
 const API = '/api/v1';
@@ -199,6 +201,7 @@ describe.skipIf(!hasTestDatabase)('Cart, delivery quote, checkout and orders', (
     db: ctx.db,
     orders: createOrdersRepository(),
     reservations: createReservationsRepository(),
+    settings: createSettingsService({ db: ctx.db, repository: createSettingsRepository() }),
     logger: pino({ level: 'silent' }),
   });
 

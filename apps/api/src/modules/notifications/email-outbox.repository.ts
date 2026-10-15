@@ -20,7 +20,11 @@ export interface OutboxEmail {
 }
 
 export interface EmailOutboxRepository {
-  enqueue(db: Database, email: NewOutboxEmail): Promise<void>;
+  /**
+   * Queues an email. Returns false when a unique rule already holds one (one order_confirmation
+   * per order: uq_outbox_order_confirmation), so repeats never send twice.
+   */
+  enqueue(db: Database, email: NewOutboxEmail): Promise<boolean>;
   /** Locks due rows; concurrent workers skip each other's rows. Call inside a transaction. */
   claimDue(trx: Database, limit: number): Promise<OutboxEmail[]>;
   markSent(trx: Database, id: string, scrubPayload: boolean): Promise<void>;
@@ -38,7 +42,7 @@ const MAX_ERROR_LENGTH = 1000;
 export function createEmailOutboxRepository(): EmailOutboxRepository {
   return {
     async enqueue(db, email) {
-      await db
+      const result = await db
         .insertInto('email_outbox')
         .values({
           template: email.template,
@@ -47,7 +51,9 @@ export function createEmailOutboxRepository(): EmailOutboxRepository {
           payload: JSON.stringify(email.payload),
           order_id: email.orderId ?? null,
         })
-        .execute();
+        .onConflict((oc) => oc.doNothing())
+        .executeTakeFirst();
+      return Number(result.numInsertedOrUpdatedRows ?? 0) > 0;
     },
 
     async claimDue(trx, limit) {

@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import type {
+  OrderPaymentDto,
   OrderDto,
   OrderFitSummaryDto,
   OrderItemDto,
   OrderSummaryDto,
 } from '@urban-ibile/shared';
 import { int8ToNumber } from '../../lib/db-errors.js';
+import type { PaymentRow } from '../payments/payments.repository.js';
 import type { OrderItemRow, OrderRow } from './orders.repository.js';
 
 /** The readable part of order_items.fit_snapshot (written by checkout). */
@@ -52,8 +54,31 @@ export function toOrderSummaryDto(row: OrderRow & { itemCount: number }): OrderS
   return { ...baseOf(row), itemCount: row.itemCount };
 }
 
-/** Customer view: never includes internal_note or reservation internals beyond the expiry. */
-export function toOrderDto(row: OrderRow, items: readonly OrderItemRow[]): OrderDto {
+function toPaymentDto(row: OrderRow, latest: PaymentRow | undefined): OrderPaymentDto {
+  return {
+    status: row.paymentStatus,
+    latestAttempt: latest
+      ? {
+          reference: latest.reference,
+          status: latest.status,
+          failureReason: latest.failureReason,
+          channel: latest.channel,
+          createdAt: latest.createdAt.toISOString(),
+          paidAt: latest.paidAt?.toISOString() ?? null,
+        }
+      : null,
+  };
+}
+
+/**
+ * Customer view: never includes internal_note, provider payloads or card data; the payment part
+ * is the order's payment status and the latest attempt's state only.
+ */
+export function toOrderDto(
+  row: OrderRow,
+  items: readonly OrderItemRow[],
+  latestPayment?: PaymentRow,
+): OrderDto {
   return {
     ...baseOf(row),
     subtotalMinor: int8ToNumber(row.subtotalMinor),
@@ -71,5 +96,6 @@ export function toOrderDto(row: OrderRow, items: readonly OrderItemRow[]): Order
     items: items.map(toOrderItemDto),
     reservationExpiresAt: row.reservationExpiresAt?.toISOString() ?? null,
     cancelReason: row.cancelReason,
+    payment: toPaymentDto(row, latestPayment),
   };
 }

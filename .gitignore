@@ -19,6 +19,8 @@ pnpm-debug.log*
 
 # local media storage (MEDIA_STORAGE_DRIVER=local)
 .media-local/
+.mock-payments/
+.mock-emails/
 
 # OS / editor
 .DS_Store

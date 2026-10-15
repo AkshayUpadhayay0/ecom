@@ -4,6 +4,7 @@ import { notFoundError } from '../../lib/errors.js';
 import { type Page, toPageMeta, toPageRequest } from '../../lib/pagination.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import { toOrderDto, toOrderSummaryDto } from './orders.dto.js';
+import type { PaymentsRepository } from '../payments/payments.repository.js';
 import type { OrdersRepository } from './orders.repository.js';
 
 export interface CustomerOrdersService {
@@ -15,9 +16,10 @@ export interface CustomerOrdersService {
 export function createCustomerOrdersService(deps: {
   db: Database;
   repository: OrdersRepository;
+  payments: PaymentsRepository;
   settings: SettingsService;
 }): CustomerOrdersService {
-  const { db, repository, settings } = deps;
+  const { db, repository, payments, settings } = deps;
   return {
     async list(customerId, query) {
       const page = toPageRequest(query, await settings.getLimit(db, 'catalog.page_size'));
@@ -28,7 +30,11 @@ export function createCustomerOrdersService(deps: {
     async get(customerId, orderId) {
       const row = await repository.findOwned(db, orderId, customerId);
       if (!row) throw notFoundError('Order');
-      return toOrderDto(row, await repository.items(db, [row.id]));
+      const [items, latest] = await Promise.all([
+        repository.items(db, [row.id]),
+        payments.latestForOrders(db, [row.id]),
+      ]);
+      return toOrderDto(row, items, latest.get(row.id));
     },
   };
 }

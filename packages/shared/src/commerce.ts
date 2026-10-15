@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { MAX_PAGE_SIZE } from './admin-common.js';
 import { AUTH_CLIENTS, emailSchema } from './auth.js';
 import type { SelectionMode } from './blueprint.js';
+import type { OrderPaymentDto } from './payments.js';
 
 /*
  * Customer commerce contract (cart, addresses, delivery quote, checkout, orders). Money is
@@ -219,4 +220,5 @@ export interface OrderDto extends Omit<OrderSummaryDto, 'itemCount'> {
   /** Stock is held until then (pending payment only). */
   reservationExpiresAt: string | null;
   cancelReason: string | null;
+  payment: OrderPaymentDto;
 }

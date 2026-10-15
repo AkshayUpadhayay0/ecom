@@ -47,6 +47,14 @@ import { HEALTH_PATH, createHealthRouter } from './modules/health/health.routes.
 import { createHealthService } from './modules/health/health.service.js';
 import { createEmailOutboxRepository } from './modules/notifications/email-outbox.repository.js';
 import { createCommerceRouter } from './modules/commerce.module.js';
+import {
+  MOCK_CHECKOUT_PATH,
+  PAYMENTS_PATH,
+  PAYSTACK_WEBHOOK_PATH,
+  createPaymentsModule,
+} from './modules/payments/payments.module.js';
+import { createPaymentProvider } from './modules/payments/provider/create-provider.js';
+import type { PaymentProvider } from './modules/payments/provider/payment-provider.js';
 
 export const API_BASE_PATH = '/api/v1';
 const JSON_BODY_LIMIT = '100kb';
@@ -57,10 +65,18 @@ export interface AppDeps {
   db: Database;
   /** Injected in tests; otherwise built from MEDIA_STORAGE_DRIVER. */
   storage?: StorageProvider;
+  /** Injected in tests; otherwise built from PAYMENT_PROVIDER. */
+  paymentProvider?: PaymentProvider;
 }
 
 /** Builds the Express app. Has no side effects (no listen), so tests can use it directly. */
-export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps): Express {
+export function createApp({
+  env,
+  logger,
+  db,
+  storage: injectedStorage,
+  paymentProvider,
+}: AppDeps): Express {
   const app = express();
   app.set('trust proxy', env.TRUST_PROXY);
 
@@ -72,6 +88,8 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
   // router below; the module is built later with the customer guard.
   const webhookSlot = express.Router();
   app.use(`${API_BASE_PATH}${BODY_SCAN_WEBHOOK_PATH}`, webhookSlot);
+  const paystackWebhookSlot = express.Router();
+  app.use(`${API_BASE_PATH}${PAYSTACK_WEBHOOK_PATH}`, paystackWebhookSlot);
 
   const v1 = express.Router();
   v1.use(
@@ -81,8 +99,7 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
       skipPaths: [HEALTH_PATH],
     }),
   );
-  // NOTE (Phase 6): the Paystack webhook route needs the raw body and must be mounted
-  // with express.raw() BEFORE this JSON parser.
+  // The Paystack webhook (raw body for the HMAC) is mounted above, before this JSON parser.
   v1.use(express.json({ limit: JSON_BODY_LIMIT }));
   v1.use(cookieParser());
 
@@ -175,6 +192,21 @@ export function createApp({ env, logger, db, storage: injectedStorage }: AppDeps
       requireCustomer: customerAuth.requireCustomer,
     }),
   );
+
+  const payments = createPaymentsModule({
+    env,
+    db,
+    logger,
+    settings,
+    provider: paymentProvider ?? createPaymentProvider(env, API_BASE_PATH),
+    requireCustomer: customerAuth.requireCustomer,
+  });
+  paystackWebhookSlot.use(payments.webhookRouter);
+  if (payments.mockCheckoutRouter) {
+    // MOCK dev checkout page (PAYMENT_PROVIDER=mock only; refused in production).
+    v1.use(MOCK_CHECKOUT_PATH, payments.mockCheckoutRouter);
+  }
+  v1.use(PAYMENTS_PATH, payments.router);
 
   app.use(API_BASE_PATH, v1);
   app.use(notFound);

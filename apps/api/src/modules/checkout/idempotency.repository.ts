@@ -21,6 +21,8 @@ export interface IdempotencyRepository {
     db: Database,
     input: { scope: string; key: string; subjectId: string; status: number; body: unknown },
   ): Promise<void>;
+  /** Forgets a claim whose work failed outside a transaction, so the key can be retried. */
+  release(db: Database, input: { scope: string; key: string; subjectId: string }): Promise<void>;
 }
 
 export function createIdempotencyRepository(): IdempotencyRepository {
@@ -49,6 +51,15 @@ export function createIdempotencyRepository(): IdempotencyRepository {
       await db
         .updateTable('idempotency_keys')
         .set({ response_status: input.status, response_body: JSON.stringify(input.body) })
+        .where('scope', '=', input.scope)
+        .where('idem_key', '=', input.key)
+        .where('subject_id', '=', input.subjectId)
+        .execute();
+    },
+
+    async release(db, input) {
+      await db
+        .deleteFrom('idempotency_keys')
         .where('scope', '=', input.scope)
         .where('idem_key', '=', input.key)
         .where('subject_id', '=', input.subjectId)

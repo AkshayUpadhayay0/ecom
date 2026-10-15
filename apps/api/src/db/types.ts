@@ -448,8 +448,10 @@ export interface Payments {
   channel: string | null;
   created_at: Generated<Timestamp>;
   currency: string;
+  failure_reason: string | null;
   gateway_response: string | null;
   id: Generated<string>;
+  last_checked_at: Timestamp | null;
   order_id: string;
   paid_at: Timestamp | null;
   provider: Generated<string>;

@@ -5,8 +5,8 @@ Base path `/api/v1`. Every route here needs a **customer** access token
 (kobo). Currency comes from the setting `store.currency` (**Assumption: NGN**). Errors use the usual
 shape `{ error: { code, message, details?, requestId } }`.
 
-Payment is **not** part of this phase (Phase 6). An order created here stays
-`pending_payment` / `unpaid`.
+Payment is Phase 6: see [payments-api.md](payments-api.md). An order created here stays
+`pending_payment` / `unpaid` until a provider-verified payment confirms it.
 
 ## Addresses: `/me/addresses`
 
@@ -55,7 +55,7 @@ The cart has its own rate limit (`CART_RATE_LIMIT_*`).
   | `UNAVAILABLE` | Inactive product, variant or size, or a missing/invalid decision | Yes; also excluded from `subtotalMinor` |
 
   `canCheckout` is false when the cart is empty or any line has a blocking warning.
-- **Lifetime:** the cart is never emptied by checkout or by a failed payment. It is converted only when payment succeeds (Phase 6).
+- **Lifetime:** the cart is never emptied by checkout or by a failed payment. When a payment is confirmed, the purchased quantities are removed; the cart becomes `converted` only if it is then empty (Phase 6).
 
 ## Delivery
 
@@ -141,7 +141,8 @@ Lock order everywhere is cart → order → reservations → variants (sorted), 
 | GET    | `/me/orders/:id` | Own orders only; any other id is `404`                                |
 
 The detail view includes items with their `fit` summary, totals, contact, the delivery snapshot,
-`reservationExpiresAt` and `cancelReason`. It never includes the admin-only `internal_note`.
+`reservationExpiresAt`, `cancelReason` and `payment` (the order's payment status and the latest
+attempt's state; see payments-api.md). It never includes the admin-only `internal_note`.
 
 ## Settings used
 

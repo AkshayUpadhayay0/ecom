@@ -2,9 +2,6 @@ import { createApp } from './app.js';
 import { EnvValidationError, loadEnv, type Env } from './config/env.js';
 import { createDatabase } from './db/database.js';
 import { createLogger } from './lib/logger.js';
-import { createEmailOutboxRepository } from './modules/notifications/email-outbox.repository.js';
-import { createEmailOutboxService } from './modules/notifications/email-outbox.service.js';
-import { createMockEmailSender } from './modules/notifications/email-sender.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -30,14 +27,7 @@ const db = createDatabase({
 });
 const app = createApp({ env, logger, db });
 
-// MOCK sender + TEMP in-process poller until an email provider and Redis/BullMQ are chosen.
-const stopOutboxPoller = createEmailOutboxService({
-  db,
-  repository: createEmailOutboxRepository(),
-  sender: createMockEmailSender(logger),
-  from: env.EMAIL_FROM,
-  logger,
-}).startPolling(env.EMAIL_OUTBOX_POLL_MS);
+// Emails (email_outbox) are sent by the background worker: `pnpm worker`.
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, 'api listening');
@@ -56,7 +46,6 @@ function shutdown(signal: NodeJS.Signals): void {
   }, SHUTDOWN_TIMEOUT_MS);
   forceExit.unref();
 
-  stopOutboxPoller();
   server.close(() => {
     db.destroy()
       .then(() => {

@@ -4,7 +4,7 @@ import type { PageRequest } from '../../lib/pagination.js';
 
 const PENDING_PAYMENT = 'pending_payment';
 const CANCELLED = 'cancelled';
-const UNPAID = 'unpaid';
+const OPEN_PAYMENT_STATUSES = ['unpaid', 'failed'];
 
 export interface NewOrder {
   customerId: string;
@@ -63,6 +63,19 @@ export interface OrderRow {
   reservationExpiresAt: Date | null;
   cancelReason: string | null;
   placedAt: Date;
+  paidAt: Date | null;
+  languageCode: string;
+}
+
+export interface PaymentOutcomeChange {
+  orderStatus?: string;
+  paymentStatus?: string;
+  /** Sets paid_at = now(). */
+  markPaid?: boolean;
+  /** A late payment revived a cancelled order: cancelled_at / cancel_reason cleared. */
+  clearCancellation?: boolean;
+  /** No stock hold any more (paid or under review). */
+  clearReservation?: boolean;
 }
 
 export interface OrderItemRow {
@@ -103,6 +116,8 @@ const ORDER_COLUMNS = [
   'reservation_expires_at as reservationExpiresAt',
   'cancel_reason as cancelReason',
   'placed_at as placedAt',
+  'paid_at as paidAt',
+  'language_code as languageCode',
 ] as const;
 
 /** Orders are never deleted; status changes always write order_status_history. */
@@ -117,13 +132,17 @@ export interface OrdersRepository {
     to: string,
     note: string,
   ): Promise<void>;
-  /** The customer's latest unpaid pending order, locked (one open order per cart/customer). */
+  /** The customer's latest unpaid (or declined) pending order, locked (one open order per cart/customer). */
   findOpenForUpdate(db: Database, customerId: string): Promise<OrderRow | undefined>;
   findOwned(db: Database, id: string, customerId: string): Promise<OrderRow | undefined>;
   findById(db: Database, id: string): Promise<OrderRow | undefined>;
   items(db: Database, orderIds: readonly string[]): Promise<OrderItemRow[]>;
   /** pending_payment -> cancelled (only from pending_payment). Returns false if not pending. */
   cancelPending(db: Database, orderId: string, reason: string): Promise<boolean>;
+  /** The order row, locked (payment confirmation). */
+  lockById(db: Database, orderId: string): Promise<OrderRow | undefined>;
+  /** Payment outcome on the order (statuses, paid_at, cancellation / hold cleared). */
+  applyPaymentOutcome(db: Database, orderId: string, change: PaymentOutcomeChange): Promise<void>;
   setReservationExpiry(db: Database, orderId: string, expiresAt: Date): Promise<void>;
   listForCustomer(
     db: Database,
@@ -195,16 +214,19 @@ export function createOrdersRepository(): OrdersRepository {
     },
 
     async findOpenForUpdate(db, customerId) {
-      return db
-        .selectFrom('orders')
-        .select(ORDER_COLUMNS)
-        .where('customer_id', '=', customerId)
-        .where('order_status', '=', PENDING_PAYMENT)
-        .where('payment_status', '=', UNPAID)
-        .orderBy('placed_at', 'desc')
-        .limit(1)
-        .forUpdate()
-        .executeTakeFirst();
+      return (
+        db
+          .selectFrom('orders')
+          .select(ORDER_COLUMNS)
+          .where('customer_id', '=', customerId)
+          .where('order_status', '=', PENDING_PAYMENT)
+          // A declined payment leaves the order open for a retry (payment_status 'failed').
+          .where('payment_status', 'in', OPEN_PAYMENT_STATUSES)
+          .orderBy('placed_at', 'desc')
+          .limit(1)
+          .forUpdate()
+          .executeTakeFirst()
+      );
     },
 
     async findOwned(db, id, customerId) {
@@ -256,6 +278,29 @@ export function createOrdersRepository(): OrdersRepository {
         .where('order_status', '=', PENDING_PAYMENT)
         .executeTakeFirst();
       return Number(result.numUpdatedRows) > 0;
+    },
+
+    async lockById(db, orderId) {
+      return db
+        .selectFrom('orders')
+        .select(ORDER_COLUMNS)
+        .where('id', '=', orderId)
+        .forUpdate()
+        .executeTakeFirst();
+    },
+
+    async applyPaymentOutcome(db, orderId, change) {
+      await db
+        .updateTable('orders')
+        .set({
+          ...(change.orderStatus !== undefined && { order_status: change.orderStatus }),
+          ...(change.paymentStatus !== undefined && { payment_status: change.paymentStatus }),
+          ...(change.markPaid === true && { paid_at: sql<Date>`now()` }),
+          ...(change.clearCancellation === true && { cancelled_at: null, cancel_reason: null }),
+          ...(change.clearReservation === true && { reservation_expires_at: null }),
+        })
+        .where('id', '=', orderId)
+        .execute();
     },
 
     async setReservationExpiry(db, orderId, expiresAt) {

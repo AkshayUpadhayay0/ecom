@@ -105,6 +105,18 @@ export const SETTING_DEFINITIONS = {
     schema: z.number().int().min(1).max(MINUTES_PER_DAY),
     default: 45,
   },
+  // Payments + email outbox (Phase 6) [TEAM DESIGN values, seeded by migration 0008].
+  'payments.reconcile_after_minutes': {
+    schema: z.number().int().min(1).max(MINUTES_PER_DAY),
+    default: 5,
+  },
+  'payments.reconcile_max_age_hours': { schema: z.number().int().min(1).max(720), default: 48 },
+  'payments.reconcile_batch': { schema: z.number().int().min(1).max(1000), default: 50 },
+  'email.max_attempts': { schema: z.number().int().min(1).max(50), default: 5 },
+  'email.retry_base_seconds': {
+    schema: z.number().int().min(1).max(SECONDS_PER_DAY),
+    default: 60,
+  },
   // Pending Client Decisions: no defaults, NULL until the client supplies them.
   'support.email': { schema: z.email().max(254) },
   'support.phone': { schema: phoneSchema },

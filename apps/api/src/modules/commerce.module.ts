@@ -29,6 +29,7 @@ import {
 } from './orders/customer-orders.routes.js';
 import { createCustomerOrdersService } from './orders/customer-orders.service.js';
 import { createOrdersRepository } from './orders/orders.repository.js';
+import { createPaymentsRepository } from './payments/payments.repository.js';
 import type { SettingsService } from './settings/settings.service.js';
 
 export interface CommerceModuleDeps {
@@ -68,6 +69,7 @@ export function createCommerceRouter({
       orders,
       reservations: createReservationsRepository(),
       idempotency: createIdempotencyRepository(),
+      payments: createPaymentsRepository(),
       settings,
     }),
   );
@@ -102,7 +104,12 @@ export function createCommerceRouter({
     MY_ORDERS_PATH,
     createCustomerOrdersRouter(
       createCustomerOrdersController(
-        createCustomerOrdersService({ db, repository: orders, settings }),
+        createCustomerOrdersService({
+          db,
+          repository: orders,
+          payments: createPaymentsRepository(),
+          settings,
+        }),
       ),
       requireCustomer,
     ),

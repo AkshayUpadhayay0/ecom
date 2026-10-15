@@ -258,8 +258,17 @@ decides how to handle them.
 Customer login required. Endpoints and rules: [docs/commerce-api.md](docs/commerce-api.md)
 (`/me/addresses`, `/cart`, `GET /delivery/zones`, `POST /checkout/quote`, `POST /checkout/orders`
 with an `Idempotency-Key` header, `/me/orders`). Checkout holds stock for
-`checkout.reservation_minutes`; `pnpm worker` releases expired holds. No payment yet (Phase 6).
+`checkout.reservation_minutes`; `pnpm worker` releases expired holds.
 Delivery zones are SAMPLE data until the client confirms areas and fees.
+
+## Payments, order confirmation, emails (Phase 6)
+
+Paystack, verified server-side only: [docs/payments-api.md](docs/payments-api.md)
+(`POST /payments/initialize`, `GET /payments/verify`, `POST /webhooks/paystack`). Dev uses the
+**MOCKED** provider (`PAYMENT_PROVIDER=mock`, refused in production) with a dev checkout page;
+`pnpm payments:simulate-webhook <reference>` sends a signed webhook locally. `pnpm worker` now also
+reconciles unresolved payments and sends the email outbox (MOCK `log` provider: files in
+`.mock-emails/`). The API process no longer sends emails, so run the worker in dev.
 
 ## Tests
 

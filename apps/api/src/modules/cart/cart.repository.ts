@@ -3,6 +3,7 @@ import type { Database } from '../../db/database.js';
 
 const DEFAULT_LANGUAGE = sql<string>`(SELECT code FROM languages WHERE is_default LIMIT 1)`;
 const ACTIVE = 'active';
+const CONVERTED = 'converted';
 
 /** Everything needed to price, validate and snapshot one cart line. */
 export interface CartLineRow {
@@ -101,6 +102,17 @@ export interface CartRepository {
   ): Promise<void>;
   deleteLine(db: Database, cartId: string, lineId: string): Promise<boolean>;
   touch(db: Database, cartId: string): Promise<void>;
+  /** The active cart id without creating one; `lock` locks the row. */
+  findActiveCartId(db: Database, customerId: string, lock?: boolean): Promise<string | undefined>;
+  /**
+   * After a confirmed payment: takes the purchased quantities out of the cart (lines added later
+   * stay). Marks the cart 'converted' only when it ends up empty. Returns the new cart status.
+   */
+  removePurchased(
+    db: Database,
+    cartId: string,
+    purchased: readonly { variantId: string; quantity: number }[],
+  ): Promise<'active' | 'converted'>;
 }
 
 export function createCartRepository(): CartRepository {
@@ -269,6 +281,43 @@ export function createCartRepository(): CartRepository {
         .where('id', '=', lineId)
         .executeTakeFirst();
       return Number(result.numDeletedRows) > 0;
+    },
+
+    async findActiveCartId(db, customerId, lock = false) {
+      let query = db
+        .selectFrom('carts')
+        .select('id')
+        .where('customer_id', '=', customerId)
+        .where('status', '=', ACTIVE);
+      if (lock) query = query.forUpdate();
+      return (await query.executeTakeFirst())?.id;
+    },
+
+    async removePurchased(db, cartId, purchased) {
+      for (const line of purchased) {
+        await db
+          .deleteFrom('cart_items')
+          .where('cart_id', '=', cartId)
+          .where('variant_id', '=', line.variantId)
+          .where('quantity', '<=', line.quantity)
+          .execute();
+        await db
+          .updateTable('cart_items')
+          .set((eb) => ({ quantity: eb('quantity', '-', line.quantity), updated_at: eb.fn('now') }))
+          .where('cart_id', '=', cartId)
+          .where('variant_id', '=', line.variantId)
+          .where('quantity', '>', line.quantity)
+          .execute();
+      }
+      const left = await db
+        .selectFrom('cart_items')
+        .select('id')
+        .where('cart_id', '=', cartId)
+        .limit(1)
+        .executeTakeFirst();
+      if (left) return ACTIVE;
+      await db.updateTable('carts').set({ status: CONVERTED }).where('id', '=', cartId).execute();
+      return CONVERTED;
     },
 
     async touch(db, cartId) {

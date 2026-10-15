@@ -10,6 +10,12 @@ const DEFAULT_MEDIA_LOCAL_DIR = fileURLToPath(
   new URL('../../../../.media-local/', import.meta.url),
 );
 
+// MOCK payment state and MOCK (log) emails for local dev, at the repo root (git-ignored).
+const DEFAULT_MOCK_PAYMENTS_DIR = fileURLToPath(
+  new URL('../../../../.mock-payments/', import.meta.url),
+);
+const DEFAULT_EMAIL_LOG_DIR = fileURLToPath(new URL('../../../../.mock-emails/', import.meta.url));
+
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const;
 
 const commaList = z
@@ -107,6 +113,32 @@ export const envSchema = z.object({
   // How many expired reservations one sweep releases (worker; FOR UPDATE SKIP LOCKED).
   RESERVATION_SWEEP_BATCH: z.coerce.number().int().min(1).max(10_000).default(200),
 
+  // --- Payments (Phase 6) ---
+  // 'mock' = MOCK provider with a dev checkout page (dev/test only; refused in production).
+  PAYMENT_PROVIDER: z.enum(['paystack', 'mock']).default('mock'),
+  // Paystack secret key (sk_test_... / sk_live_...). Also signs webhooks. Required in production.
+  PAYSTACK_SECRET_KEY: z.string().min(1).optional(),
+  PAYSTACK_BASE_URL: z.url().default('https://api.paystack.co'),
+  // Where Paystack sends the customer after paying. PLACEHOLDER until the storefront exists
+  // [PENDING: customer website framework / URL]; must be set to the real storefront page.
+  PAYSTACK_CALLBACK_URL: z.url().default('http://localhost:3000/PLACEHOLDER-checkout/return'),
+  PAYSTACK_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+  // Extra attempts for verify (a safe read) on network errors / 5xx. Initialize is never retried.
+  PAYSTACK_VERIFY_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+  // Folder shared by the API, worker and simulate script for MOCK payment state (git-ignored).
+  MOCK_PAYMENTS_DIR: z.string().min(1).default(DEFAULT_MOCK_PAYMENTS_DIR),
+  PAYMENTS_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  PAYMENTS_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
+  WEBHOOK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
+
+  // --- Email provider ---
+  // 'log' = MOCK: writes emails to the log and EMAIL_LOG_DIR, sends nothing. Refused in
+  // production; the real provider is a Pending Client Decision.
+  EMAIL_PROVIDER: z.enum(['log']).default('log'),
+  EMAIL_LOG_DIR: z.string().min(1).default(DEFAULT_EMAIL_LOG_DIR),
+  EMAIL_OUTBOX_BATCH: z.coerce.number().int().min(1).max(500).default(20),
+
   // --- Media (Phase 3) ---
   // 'local' = files on disk + signed routes on this API (dev/test, no keys). 'r2' = Cloudflare R2.
   // Production requires 'r2'.
@@ -137,6 +169,9 @@ export const envSchema = z.object({
   MEDIA_UPLOAD_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),
 });
 
+/** Providers that really deliver email. Empty until the client chooses one [PENDING]. */
+const REAL_EMAIL_PROVIDERS: readonly string[] = [];
+
 const R2_REQUIRED = [
   'R2_ACCOUNT_ID',
   'R2_ACCESS_KEY_ID',
@@ -155,6 +190,25 @@ const refinedEnvSchema = envSchema
     path: ['BODY_SCAN_PROVIDER'],
     message: 'the MOCK Body Scan provider cannot be used in production',
   })
+  .refine((env) => env.NODE_ENV !== 'production' || env.PAYMENT_PROVIDER !== 'mock', {
+    path: ['PAYMENT_PROVIDER'],
+    message: "the MOCK payment provider cannot be used in production (set 'paystack')",
+  })
+  .refine((env) => env.PAYMENT_PROVIDER !== 'paystack' || env.PAYSTACK_SECRET_KEY !== undefined, {
+    path: ['PAYSTACK_SECRET_KEY'],
+    message: "is required when PAYMENT_PROVIDER is 'paystack'",
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.PAYSTACK_SECRET_KEY !== undefined, {
+    path: ['PAYSTACK_SECRET_KEY'],
+    message: 'is required in production',
+  })
+  .refine(
+    (env) => env.NODE_ENV !== 'production' || REAL_EMAIL_PROVIDERS.includes(env.EMAIL_PROVIDER),
+    {
+      path: ['EMAIL_PROVIDER'],
+      message: 'the MOCK log email provider cannot be used in production (choose a real provider)',
+    },
+  )
   .refine((env) => env.NODE_ENV !== 'production' || env.MEDIA_STORAGE_DRIVER === 'r2', {
     path: ['MEDIA_STORAGE_DRIVER'],
     message: "must be 'r2' in production",

@@ -29,6 +29,7 @@ import type {
   OrderRow,
   OrdersRepository,
 } from '../orders/orders.repository.js';
+import type { PaymentsRepository } from '../payments/payments.repository.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import type { IdempotencyRepository } from './idempotency.repository.js';
 
@@ -71,6 +72,7 @@ export interface CheckoutServiceDeps {
   orders: OrdersRepository;
   reservations: ReservationsRepository;
   idempotency: IdempotencyRepository;
+  payments: PaymentsRepository;
   settings: SettingsService;
 }
 
@@ -328,7 +330,11 @@ export function createCheckoutService(deps: CheckoutServiceDeps): CheckoutServic
   async function loadOrder(executor: Database, orderId: string): Promise<OrderDto> {
     const row = await orders.findById(executor, orderId);
     if (!row) throw notFoundError('Order');
-    return toOrderDto(row, await orders.items(executor, [row.id]));
+    const [items, latest] = await Promise.all([
+      orders.items(executor, [row.id]),
+      deps.payments.latestForOrders(executor, [row.id]),
+    ]);
+    return toOrderDto(row, items, latest.get(row.id));
   }
 
   /**

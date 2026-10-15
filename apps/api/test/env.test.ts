@@ -12,7 +12,14 @@ const R2 = {
   R2_PRIVATE_BUCKET: 'ui-private',
   R2_PUBLIC_BASE_URL: 'https://media.example.com',
 };
-const PRODUCTION = { ...VALID, ...R2, NODE_ENV: 'production', MEDIA_STORAGE_DRIVER: 'r2' };
+const PRODUCTION = {
+  ...VALID,
+  ...R2,
+  NODE_ENV: 'production',
+  MEDIA_STORAGE_DRIVER: 'r2',
+  PAYMENT_PROVIDER: 'paystack',
+  PAYSTACK_SECRET_KEY: 'sk_test_example_not_real',
+};
 
 describe('parseEnv', () => {
   it('applies defaults and parses the CORS allow-list', () => {
@@ -53,9 +60,42 @@ describe('parseEnv', () => {
     );
   });
 
-  it('forces secure cookies in production', () => {
-    expect(parseEnv({ ...PRODUCTION }).COOKIE_SECURE).toBe(true);
+  it('keeps cookies non-secure by default outside production', () => {
     expect(parseEnv(VALID).COOKIE_SECURE).toBe(false);
+    expect(parseEnv({ ...VALID, COOKIE_SECURE: 'true' }).COOKIE_SECURE).toBe(true);
+  });
+
+  it('refuses the MOCK log email provider in production (no real provider chosen yet)', () => {
+    // Pending Client Decision: until a real provider exists, a production config cannot start;
+    // EMAIL_PROVIDER is then the ONLY problem left in an otherwise complete config.
+    expect(parseEnv(VALID).EMAIL_PROVIDER).toBe('log');
+    let message = '';
+    try {
+      parseEnv(PRODUCTION);
+    } catch (err) {
+      message = err instanceof Error ? err.message : '';
+    }
+    expect(message).toMatch(
+      /EMAIL_PROVIDER: the MOCK log email provider cannot be used in production/,
+    );
+    expect(message.match(/^ {2}- /gm)).toHaveLength(1);
+  });
+
+  it('uses the MOCK payment provider by default and refuses it in production', () => {
+    expect(parseEnv(VALID).PAYMENT_PROVIDER).toBe('mock');
+    expect(() => parseEnv({ ...PRODUCTION, PAYMENT_PROVIDER: 'mock' })).toThrow(
+      /PAYMENT_PROVIDER: the MOCK payment provider cannot be used in production/,
+    );
+  });
+
+  it('requires PAYSTACK_SECRET_KEY in production or with the paystack provider, not in dev', () => {
+    const { PAYSTACK_SECRET_KEY: _omit, ...withoutKey } = PRODUCTION;
+    expect(() => parseEnv(withoutKey)).toThrow(/PAYSTACK_SECRET_KEY: is required in production/);
+    expect(() => parseEnv({ ...VALID, PAYMENT_PROVIDER: 'paystack' })).toThrow(
+      /PAYSTACK_SECRET_KEY: is required when PAYMENT_PROVIDER is 'paystack'/,
+    );
+    expect(parseEnv(VALID).PAYSTACK_SECRET_KEY).toBeUndefined();
+    expect(parseEnv(VALID).PAYSTACK_CALLBACK_URL).toContain('PLACEHOLDER');
   });
 
   it('uses local media storage by default and refuses it in production', () => {

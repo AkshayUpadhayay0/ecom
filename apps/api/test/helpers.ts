@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { sql } from 'kysely';
 import { pino } from 'pino';
 import type { Response } from 'supertest';
@@ -9,6 +11,8 @@ import type { AdminRole, AdminRow } from '../src/modules/admin-users/admin-users
 import { createEmailOutboxRepository } from '../src/modules/notifications/email-outbox.repository.js';
 import { createEmailOutboxService } from '../src/modules/notifications/email-outbox.service.js';
 import type { OutgoingEmail } from '../src/modules/notifications/email-sender.js';
+import { createSettingsRepository } from '../src/modules/settings/settings.repository.js';
+import { createSettingsService } from '../src/modules/settings/settings.service.js';
 
 export { assertSafeTestDatabase } from './safe-database.js';
 
@@ -39,6 +43,12 @@ export function makeTestEnv(overrides: Partial<Record<keyof Env, string>> = {}):
     CART_RATE_LIMIT_MAX: '100000',
     CHECKOUT_RATE_LIMIT_MAX: '100000',
     BODY_SCAN_MOCK_WEBHOOK_SECRET: 'test-body-scan-webhook-secret-0123456789-ab',
+    PAYMENT_PROVIDER: 'mock',
+    PAYMENTS_RATE_LIMIT_MAX: '100000',
+    WEBHOOK_RATE_LIMIT_MAX: '100000',
+    // MOCK payment state / MOCK emails go to the OS temp folder, never the repo.
+    MOCK_PAYMENTS_DIR: join(tmpdir(), 'urban-ibile-test-mock-payments'),
+    EMAIL_LOG_DIR: join(tmpdir(), 'urban-ibile-test-mock-emails'),
     ...overrides,
   });
 }
@@ -75,7 +85,8 @@ export function bodyOf<T>(res: Response): T {
  */
 export async function resetCommerceTables(db: Database): Promise<void> {
   await sql`TRUNCATE stock_reservations, order_status_history, order_items, orders,
-    idempotency_keys, cart_items, carts, customer_addresses CASCADE`.execute(db);
+    idempotency_keys, cart_items, carts, customer_addresses, payments, payment_webhook_events,
+    email_outbox CASCADE`.execute(db);
 }
 
 export async function resetAuthTables(db: Database): Promise<void> {
@@ -116,12 +127,15 @@ export async function flushOutbox(ctx: TestContext): Promise<OutgoingEmail[]> {
     db: ctx.db,
     repository: createEmailOutboxRepository(),
     sender: {
+      mocked: true,
       send(email) {
         sent.push(email);
         return Promise.resolve();
       },
     },
+    settings: createSettingsService({ db: ctx.db, repository: createSettingsRepository() }),
     from: ctx.env.EMAIL_FROM,
+    batchSize: ctx.env.EMAIL_OUTBOX_BATCH,
     logger: pino({ level: 'silent' }),
   }).processBatch();
   return sent;

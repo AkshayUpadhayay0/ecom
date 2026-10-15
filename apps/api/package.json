@@ -16,7 +16,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "worker": "tsx --conditions=source src/worker.ts",
     "worker:media": "tsx --conditions=source src/worker.ts",
-    "admin:create": "tsx --conditions=source scripts/admin-create.ts"
+    "admin:create": "tsx --conditions=source scripts/admin-create.ts",
+    "payments:simulate-webhook": "tsx --conditions=source scripts/simulate-paystack-webhook.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1151.0",
