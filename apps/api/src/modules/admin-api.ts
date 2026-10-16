@@ -5,6 +5,7 @@ import type { Database } from '../db/database.js';
 import { apiRateLimit } from '../middleware/rate-limit.js';
 import { requireAdminRole } from '../middleware/require-role.js';
 import { createAdminCommerceRouter } from './admin-commerce.module.js';
+import { createAdminReturnsModule } from './returns/returns.module.js';
 import { createAuditController } from './audit/audit.controller.js';
 import { createAuditRouter } from './audit/audit.routes.js';
 import { createAuditService } from './audit/audit.service.js';
@@ -213,6 +214,7 @@ export function createAdminApiRouter({
       statsCacheSeconds: env.ADMIN_STATS_CACHE_SECONDS,
     }),
   );
+  router.use(createAdminReturnsModule({ db, logger, settings, storage, requireSuperAdmin }));
   router.use(
     createAuditRouter({
       controller: createAuditController(createAuditService({ db, settings })),

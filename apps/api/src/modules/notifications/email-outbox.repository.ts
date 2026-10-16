@@ -8,6 +8,8 @@ export interface NewOutboxEmail {
   languageCode: string;
   payload: EmailPayload;
   orderId?: string;
+  /** Unique when set: the same event never queues a second email (uq_outbox_dedupe_key). */
+  dedupeKey?: string;
 }
 
 export interface OutboxEmail {
@@ -50,6 +52,7 @@ export function createEmailOutboxRepository(): EmailOutboxRepository {
           language_code: email.languageCode,
           payload: JSON.stringify(email.payload),
           order_id: email.orderId ?? null,
+          dedupe_key: email.dedupeKey ?? null,
         })
         .onConflict((oc) => oc.doNothing())
         .executeTakeFirst();

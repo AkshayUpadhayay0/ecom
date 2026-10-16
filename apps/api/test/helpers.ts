@@ -47,6 +47,8 @@ export function makeTestEnv(overrides: Partial<Record<keyof Env, string>> = {}):
     PAYMENTS_RATE_LIMIT_MAX: '100000',
     WEBHOOK_RATE_LIMIT_MAX: '100000',
     ADMIN_WRITE_RATE_LIMIT_MAX: '100000',
+    CUSTOMER_UPLOAD_RATE_LIMIT_MAX: '100000',
+    RETURNS_RATE_LIMIT_MAX: '100000',
     ADMIN_STATS_CACHE_SECONDS: '0',
     // MOCK payment state / MOCK emails go to the OS temp folder, never the repo.
     MOCK_PAYMENTS_DIR: join(tmpdir(), 'urban-ibile-test-mock-payments'),
@@ -86,9 +88,11 @@ export function bodyOf<T>(res: Response): T {
  * deleted in the app; tests truncate them so customers / products / decisions can be removed.
  */
 export async function resetCommerceTables(db: Database): Promise<void> {
-  await sql`TRUNCATE order_notes, payment_review_resolutions, stock_reservations, order_status_history, order_items, orders,
+  await sql`TRUNCATE return_request_events, return_request_media, return_requests, order_notes, payment_review_resolutions, stock_reservations, order_status_history, order_items, orders,
     idempotency_keys, cart_items, carts, customer_addresses, payments, payment_webhook_events,
     email_outbox CASCADE`.execute(db);
+  // Customer-owned evidence uploads (Phase 7b) reference customers.
+  await sql`DELETE FROM media_assets WHERE owner_customer_id IS NOT NULL`.execute(db);
 }
 
 export async function resetAuthTables(db: Database): Promise<void> {

@@ -132,6 +132,14 @@ export const envSchema = z.object({
   WEBHOOK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
   WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
 
+  // --- Returns (Phase 7b) ---
+  // Customer evidence uploads (create + complete) per IP.
+  CUSTOMER_UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
+  CUSTOMER_UPLOAD_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
+  // Return creation / reply / cancel per IP.
+  RETURNS_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
+  RETURNS_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
+
   // --- Admin (Phase 7a) ---
   // Shared per-IP limit for every admin write (POST/PATCH/PUT/DELETE under /admin).
   ADMIN_WRITE_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),

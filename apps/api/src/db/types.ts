@@ -231,6 +231,7 @@ export interface DeliveryZones {
 export interface EmailOutbox {
   attempts: Generated<number>;
   created_at: Generated<Timestamp>;
+  dedupe_key: string | null;
   id: Generated<string>;
   language_code: string;
   last_error: string | null;
@@ -323,6 +324,7 @@ export interface MediaAssets {
   next_attempt_at: Timestamp | null;
   original_filename: string | null;
   original_key: string;
+  owner_customer_id: string | null;
   poster_asset_id: string | null;
   processing_attempts: Generated<number>;
   processing_error: string | null;
@@ -610,6 +612,7 @@ export interface ReturnRequestEvents {
   note: string | null;
   return_request_id: string;
   to_status: string | null;
+  visibility: Generated<string>;
 }
 
 export interface ReturnRequestMedia {
@@ -625,6 +628,8 @@ export interface ReturnRequests {
   admin_notes: string | null;
   blueprint_decision_id: string | null;
   closed_at: Timestamp | null;
+  confirmed_original_tags: boolean | null;
+  confirmed_unworn_unwashed: boolean | null;
   created_at: Generated<Timestamp>;
   customer_explanation: string | null;
   customer_id: string;
@@ -641,6 +646,9 @@ export interface ReturnRequests {
   policy_id: string | null;
   quantity: Generated<number>;
   reason_code: string;
+  replacement_carrier: string | null;
+  replacement_sent_at: Timestamp | null;
+  replacement_tracking_reference: string | null;
   replacement_variant_id: string | null;
   request_number: Generated<string>;
   request_type: string;
@@ -660,6 +668,16 @@ export interface ReturnStatuses {
   is_terminal: Generated<boolean>;
   label: string;
   sort_order: number;
+}
+
+export interface ReturnStatusTransitions {
+  actor: string;
+  from_status: string;
+  is_active: Generated<boolean>;
+  request_type: string | null;
+  requires_inspection: Generated<boolean>;
+  requires_reason: Generated<boolean>;
+  to_status: string;
 }
 
 export interface SerialImportBatches {
@@ -814,6 +832,7 @@ export interface DB {
   return_request_events: ReturnRequestEvents;
   return_request_media: ReturnRequestMedia;
   return_requests: ReturnRequests;
+  return_status_transitions: ReturnStatusTransitions;
   return_statuses: ReturnStatuses;
   serial_import_batches: SerialImportBatches;
   serial_numbers: SerialNumbers;

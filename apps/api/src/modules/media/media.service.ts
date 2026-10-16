@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
+  EVIDENCE_MIME_TYPES,
   MEDIA_MIME_TYPES,
+  type CreateEvidenceUploadRequest,
   type CreateUploadRequest,
   type CreateUploadResultDto,
   type ListMediaQuery,
@@ -30,6 +32,7 @@ import type { MediaRepository, MediaRow } from './media.repository.js';
 import type { StorageProvider } from './storage/storage-provider.js';
 
 const ENTITY = 'media_asset';
+const PRIVATE = 'private';
 const MS_PER_SECOND = 1000;
 /** Statuses after a verified upload: completing again is a no-op (idempotent). */
 const ALREADY_COMPLETED = new Set(['uploaded', 'processing', 'ready']);
@@ -45,8 +48,18 @@ export interface MediaService {
   get(id: string): Promise<MediaAssetDto>;
   /** Public: the CDN URL. Private: a short-lived signed URL. */
   getUrlForAdmin(id: string): Promise<MediaUrlDto>;
-  /** Private return evidence only, and only for the customer who owns the return request. */
+  /**
+   * Private media of this customer only: evidence attached to their return requests, or an
+   * upload they own (preview before attaching). Everything else is a 404.
+   */
   getUrlForCustomer(customerId: string, id: string): Promise<MediaUrlDto>;
+  /** Customer return evidence: always private, owned by the customer, photos only. */
+  createCustomerUpload(
+    customerId: string,
+    input: CreateEvidenceUploadRequest,
+  ): Promise<CreateUploadResultDto>;
+  /** Same verification as admin uploads (size, type, magic bytes); own uploads only. */
+  completeCustomerUpload(customerId: string, id: string): Promise<MediaAssetDto>;
   /** Deletes the objects of ONE retired, unreferenced asset (row kept, purged_at set). */
   purge(actor: AuditActor, id: string): Promise<MediaAssetDto>;
   /** Purges every retired asset that nothing references. */
@@ -154,6 +167,95 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
     return row;
   }
 
+  /**
+   * Verifies and completes one pending upload. Admin actions are audited (admin_audit_logs);
+   * customer uploads are logged only (the audit table records admins).
+   */
+  async function completeCore(
+    id: string,
+    actor: AuditActor | undefined,
+    ownerCustomerId?: string,
+  ): Promise<MediaAssetDto> {
+    const outcome = await db.transaction().execute(async (trx): Promise<CompleteOutcome> => {
+      const row = await loadRow(trx, id, true);
+      if (ownerCustomerId !== undefined && row.ownerCustomerId !== ownerCustomerId) {
+        throw notFoundError('Media asset');
+      }
+      if (ALREADY_COMPLETED.has(row.status)) return { ok: true, row };
+      if (row.status === 'failed') {
+        return {
+          ok: false,
+          row,
+          deleteObject: false,
+          error: new AppError(
+            'INVALID_STATE',
+            HTTP_STATUS.CONFLICT,
+            'This upload was rejected. Start a new upload.',
+            { processingError: row.processingError },
+          ),
+        };
+      }
+      const problem = await verifyObject(row);
+      if (problem === 'missing') {
+        const expired = row.uploadExpiresAt !== null && row.uploadExpiresAt < new Date();
+        return {
+          ok: false,
+          row,
+          deleteObject: false,
+          error: expired
+            ? new AppError(
+                'UPLOAD_EXPIRED',
+                HTTP_STATUS.GONE,
+                'The upload URL expired before the file arrived. Start a new upload.',
+              )
+            : new AppError(
+                'UPLOAD_NOT_FOUND',
+                HTTP_STATUS.CONFLICT,
+                'The file has not been uploaded yet.',
+              ),
+        };
+      }
+      if (problem) {
+        await repository.markFailed(trx, id, `upload rejected: ${problem.message}`);
+        if (actor) {
+          await writeAuditLog(trx, {
+            adminId: actor.adminId,
+            action: 'media.upload_rejected',
+            entityType: ENTITY,
+            entityId: id,
+            after: { reason: problem.message },
+            ipAddress: actor.ipAddress,
+          });
+        } else {
+          deps.logger.info({ mediaAssetId: id }, 'customer upload rejected');
+        }
+        return { ok: false, row, deleteObject: true, error: problem };
+      }
+      await repository.markUploaded(trx, id);
+      if (actor) {
+        await writeAuditLog(trx, {
+          adminId: actor.adminId,
+          action: 'media.upload_complete',
+          entityType: ENTITY,
+          entityId: id,
+          before: { status: row.status },
+          after: { status: 'uploaded' },
+          ipAddress: actor.ipAddress,
+        });
+      }
+      return { ok: true, row: await loadRow(trx, id) };
+    });
+
+    if (!outcome.ok) {
+      // A rejected object is not kept (it never passed verification).
+      if (outcome.deleteObject) {
+        await storage.delete(bucketOf(outcome.row.visibility), outcome.row.originalKey);
+      }
+      throw outcome.error;
+    }
+    return toDto(db, outcome.row);
+  }
+
   return {
     async createUpload(actor, input) {
       if (!isMediaMimeType(input.mimeType)) {
@@ -225,77 +327,68 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
       };
     },
 
-    async completeUpload(actor, id) {
-      const outcome = await db.transaction().execute(async (trx): Promise<CompleteOutcome> => {
-        const row = await loadRow(trx, id, true);
-        if (ALREADY_COMPLETED.has(row.status)) return { ok: true, row };
-        if (row.status === 'failed') {
-          return {
-            ok: false,
-            row,
-            deleteObject: false,
-            error: new AppError(
-              'INVALID_STATE',
-              HTTP_STATUS.CONFLICT,
-              'This upload was rejected. Start a new upload.',
-              { processingError: row.processingError },
-            ),
-          };
-        }
-        const problem = await verifyObject(row);
-        if (problem === 'missing') {
-          const expired = row.uploadExpiresAt !== null && row.uploadExpiresAt < new Date();
-          return {
-            ok: false,
-            row,
-            deleteObject: false,
-            error: expired
-              ? new AppError(
-                  'UPLOAD_EXPIRED',
-                  HTTP_STATUS.GONE,
-                  'The upload URL expired before the file arrived. Start a new upload.',
-                )
-              : new AppError(
-                  'UPLOAD_NOT_FOUND',
-                  HTTP_STATUS.CONFLICT,
-                  'The file has not been uploaded yet.',
-                ),
-          };
-        }
-        if (problem) {
-          await repository.markFailed(trx, id, `upload rejected: ${problem.message}`);
-          await writeAuditLog(trx, {
-            adminId: actor.adminId,
-            action: 'media.upload_rejected',
-            entityType: ENTITY,
-            entityId: id,
-            after: { reason: problem.message },
-            ipAddress: actor.ipAddress,
-          });
-          return { ok: false, row, deleteObject: true, error: problem };
-        }
-        await repository.markUploaded(trx, id);
-        await writeAuditLog(trx, {
-          adminId: actor.adminId,
-          action: 'media.upload_complete',
-          entityType: ENTITY,
-          entityId: id,
-          before: { status: row.status },
-          after: { status: 'uploaded' },
-          ipAddress: actor.ipAddress,
-        });
-        return { ok: true, row: await loadRow(trx, id) };
-      });
+    completeUpload: (actor, id) => completeCore(id, actor),
 
-      if (!outcome.ok) {
-        // A rejected object is not kept (it never passed verification).
-        if (outcome.deleteObject) {
-          await storage.delete(bucketOf(outcome.row.visibility), outcome.row.originalKey);
-        }
-        throw outcome.error;
+    async createCustomerUpload(customerId, input) {
+      const mimeType = input.mimeType;
+      if (
+        !(EVIDENCE_MIME_TYPES as readonly string[]).includes(mimeType) ||
+        !isMediaMimeType(mimeType)
+      ) {
+        throw new AppError(
+          'UNSUPPORTED_MEDIA_TYPE',
+          HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE,
+          'Evidence must be a photo (JPEG, PNG or WebP).',
+          { allowed: EVIDENCE_MIME_TYPES },
+        );
       }
-      return toDto(db, outcome.row);
+      const maxBytes = await settings.getLimit(db, 'returns.evidence_max_bytes');
+      if (input.sizeBytes > maxBytes) {
+        throw new AppError(
+          'FILE_TOO_LARGE',
+          HTTP_STATUS.PAYLOAD_TOO_LARGE,
+          'The photo is too large.',
+          {
+            maxBytes,
+          },
+        );
+      }
+      const { kind, extension } = MEDIA_MIME_TYPES[mimeType];
+      const ttlSeconds = await settings.getLimit(db, 'media.upload_url_ttl_seconds');
+      const id = randomUUID();
+      const key = originalKey(kind, id, extension);
+      const row = await repository.insertPending(db, {
+        id,
+        kind,
+        mimeType,
+        originalKey: key,
+        sizeBytes: input.sizeBytes,
+        visibility: PRIVATE,
+        isTemporary: false,
+        originalFilename: sanitizeFileName(input.fileName),
+        uploadExpiresAt: new Date(Date.now() + ttlSeconds * MS_PER_SECOND),
+        uploadedBy: null,
+        ownerCustomerId: customerId,
+      });
+      // No file name or customer data in the log.
+      deps.logger.info(
+        { mediaAssetId: id, sizeBytes: input.sizeBytes },
+        'customer evidence upload created',
+      );
+      const upload = await storage.createPresignedUpload({
+        bucket: bucketOf(PRIVATE),
+        key,
+        contentType: mimeType,
+        contentLength: input.sizeBytes,
+        expiresInSeconds: ttlSeconds,
+      });
+      return {
+        asset: await toDto(db, row),
+        upload: { ...upload, expiresAt: upload.expiresAt.toISOString() },
+      };
     },
+
+    completeCustomerUpload: (customerId, id) => completeCore(id, undefined, customerId),
 
     async list(query) {
       const page = toPageRequest(query, await settings.getLimit(db, 'catalog.page_size'));
@@ -347,7 +440,8 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
         row.visibility === 'private' &&
         row.purgedAt === null &&
         ALREADY_COMPLETED.has(row.status) &&
-        (await repository.isEvidenceOwnedBy(db, id, customerId));
+        (row.ownerCustomerId === customerId ||
+          (await repository.isEvidenceOwnedBy(db, id, customerId)));
       // Unknown, foreign and non-evidence media all look the same.
       if (!allowed) throw notFoundError('Media asset');
       const ttl = await settings.getLimit(db, 'media.private_url_ttl_seconds');

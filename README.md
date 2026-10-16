@@ -278,6 +278,14 @@ changes (`order_status_transitions`) with optimistic concurrency and customer em
 notes, the payment review queue (FULFIL / refund required / refunded; no automatic refunds),
 customer lookup and suspend/enable (super_admin), and `GET /admin/stats/overview`.
 
+## Returns, exchanges, Fault-Line (Phase 7b)
+
+[docs/returns-api.md](docs/returns-api.md): customer requests from a delivered order item
+(private photo evidence via `/me/media/uploads`), backend-decided responsibility, data-driven
+workflow (`return_status_transitions`) with admin approve / reject / request-info / receive /
+inspect / advance, exchange stock held at approval, RESELLABLE restock through the guarded
+`return` ledger row. No refunds are executed (Pending Client Decision).
+
 ## Tests
 
 - Unit and HTTP tests run without a database.

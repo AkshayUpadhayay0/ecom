@@ -5,7 +5,18 @@ export type EmailTemplate =
   | 'password_reset'
   | 'order_confirmation'
   | 'order_sent_out'
-  | 'order_delivered';
+  | 'order_delivered'
+  | ReturnEmailTemplate;
+
+export const RETURN_EMAIL_TEMPLATES = [
+  'return_received',
+  'return_info_requested',
+  'return_approved',
+  'return_rejected',
+  'return_item_received',
+  'return_exchange_sent',
+] as const;
+export type ReturnEmailTemplate = (typeof RETURN_EMAIL_TEMPLATES)[number];
 
 /** Payload of the account emails (verification / password reset). */
 export interface AccountEmailPayload {
@@ -52,7 +63,22 @@ const orderStatusEmailSchema = z.object({
 });
 export type OrderStatusEmailPayload = z.infer<typeof orderStatusEmailSchema>;
 
-export type EmailPayload = AccountEmailPayload | OrderConfirmationPayload | OrderStatusEmailPayload;
+/** Return / exchange emails (Phase 7b). No evidence, no payment data. */
+const returnEmailSchema = z.object({
+  requestNumber: z.string(),
+  recipientName: z.string(),
+  orderNumber: z.string(),
+  productName: z.string(),
+  message: z.string().nullable(),
+  returnAddress: z.string().nullable(),
+  returnInstructions: z.string().nullable(),
+  carrier: z.string().nullable(),
+  trackingReference: z.string().nullable(),
+});
+export type ReturnEmailPayload = z.infer<typeof returnEmailSchema>;
+
+export type EmailPayload =
+  AccountEmailPayload | OrderConfirmationPayload | OrderStatusEmailPayload | ReturnEmailPayload;
 
 /**
  * Templates whose payload contains a one-time secret link. Their payload is replaced after
@@ -191,6 +217,80 @@ function renderOrderStatusEmail(
 }
 
 /**
+ * Return email copy per language. TEMP English only; approved Pidgin copy is added as a 'pcm'
+ * entry later without touching the rendering code.
+ */
+const RETURN_COPY = {
+  en: {
+    return_received: {
+      subject: (n: string) => `We received your return request ${n}`,
+      body: 'Thank you. We have received your request and will review it.',
+    },
+    return_info_requested: {
+      subject: (n: string) => `More information needed for your return request ${n}`,
+      body: 'We need a little more information to review your request. Please reply in the app or on the website.',
+    },
+    return_approved: {
+      subject: (n: string) => `Your return request ${n} was approved`,
+      body: 'Your request was approved. Please send the item back as described below.',
+    },
+    return_rejected: {
+      subject: (n: string) => `Update on your return request ${n}`,
+      body: 'We are sorry, we could not approve your request.',
+    },
+    return_item_received: {
+      subject: (n: string) => `We received your returned item (${n})`,
+      body: 'Your returned item has arrived and will be checked shortly.',
+    },
+    return_exchange_sent: {
+      subject: (n: string) => `Your replacement for ${n} is on its way`,
+      body: 'Your replacement item has been sent out.',
+    },
+    greeting: (name: string) => `Hi ${name},`,
+    requestLabel: 'Request',
+    orderLabel: 'Order',
+    itemLabel: 'Item',
+    messageLabel: 'Message from Urban Ibile',
+    addressLabel: 'Return address',
+    instructionsLabel: 'Instructions',
+    carrierLabel: 'Carrier',
+    trackingLabel: 'Tracking reference',
+  },
+} as const;
+type ReturnCopy = (typeof RETURN_COPY)[typeof DEFAULT_LANGUAGE];
+
+function returnCopyFor(language: string): ReturnCopy {
+  return language in RETURN_COPY
+    ? RETURN_COPY[language as keyof typeof RETURN_COPY]
+    : RETURN_COPY[DEFAULT_LANGUAGE];
+}
+
+function renderReturnEmail(
+  template: ReturnEmailTemplate,
+  payload: ReturnEmailPayload,
+  language: string,
+): RenderedEmail {
+  const copy = returnCopyFor(language);
+  const optional = (label: string, value: string | null) =>
+    value === null ? [] : [`${label}: ${value}`];
+  const lines = [
+    copy.greeting(payload.recipientName),
+    '',
+    copy[template].body,
+    '',
+    `${copy.requestLabel}: ${payload.requestNumber}`,
+    `${copy.orderLabel}: ${payload.orderNumber}`,
+    `${copy.itemLabel}: ${payload.productName}`,
+    ...optional(copy.messageLabel, payload.message),
+    ...optional(copy.addressLabel, payload.returnAddress),
+    ...optional(copy.instructionsLabel, payload.returnInstructions),
+    ...optional(copy.carrierLabel, payload.carrier),
+    ...optional(copy.trackingLabel, payload.trackingReference),
+  ];
+  return { subject: copy[template].subject(payload.requestNumber), text: lines.join('\n') };
+}
+
+/**
  * TEMP: plain-text templates. Final copy, Pidgin versions and HTML layout arrive with the email
  * provider decision. Account emails are English only for now.
  */
@@ -214,6 +314,13 @@ export function renderEmail(
         text: `Hi ${payload.fullName},\n\nReset your password with this link:\n${payload.link}\n\nIf you did not ask for this, ignore this email. Your password stays the same.`,
       };
     }
+    case 'return_received':
+    case 'return_info_requested':
+    case 'return_approved':
+    case 'return_rejected':
+    case 'return_item_received':
+    case 'return_exchange_sent':
+      return renderReturnEmail(template, returnEmailSchema.parse(rawPayload), language);
     case 'order_sent_out':
     case 'order_delivered':
       return renderOrderStatusEmail(template, orderStatusEmailSchema.parse(rawPayload), language);

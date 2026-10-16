@@ -24,6 +24,8 @@ export interface MediaRow {
   retiredAt: Date | null;
   purgedAt: Date | null;
   createdAt: Date;
+  /** Customer who uploaded it (return evidence); null for admin uploads. */
+  ownerCustomerId: string | null;
 }
 
 export interface RenditionRow {
@@ -48,6 +50,7 @@ export interface NewMediaAsset {
   originalFilename: string;
   uploadExpiresAt: Date;
   uploadedBy: string | null;
+  ownerCustomerId?: string | null;
 }
 
 export interface NewRendition {
@@ -98,6 +101,7 @@ const COLUMNS = [
   'retired_at as retiredAt',
   'purged_at as purgedAt',
   'created_at as createdAt',
+  'owner_customer_id as ownerCustomerId',
 ] as const;
 
 /** kind / visibility / status are CHECK-constrained to these values. */
@@ -168,6 +172,7 @@ export function createMediaRepository(): MediaRepository {
           original_filename: asset.originalFilename,
           upload_expires_at: asset.uploadExpiresAt,
           uploaded_by: asset.uploadedBy,
+          owner_customer_id: asset.ownerCustomerId ?? null,
           processing_status: 'pending',
         })
         .returning(COLUMNS)

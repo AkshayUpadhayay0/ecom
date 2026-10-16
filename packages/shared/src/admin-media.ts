@@ -35,6 +35,22 @@ export const createUploadSchema = z.object({
 });
 export type CreateUploadRequest = z.infer<typeof createUploadSchema>;
 
+/** [TEAM DESIGN 16 Oct 2026] return evidence: photos only. */
+export const EVIDENCE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+/**
+ * POST /me/media/uploads (customer return evidence). Always private and owned by the customer;
+ * visibility cannot be chosen by the client.
+ */
+export const createEvidenceUploadSchema = z
+  .object({
+    fileName: z.string().trim().min(1).max(FILE_NAME_MAX_LENGTH),
+    mimeType: z.string().trim().toLowerCase().min(1).max(100),
+    sizeBytes: z.number().int().min(1),
+  })
+  .strict();
+export type CreateEvidenceUploadRequest = z.infer<typeof createEvidenceUploadSchema>;
+
 export const listMediaQuerySchema = paginationQuerySchema.extend({
   kind: z.enum(MEDIA_KINDS).optional(),
   status: z.enum(MEDIA_STATUSES).optional(),

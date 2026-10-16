@@ -47,6 +47,7 @@ import { HEALTH_PATH, createHealthRouter } from './modules/health/health.routes.
 import { createHealthService } from './modules/health/health.service.js';
 import { createEmailOutboxRepository } from './modules/notifications/email-outbox.repository.js';
 import { createCommerceRouter } from './modules/commerce.module.js';
+import { createCustomerReturnsModule } from './modules/returns/returns.module.js';
 import {
   MOCK_CHECKOUT_PATH,
   PAYMENTS_PATH,
@@ -143,7 +144,13 @@ export function createApp({
   v1.use(
     CUSTOMER_MEDIA_PATH,
     customerAuth.requireCustomer,
-    createCustomerMediaRouter(buildMediaController({ db, storage, logger })),
+    createCustomerMediaRouter(
+      buildMediaController({ db, storage, logger }),
+      apiRateLimit({
+        windowMs: env.CUSTOMER_UPLOAD_RATE_LIMIT_WINDOW_MS,
+        max: env.CUSTOMER_UPLOAD_RATE_LIMIT_MAX,
+      }),
+    ),
   );
   // Public storefront (no login): stricter per-IP limit, short shared caching + ETags.
   const publicLimit = (): RequestHandler =>
@@ -183,6 +190,18 @@ export function createApp({
     }),
   );
 
+  v1.use(
+    createCustomerReturnsModule({
+      db,
+      logger,
+      settings,
+      requireCustomer: customerAuth.requireCustomer,
+      writeLimit: apiRateLimit({
+        windowMs: env.RETURNS_RATE_LIMIT_WINDOW_MS,
+        max: env.RETURNS_RATE_LIMIT_MAX,
+      }),
+    }),
+  );
   v1.use(
     createCommerceRouter({
       env,

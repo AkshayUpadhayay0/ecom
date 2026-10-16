@@ -117,6 +117,21 @@ export const SETTING_DEFINITIONS = {
     schema: z.number().int().min(1).max(SECONDS_PER_DAY),
     default: 60,
   },
+  // Returns (Phase 7b). [TEAM DESIGN] evidence limits, seeded by migration 0010.
+  'returns.evidence_max_files': { schema: z.number().int().min(1).max(20), default: 5 },
+  'returns.evidence_max_bytes': {
+    schema: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
+    default: 10_485_760,
+  },
+  // [PENDING CLIENT DECISION] shown in the approval email; PLACEHOLDER text until supplied.
+  'returns.return_address': {
+    schema: z.string().trim().min(1).max(1000),
+    default: 'PLACEHOLDER - return address not decided yet (Pending Client Decision)',
+  },
+  'returns.return_instructions': {
+    schema: z.string().trim().min(1).max(2000),
+    default: 'PLACEHOLDER - return instructions not decided yet (Pending Client Decision)',
+  },
   // Pending Client Decisions: no defaults, NULL until the client supplies them.
   'support.email': { schema: z.email().max(254) },
   'support.phone': { schema: phoneSchema },

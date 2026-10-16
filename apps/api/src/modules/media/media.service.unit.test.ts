@@ -34,6 +34,8 @@ const ASSET: MediaRow = {
   retiredAt: null,
   purgedAt: null,
   createdAt: new Date(),
+  // Attached as evidence (not a customer-owned upload) in these cases.
+  ownerCustomerId: null,
 };
 
 function serviceFor(row: MediaRow) {

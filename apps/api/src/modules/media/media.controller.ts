@@ -1,5 +1,9 @@
 import type { RequestHandler } from 'express';
-import { createUploadSchema, listMediaQuerySchema } from '@urban-ibile/shared';
+import {
+  createEvidenceUploadSchema,
+  createUploadSchema,
+  listMediaQuerySchema,
+} from '@urban-ibile/shared';
 import { HTTP_STATUS } from '../../lib/http-status.js';
 import { uuidParam } from '../../lib/params.js';
 import { bodyOf, sendData, sendPage } from '../../lib/respond.js';
@@ -17,6 +21,8 @@ export interface MediaController {
   purgeRetired: RequestHandler;
   /** Customer route: signed URL for the customer's own return evidence. */
   getCustomerUrl: RequestHandler;
+  createCustomerUpload: RequestHandler;
+  completeCustomerUpload: RequestHandler;
 }
 
 export function createMediaController(service: MediaService): MediaController {
@@ -47,6 +53,23 @@ export function createMediaController(service: MediaService): MediaController {
     },
     purgeRetired: async (req, res) => {
       sendData(res, HTTP_STATUS.OK, await service.purgeRetired(auditActorOf(req)));
+    },
+    createCustomerUpload: async (req, res) => {
+      const input = createEvidenceUploadSchema.parse(bodyOf(req));
+      res.set('Cache-Control', 'no-store');
+      sendData(
+        res,
+        HTTP_STATUS.CREATED,
+        await service.createCustomerUpload(getCustomer(req).id, input),
+      );
+    },
+    completeCustomerUpload: async (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      sendData(
+        res,
+        HTTP_STATUS.OK,
+        await service.completeCustomerUpload(getCustomer(req).id, uuidParam(req)),
+      );
     },
     getCustomerUrl: async (req, res) => {
       res.set('Cache-Control', 'no-store');

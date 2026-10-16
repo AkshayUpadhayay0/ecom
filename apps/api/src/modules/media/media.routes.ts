@@ -29,9 +29,17 @@ export function createMediaRouter({
 
 export const CUSTOMER_MEDIA_PATH = '/me/media';
 
-/** Customer routes (mounted at CUSTOMER_MEDIA_PATH behind requireCustomer). */
-export function createCustomerMediaRouter(controller: MediaController): Router {
+/**
+ * Customer routes (mounted at CUSTOMER_MEDIA_PATH behind requireCustomer): private return
+ * evidence uploads (own rate limit) and short-lived signed URLs for their own media.
+ */
+export function createCustomerMediaRouter(
+  controller: MediaController,
+  uploadLimit: RequestHandler,
+): Router {
   const router = Router();
+  router.post('/uploads', uploadLimit, controller.createCustomerUpload);
+  router.post('/:id/complete', uploadLimit, controller.completeCustomerUpload);
   router.get('/:id/url', controller.getCustomerUrl);
   return router;
 }
