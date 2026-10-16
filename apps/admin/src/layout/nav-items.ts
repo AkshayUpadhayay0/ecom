@@ -40,7 +40,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Returns',
     path: '/returns',
     icon: RotateCcw,
-    comingSoon: true,
+    comingSoon: false,
     activePrefix: '/returns',
   },
   {

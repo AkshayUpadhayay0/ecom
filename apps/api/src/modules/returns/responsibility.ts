@@ -1,4 +1,9 @@
-import type { ReturnPayer, ReturnResponsibility } from '@urban-ibile/shared';
+import {
+  RETURN_CAUSES_BY_RESPONSIBILITY,
+  RETURN_DEFAULT_PAYER,
+  type ReturnPayer,
+  type ReturnResponsibility,
+} from '@urban-ibile/shared';
 
 /*
  * Fault-Line (9 Oct design, CLAUDE.md 8b / SKILL.md 9c). Responsibility is decided here by the
@@ -15,23 +20,11 @@ export const FAULT_CAUSES = {
   CHANGED_MIND: 'CHANGED_MIND',
 } as const;
 
-/** Causes allowed per responsibility (REVIEW_REQUIRED has none). */
-export const CAUSES_BY_RESPONSIBILITY: Record<ReturnResponsibility, readonly string[]> = {
-  BRAND_FAULT: [
-    FAULT_CAUSES.BLUEPRINT_FAILURE,
-    FAULT_CAUSES.WRONG_ITEM_DELIVERED,
-    FAULT_CAUSES.DEFECTIVE_ITEM,
-  ],
-  CUSTOMER_FAULT: [FAULT_CAUSES.CUSTOMER_OVERRODE_RECOMMENDATION, FAULT_CAUSES.CHANGED_MIND],
-  REVIEW_REQUIRED: [],
-};
+/** Causes allowed per responsibility (REVIEW_REQUIRED has none). Shared with the admin UI. */
+export const CAUSES_BY_RESPONSIBILITY = RETURN_CAUSES_BY_RESPONSIBILITY;
 
 /** Default reverse-logistics payer for a responsibility. */
-export const DEFAULT_PAYER: Record<ReturnResponsibility, ReturnPayer> = {
-  CUSTOMER_FAULT: 'CUSTOMER',
-  BRAND_FAULT: 'BRAND',
-  REVIEW_REQUIRED: 'UNDECIDED',
-};
+export const DEFAULT_PAYER = RETURN_DEFAULT_PAYER;
 
 export interface Classification {
   responsibility: ReturnResponsibility;

@@ -19,6 +19,20 @@ export type ReturnPayer = (typeof RETURN_PAYERS)[number];
 export const INSPECTION_OUTCOMES = ['RESELLABLE', 'NOT_RESELLABLE'] as const;
 export type InspectionOutcome = (typeof INSPECTION_OUTCOMES)[number];
 
+/** Fault causes allowed per responsibility (REVIEW_REQUIRED has none). Used by API + admin UI. */
+export const RETURN_CAUSES_BY_RESPONSIBILITY: Record<ReturnResponsibility, readonly string[]> = {
+  BRAND_FAULT: ['BLUEPRINT_FAILURE', 'WRONG_ITEM_DELIVERED', 'DEFECTIVE_ITEM'],
+  CUSTOMER_FAULT: ['CUSTOMER_OVERRODE_RECOMMENDATION', 'CHANGED_MIND'],
+  REVIEW_REQUIRED: [],
+};
+
+/** Default reverse-logistics payer for a responsibility (confirmed cost rules A/B/C). */
+export const RETURN_DEFAULT_PAYER: Record<ReturnResponsibility, ReturnPayer> = {
+  CUSTOMER_FAULT: 'CUSTOMER',
+  BRAND_FAULT: 'BRAND',
+  REVIEW_REQUIRED: 'UNDECIDED',
+};
+
 const codeSchema = z.string().regex(/^[A-Za-z][A-Za-z0-9_]{1,59}$/, 'must be a code');
 const statusSchema = z.string().regex(/^[A-Z][A-Z_]{1,39}$/, 'must be a return status');
 const textSchema = (max: number) => z.string().trim().min(1).max(max);

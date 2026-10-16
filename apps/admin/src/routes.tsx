@@ -11,6 +11,8 @@ import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { MediaPage } from '@/features/media/MediaPage';
 import { OrderDetailPage } from '@/features/orders/OrderDetailPage';
 import { OrdersListPage } from '@/features/orders/OrdersListPage';
+import { ReturnDetailPage } from '@/features/returns/ReturnDetailPage';
+import { ReturnsListPage } from '@/features/returns/ReturnsListPage';
 import { PaymentReviewsPage } from '@/features/payment-reviews/PaymentReviewsPage';
 import { ClothingTypesPage } from '@/features/products/ClothingTypesPage';
 import { ProductDetailPage } from '@/features/products/ProductDetailPage';
@@ -78,6 +80,8 @@ export const routes: RouteObject[] = [
       { path: 'orders', element: <OrdersListPage /> },
       { path: 'orders/:id', element: <OrderDetailPage /> },
       { path: 'payment-reviews', element: <PaymentReviewsPage /> },
+      { path: 'returns', element: <ReturnsListPage /> },
+      { path: 'returns/:id', element: <ReturnDetailPage /> },
       { path: 'customers', element: <CustomersListPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'inventory', element: <InventoryPage /> },

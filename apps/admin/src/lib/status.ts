@@ -121,3 +121,34 @@ const CUSTOMER_STATUS: Table = {
 
 export const customerStatusDisplay = (code: string) => lookup(CUSTOMER_STATUS, code);
 export const CUSTOMER_STATUS_CODES = Object.keys(CUSTOMER_STATUS);
+
+/** Labels for return reason codes (lookup table `return_reasons`); unknown codes are humanised. */
+const RETURN_REASON: Table = {
+  does_not_fit: { label: 'Does not fit', tone: 'neutral' },
+  wrong_item: { label: 'Wrong item delivered', tone: 'neutral' },
+  damaged_faulty: { label: 'Arrived damaged / faulty', tone: 'neutral' },
+  changed_mind: { label: 'Changed mind', tone: 'neutral' },
+  other: { label: 'Other', tone: 'neutral' },
+};
+
+const FAULT_CAUSE: Table = {
+  BLUEPRINT_FAILURE: { label: 'Blueprint failure (locked size did not fit)', tone: 'info' },
+  WRONG_ITEM_DELIVERED: { label: 'Wrong item delivered', tone: 'info' },
+  DEFECTIVE_ITEM: { label: 'Defective / damaged item', tone: 'info' },
+  CUSTOMER_OVERRODE_RECOMMENDATION: {
+    label: 'Customer overrode the recommendation',
+    tone: 'neutral',
+  },
+  CHANGED_MIND: { label: 'Customer changed their mind', tone: 'neutral' },
+};
+
+const PAYER: Table = {
+  CUSTOMER: { label: 'Customer pays return delivery', tone: 'neutral' },
+  BRAND: { label: 'Urban Ibile pays return delivery', tone: 'info' },
+  UNDECIDED: { label: 'Not decided yet', tone: 'warning' },
+};
+
+export const returnReasonDisplay = (code: string) => lookup(RETURN_REASON, code);
+export const faultCauseDisplay = (code: string) => lookup(FAULT_CAUSE, code);
+export const payerDisplay = (code: string) => lookup(PAYER, code);
+export const RETURN_REASON_CODES = Object.keys(RETURN_REASON);
