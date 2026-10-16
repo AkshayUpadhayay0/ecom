@@ -89,6 +89,8 @@ async function toApiError(response: Response): Promise<ApiError> {
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
+  /** Raw text body (e.g. a CSV upload) instead of JSON. */
+  text?: { content: string; contentType: string };
   /** Send the access token and refresh on 401 (default true). */
   auth?: boolean;
   signal?: AbortSignal;
@@ -96,7 +98,8 @@ interface RequestOptions {
 
 async function send(path: string, options: RequestOptions): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (options.text !== undefined) headers['Content-Type'] = options.text.contentType;
+  else if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (options.auth !== false && accessToken !== null) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
@@ -104,7 +107,12 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
     return await fetch(`${resolveApiBaseUrl()}${path}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.text !== undefined
+          ? options.text.content
+          : options.body === undefined
+            ? undefined
+            : JSON.stringify(options.body),
       // Required so the browser sends/stores the httpOnly refresh cookie.
       credentials: 'include',
       signal: options.signal,

@@ -1,5 +1,10 @@
 import { Navigate, type RouteObject } from 'react-router';
+import { AuditLogPage } from '@/features/audit/AuditLogPage';
+import { ContentPage } from '@/features/content/ContentPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { DeliveryPage } from '@/features/delivery/DeliveryPage';
+import { QrPagesPage } from '@/features/qr-pages/QrPagesPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { MediaPage } from '@/features/media/MediaPage';
 import { ClothingTypesPage } from '@/features/products/ClothingTypesPage';
@@ -67,6 +72,11 @@ export const routes: RouteObject[] = [
       { path: 'products/:id', element: <ProductDetailPage /> },
       { path: 'inventory', element: <InventoryPage /> },
       { path: 'media', element: <MediaPage /> },
+      { path: 'delivery', element: <DeliveryPage /> },
+      { path: 'settings', element: <SettingsPage /> },
+      { path: 'content', element: <ContentPage /> },
+      { path: 'qr-pages', element: <QrPagesPage /> },
+      { path: 'audit-log', element: <AuditLogPage /> },
       ...comingSoonRoutes,
       { path: '*', element: <Navigate to={DEFAULT_AUTHED_PATH} replace /> },
     ],
