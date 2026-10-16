@@ -220,6 +220,8 @@ describe.skipIf(!hasTestDatabase)('Admin customers + dashboard stats (Phase 7a)'
         paymentsNeedingReview: 1,
         lowStockVariants: 1,
         outOfStockVariants: 1,
+        openReturns: 0,
+        returnsAwaitingAction: 0,
       });
       expect(stats.failedMediaJobs).toBeGreaterThanOrEqual(1);
       await ctx.db.deleteFrom('media_assets').where('processing_status', '=', 'failed').execute();

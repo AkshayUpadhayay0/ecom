@@ -1,12 +1,9 @@
-import { FlaskConical, Plus, ShoppingBag } from 'lucide-react';
+import { Plus, ShoppingBag } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/features/auth/auth-context';
 import { formatLongDate, greetingFor } from '@/lib/format';
-import { IS_MOCK_DATA } from './dashboard.mock';
 import { KpiCards } from './KpiCards';
 import { LowStockCard } from './LowStockCard';
 import { RecentOrdersCard } from './RecentOrdersCard';
@@ -31,19 +28,6 @@ export function DashboardPage() {
             <h1 className="font-display text-3xl tracking-tight sm:text-4xl">
               {greetingFor(now)}, {admin ? firstName(admin.displayName) : 'there'}
             </h1>
-            {IS_MOCK_DATA ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge tone="accent" tabIndex={0} className="cursor-help">
-                    <FlaskConical aria-hidden="true" />
-                    Sample data
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  MOCK figures for layout only. Real orders and stock arrive with the orders API.
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">{formatLongDate(now)}</p>
         </div>

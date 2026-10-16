@@ -25,6 +25,8 @@ export interface StatsRepository {
   ): Promise<PaidWindowRow>;
   stockCounts(db: Database): Promise<StockCountsRow>;
   failedMediaJobs(db: Database): Promise<number>;
+  /** Open return requests, and those waiting for an admin action. */
+  returnCounts(db: Database): Promise<{ open: number; awaitingAction: number }>;
 }
 
 export function createStatsRepository(): StatsRepository {
@@ -66,6 +68,15 @@ export function createStatsRepository(): StatsRepository {
       const row = result.rows[0];
       if (!row) throw new Error('aggregate returned no row');
       return row;
+    },
+
+    async returnCounts(db) {
+      const result = await sql<{ open: number; awaitingAction: number }>`
+        SELECT
+          count(*) FILTER (WHERE status NOT IN ('COMPLETED', 'REJECTED', 'CANCELLED'))::int AS "open",
+          count(*) FILTER (WHERE status IN ('SUBMITTED', 'UNDER_REVIEW', 'RETURN_RECEIVED'))::int AS "awaitingAction"
+        FROM return_requests`.execute(db);
+      return result.rows[0] ?? { open: 0, awaitingAction: 0 };
     },
 
     async failedMediaJobs(db) {

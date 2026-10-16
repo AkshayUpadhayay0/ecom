@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { formatDateTime, formatNaira, formatRelativeTime } from '@/lib/format';
 import { useRecentOrders } from './dashboard.queries';
-import { orderStatusDisplay, paymentStatusDisplay } from './status-labels';
+import { orderStatusDisplay, paymentStatusDisplay } from '@/lib/status';
 
 const SKELETON_ROWS = 5;
 
@@ -78,9 +78,11 @@ export function RecentOrdersCard() {
               return (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono text-xs font-medium">
-                    {order.orderNumber}
+                    <Link to={`/orders/${order.id}`} className="underline-offset-4 hover:underline">
+                      {order.orderNumber}
+                    </Link>
                   </TableCell>
-                  <TableCell>{order.customerName}</TableCell>
+                  <TableCell>{order.customer.fullName}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatNaira(order.totalMinor)}
                   </TableCell>

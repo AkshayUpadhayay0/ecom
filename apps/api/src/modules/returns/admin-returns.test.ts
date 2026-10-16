@@ -167,6 +167,10 @@ describe.skipIf(!hasTestDatabase)('Admin returns, exchange, inspection (Phase 7b
       (await list('status=SUBMITTED&requestType=RETURN&reasonCode=does_not_fit&open=true')).length,
     ).toBe(2);
     expect(await list('open=false')).toEqual([]);
+    const stats = dataOf<{ openReturns: number; returnsAwaitingAction: number }>(
+      await admin.get('/stats/overview'),
+    );
+    expect(stats).toMatchObject({ openReturns: 2, returnsAwaitingAction: 2 });
 
     const detail = dataOf<AdminReturnDetailDto>(await admin.get(`/returns/${locked.id}`));
     expect(detail).toMatchObject({

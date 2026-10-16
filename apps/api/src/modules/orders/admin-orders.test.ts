@@ -217,6 +217,11 @@ describe.skipIf(!hasTestDatabase)('Admin orders API (Phase 7a)', () => {
         ]),
       );
       expect(fitLine?.measurements.find((m) => m.code === 'chest')?.requiredSize).toBeTruthy();
+      expect(fitLine?.fit?.charts.length).toBeGreaterThan(0);
+      expect(fitLine?.fit?.charts[0]).toMatchObject({
+        group: expect.any(String) as string,
+        version: expect.any(Number) as number,
+      });
       expect(view.items.find((i) => i.productId === fixture.products.plain)).toMatchObject({
         fit: null,
         measurements: [],

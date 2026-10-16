@@ -52,6 +52,7 @@ export const STORE_UTC_OFFSET_MINUTES = 60;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
+/** order_items.fit_snapshot: `charts` holds the decision's chart snapshot (with its charts). */
 const fitSnapshotSchema = z.object({
   decisionId: z.string(),
   method: z.string(),
@@ -59,6 +60,9 @@ const fitSnapshotSchema = z.object({
   fitPreference: z.string(),
   recommendedSize: z.string(),
   selectedSize: z.string(),
+  charts: z
+    .object({ charts: z.array(z.object({ group: z.string(), version: z.number() })).default([]) })
+    .nullish(),
 });
 
 export interface AdminOrdersService {
@@ -227,7 +231,20 @@ export function createAdminOrdersService(deps: AdminOrdersServiceDeps): AdminOrd
           quantity: item.quantity,
           unitPriceMinor: int8ToNumber(item.unitPriceMinor),
           lineTotalMinor: int8ToNumber(item.lineTotalMinor),
-          fit: fit.success ? fit.data : null,
+          fit: fit.success
+            ? {
+                decisionId: fit.data.decisionId,
+                method: fit.data.method,
+                selectionMode: fit.data.selectionMode,
+                fitPreference: fit.data.fitPreference,
+                recommendedSize: fit.data.recommendedSize,
+                selectedSize: fit.data.selectedSize,
+                charts: (fit.data.charts?.charts ?? []).map((c) => ({
+                  group: c.group,
+                  version: c.version,
+                })),
+              }
+            : null,
           measurements:
             item.blueprintDecisionId === null
               ? []

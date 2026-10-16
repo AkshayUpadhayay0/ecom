@@ -63,5 +63,30 @@ export default tseslint.config(
       'jsx-a11y/no-autofocus': ['error', { ignoreNonDOM: true }],
     },
   },
+  {
+    // Admin pages read the real API only: mock data and test fixtures are for tests.
+    files: ['apps/admin/src/**/*.{ts,tsx}'],
+    ignores: ['apps/admin/src/**/*.test.{ts,tsx}', 'apps/admin/src/test/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/*.mock',
+                '**/*.mock.*',
+                '**/*.fixtures',
+                '**/*.fixtures.*',
+                '@/test/*',
+                '**/test/*',
+              ],
+              message: 'Pages use the real API only. Mock data and test fixtures belong in tests.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );

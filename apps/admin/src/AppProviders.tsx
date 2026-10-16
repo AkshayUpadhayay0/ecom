@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { ThemedToaster } from '@/components/ThemedToaster';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { ApiError } from '@/lib/api/client';
 
@@ -24,7 +25,10 @@ export function createQueryClient(): QueryClient {
 export function AppProviders({ client, children }: { client: QueryClient; children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        {children}
+        <ThemedToaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

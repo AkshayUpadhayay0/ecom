@@ -131,6 +131,8 @@ export interface AdminOrderItemDto {
     fitPreference: string;
     recommendedSize: string;
     selectedSize: string;
+    /** Size chart group + version used for the decision (stored at purchase). */
+    charts: { group: string; version: number }[];
   } | null;
   /** Body measurements recorded with the decision (inches). */
   measurements: AdminMeasurementDto[];
@@ -302,4 +304,8 @@ export interface StatsOverviewDto {
   lowStockVariants: number;
   outOfStockVariants: number;
   failedMediaJobs: number;
+  /** Return requests not completed / rejected / cancelled. */
+  openReturns: number;
+  /** Open returns waiting for an admin (submitted, under review, item received). */
+  returnsAwaitingAction: number;
 }

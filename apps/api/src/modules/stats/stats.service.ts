@@ -41,7 +41,7 @@ export function createStatsService(deps: {
   async function compute(): Promise<StatsOverviewDto> {
     const now = new Date();
     const today = startOfStoreDay(now);
-    const [byStatus, paid, stock, failedMedia, openReviews, currency] = await Promise.all([
+    const [byStatus, paid, stock, failedMedia, returns, openReviews, currency] = await Promise.all([
       repository.ordersByStatus(db),
       repository.paidWindows(db, {
         today,
@@ -50,6 +50,7 @@ export function createStatsService(deps: {
       }),
       repository.stockCounts(db),
       repository.failedMediaJobs(db),
+      repository.returnCounts(db),
       reviews.countOpen(db),
       settings.getSetting(db, 'store.currency'),
     ]);
@@ -68,6 +69,8 @@ export function createStatsService(deps: {
       lowStockVariants: stock.lowStock,
       outOfStockVariants: stock.outOfStock,
       failedMediaJobs: failedMedia,
+      openReturns: returns.open,
+      returnsAwaitingAction: returns.awaitingAction,
     };
   }
 

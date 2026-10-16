@@ -45,15 +45,18 @@ export function LowStockCard() {
       ) : (
         <ul className="divide-y px-5 pb-2">
           {data.map((item) => (
-            <li key={item.variantId} className="flex items-center justify-between gap-3 py-3">
+            <li key={item.id} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{item.productName}</p>
+                <p className="truncate text-sm font-medium">{item.product.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {item.sizeLabel} · <span className="font-mono">{item.sku}</span>
+                  {item.size.label} · <span className="font-mono">{item.sku}</span>
                 </p>
               </div>
-              <Badge tone={item.available === 0 ? 'danger' : 'warning'} className="tabular-nums">
-                {item.available === 0 ? 'Out of stock' : `${item.available} left`}
+              <Badge
+                tone={item.stockAvailable <= 0 ? 'danger' : 'warning'}
+                className="tabular-nums"
+              >
+                {item.stockAvailable <= 0 ? 'Out of stock' : `${item.stockAvailable} left`}
               </Badge>
             </li>
           ))}

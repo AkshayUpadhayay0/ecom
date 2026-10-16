@@ -1,13 +1,18 @@
 import {
   Boxes,
+  CreditCard,
   FileText,
+  Image,
   LayoutDashboard,
   QrCode,
+  RotateCcw,
   Ruler,
+  ScrollText,
   Settings,
   Shirt,
   ShoppingBag,
   Truck,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -23,7 +28,37 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, comingSoon: false },
-  { label: 'Products', path: '/products', icon: Shirt, comingSoon: true },
+  {
+    label: 'Orders',
+    path: '/orders',
+    icon: ShoppingBag,
+    comingSoon: true,
+    activePrefix: '/orders',
+  },
+  { label: 'Payment review', path: '/payment-reviews', icon: CreditCard, comingSoon: true },
+  {
+    label: 'Returns',
+    path: '/returns',
+    icon: RotateCcw,
+    comingSoon: true,
+    activePrefix: '/returns',
+  },
+  {
+    label: 'Customers',
+    path: '/customers',
+    icon: Users,
+    comingSoon: true,
+    activePrefix: '/customers',
+  },
+  {
+    label: 'Products',
+    path: '/products',
+    icon: Shirt,
+    comingSoon: true,
+    activePrefix: '/products',
+  },
+  { label: 'Inventory', path: '/inventory', icon: Boxes, comingSoon: true },
+  { label: 'Media', path: '/media', icon: Image, comingSoon: true },
   {
     label: 'Sizes & Charts',
     path: '/sizes/charts',
@@ -31,10 +66,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     comingSoon: false,
     activePrefix: '/sizes',
   },
-  { label: 'Orders', path: '/orders', icon: ShoppingBag, comingSoon: true },
-  { label: 'Inventory', path: '/inventory', icon: Boxes, comingSoon: true },
   { label: 'Content', path: '/content', icon: FileText, comingSoon: true },
-  { label: 'QR Pages', path: '/qr-pages', icon: QrCode, comingSoon: true },
+  {
+    label: 'QR Pages',
+    path: '/qr-pages',
+    icon: QrCode,
+    comingSoon: true,
+    activePrefix: '/qr-pages',
+  },
   { label: 'Delivery', path: '/delivery', icon: Truck, comingSoon: true },
   { label: 'Settings', path: '/settings', icon: Settings, comingSoon: true },
+  { label: 'Audit log', path: '/audit-log', icon: ScrollText, comingSoon: true },
 ];

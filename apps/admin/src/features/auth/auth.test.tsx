@@ -62,7 +62,8 @@ describe('login page', () => {
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/dashboard');
-    expect(screen.getByText('Sample data')).toBeInTheDocument();
+    // Real dashboard: no sample-data badge anywhere.
+    expect(screen.queryByText('Sample data')).not.toBeInTheDocument();
     expect(session.hasAccessToken()).toBe(true);
   });
 
