@@ -1,6 +1,8 @@
 import { Navigate, type RouteObject } from 'react-router';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
 import { ContentPage } from '@/features/content/ContentPage';
+import { CustomerDetailPage } from '@/features/customers/CustomerDetailPage';
+import { CustomersListPage } from '@/features/customers/CustomersListPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { DeliveryPage } from '@/features/delivery/DeliveryPage';
 import { QrPagesPage } from '@/features/qr-pages/QrPagesPage';
@@ -76,6 +78,8 @@ export const routes: RouteObject[] = [
       { path: 'orders', element: <OrdersListPage /> },
       { path: 'orders/:id', element: <OrderDetailPage /> },
       { path: 'payment-reviews', element: <PaymentReviewsPage /> },
+      { path: 'customers', element: <CustomersListPage /> },
+      { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'inventory', element: <InventoryPage /> },
       { path: 'media', element: <MediaPage /> },
       { path: 'delivery', element: <DeliveryPage /> },

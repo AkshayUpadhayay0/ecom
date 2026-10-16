@@ -112,3 +112,12 @@ export const ORDER_PAYMENT_STATUS_CODES = [
   'partially_refunded',
 ] as const;
 export const RETURN_STATUS_CODES = Object.keys(RETURN_STATUS);
+
+const CUSTOMER_STATUS: Table = {
+  active: { label: 'Active', tone: 'success' },
+  suspended: { label: 'Suspended', tone: 'danger' },
+  deleted: { label: 'Deleted', tone: 'neutral' },
+};
+
+export const customerStatusDisplay = (code: string) => lookup(CUSTOMER_STATUS, code);
+export const CUSTOMER_STATUS_CODES = Object.keys(CUSTOMER_STATUS);

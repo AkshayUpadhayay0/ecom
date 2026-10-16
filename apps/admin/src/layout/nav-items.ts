@@ -47,7 +47,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Customers',
     path: '/customers',
     icon: Users,
-    comingSoon: true,
+    comingSoon: false,
     activePrefix: '/customers',
   },
   {
