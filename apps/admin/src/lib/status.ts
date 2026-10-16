@@ -87,3 +87,28 @@ export const returnStatusDisplay = (code: string) => lookup(RETURN_STATUS, code)
 export const responsibilityDisplay = (code: string) => lookup(RESPONSIBILITY, code);
 export const productStatusDisplay = (code: string) => lookup(PRODUCT_STATUS, code);
 export const mediaStatusDisplay = (code: string) => lookup(MEDIA_STATUS, code);
+
+const FIT_METHOD: Table = {
+  MANUAL_MEASUREMENTS: { label: 'Quick Fit (measurements typed in)', tone: 'neutral' },
+  BODY_SCAN: { label: 'Body Scan', tone: 'neutral' },
+};
+
+const SELECTION_MODE: Table = {
+  LOCKED_RECOMMENDATION: { label: 'Locked recommendation', tone: 'success' },
+  OVERRIDE: { label: 'Customer override', tone: 'warning' },
+};
+
+export const fitMethodDisplay = (code: string) => lookup(FIT_METHOD, code);
+export const selectionModeDisplay = (code: string) => lookup(SELECTION_MODE, code);
+
+/** Order statuses known today (filters); new statuses added as data still display via humanise. */
+export const ORDER_STATUS_CODES = Object.keys(ORDER_STATUS);
+export const ORDER_PAYMENT_STATUS_CODES = [
+  'unpaid',
+  'pending',
+  'paid',
+  'failed',
+  'refunded',
+  'partially_refunded',
+] as const;
+export const RETURN_STATUS_CODES = Object.keys(RETURN_STATUS);

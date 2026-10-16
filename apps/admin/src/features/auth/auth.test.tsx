@@ -78,7 +78,6 @@ describe('login page', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Orders' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/orders');
-    expect(screen.getByText('Coming soon')).toBeInTheDocument();
   });
 
   it('shows a generic error for wrong credentials', async () => {

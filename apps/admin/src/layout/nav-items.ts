@@ -32,7 +32,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Orders',
     path: '/orders',
     icon: ShoppingBag,
-    comingSoon: true,
+    comingSoon: false,
     activePrefix: '/orders',
   },
   { label: 'Payment review', path: '/payment-reviews', icon: CreditCard, comingSoon: true },
