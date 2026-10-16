@@ -1,5 +1,11 @@
 import { Navigate, type RouteObject } from 'react-router';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { InventoryPage } from '@/features/inventory/InventoryPage';
+import { MediaPage } from '@/features/media/MediaPage';
+import { ClothingTypesPage } from '@/features/products/ClothingTypesPage';
+import { ProductDetailPage } from '@/features/products/ProductDetailPage';
+import { ProductsLayout } from '@/features/products/ProductsLayout';
+import { ProductsListPage } from '@/features/products/ProductsListPage';
 import { MeasurementProfilesPage } from '@/features/sizes/MeasurementProfilesPage';
 import { SizeChartsPage } from '@/features/sizes/SizeChartsPage';
 import { SizesLayout } from '@/features/sizes/SizesLayout';
@@ -50,6 +56,17 @@ export const routes: RouteObject[] = [
           { path: 'profiles', element: <MeasurementProfilesPage /> },
         ],
       },
+      {
+        path: 'products',
+        element: <ProductsLayout />,
+        children: [
+          { index: true, element: <ProductsListPage /> },
+          { path: 'clothing-types', element: <ClothingTypesPage /> },
+        ],
+      },
+      { path: 'products/:id', element: <ProductDetailPage /> },
+      { path: 'inventory', element: <InventoryPage /> },
+      { path: 'media', element: <MediaPage /> },
       ...comingSoonRoutes,
       { path: '*', element: <Navigate to={DEFAULT_AUTHED_PATH} replace /> },
     ],

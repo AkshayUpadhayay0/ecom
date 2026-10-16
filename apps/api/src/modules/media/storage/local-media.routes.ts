@@ -22,6 +22,9 @@ async function sendObject(
   if (!found) throw notFound();
   res.type(found.contentType);
   res.set('X-Content-Type-Options', 'nosniff');
+  // Like a CDN: the admin panel (another origin in dev) must be able to show these files.
+  // helmet's default same-origin policy would block <img>/<video> from another port.
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   if (bucket === 'private') res.set('Cache-Control', 'private, no-store');
   res.sendFile(found.path);
 }
