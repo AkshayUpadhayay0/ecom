@@ -76,6 +76,8 @@ export interface PaymentOutcomeChange {
   clearCancellation?: boolean;
   /** No stock hold any more (paid or under review). */
   clearReservation?: boolean;
+  /** Cancels the order: cancelled_at = now(), cancel_reason = this. */
+  cancelReason?: string;
 }
 
 export interface OrderItemRow {
@@ -131,6 +133,8 @@ export interface OrdersRepository {
     from: string | null,
     to: string,
     note: string,
+    /** The admin who made the change (omitted = system). */
+    adminId?: string,
   ): Promise<void>;
   /** The customer's latest unpaid (or declined) pending order, locked (one open order per cart/customer). */
   findOpenForUpdate(db: Database, customerId: string): Promise<OrderRow | undefined>;
@@ -206,10 +210,16 @@ export function createOrdersRepository(): OrdersRepository {
         .execute();
     },
 
-    async logStatus(db, orderId, from, to, note) {
+    async logStatus(db, orderId, from, to, note, adminId) {
       await db
         .insertInto('order_status_history')
-        .values({ order_id: orderId, from_status: from, to_status: to, note })
+        .values({
+          order_id: orderId,
+          from_status: from,
+          to_status: to,
+          note,
+          changed_by_admin: adminId ?? null,
+        })
         .execute();
     },
 
@@ -298,6 +308,10 @@ export function createOrdersRepository(): OrdersRepository {
           ...(change.markPaid === true && { paid_at: sql<Date>`now()` }),
           ...(change.clearCancellation === true && { cancelled_at: null, cancel_reason: null }),
           ...(change.clearReservation === true && { reservation_expires_at: null }),
+          ...(change.cancelReason !== undefined && {
+            cancelled_at: sql<Date>`now()`,
+            cancel_reason: change.cancelReason,
+          }),
         })
         .where('id', '=', orderId)
         .execute();

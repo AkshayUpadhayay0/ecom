@@ -1,4 +1,3 @@
-import { sql } from 'kysely';
 import type { PaymentStatus } from '@urban-ibile/shared';
 import type { Logger } from 'pino';
 import type { Database } from '../../db/database.js';
@@ -7,8 +6,8 @@ import type { CartRepository } from '../cart/cart.repository.js';
 import { releaseOrderHolds } from '../inventory/order-holds.js';
 import type { ReservationsRepository } from '../inventory/reservations.repository.js';
 import type { EmailOutboxRepository } from '../notifications/email-outbox.repository.js';
-import type { OrderConfirmationPayload } from '../notifications/email-templates.js';
-import type { OrderItemRow, OrderRow, OrdersRepository } from '../orders/orders.repository.js';
+import { completeFulfilment, sellOrderStock } from '../orders/order-fulfilment.js';
+import type { OrderRow, OrdersRepository } from '../orders/orders.repository.js';
 import type { PaymentProvider, ProviderTransaction } from './provider/payment-provider.js';
 import type { PaymentResult, PaymentRow, PaymentsRepository } from './payments.repository.js';
 
@@ -29,6 +28,8 @@ export const FAILURE_REASONS = {
   CURRENCY_MISMATCH: 'CURRENCY_MISMATCH',
   ORDER_MISMATCH: 'ORDER_MISMATCH',
   DUPLICATE_SUCCESS: 'DUPLICATE_SUCCESS',
+  /** Paid (success) but the order could not be fulfilled: stock gone. */
+  LATE_NO_STOCK: 'LATE_NO_STOCK',
 } as const;
 
 export type ConfirmationSource = 'webhook' | 'verify' | 'reconcile';
@@ -116,99 +117,10 @@ function mismatchOf(tx: ProviderTransaction, payment: PaymentRow, order: OrderRo
   return null;
 }
 
-function confirmationEmail(
-  order: OrderRow,
-  items: readonly OrderItemRow[],
-): OrderConfirmationPayload {
-  return {
-    orderNumber: order.orderNumber,
-    currency: order.currency.trim(),
-    recipientName: order.recipientName,
-    items: items.map((item) => ({
-      productName: item.productName,
-      sizeLabel: item.sizeLabel,
-      quantity: item.quantity,
-      unitPriceMinor: int8ToNumber(item.unitPriceMinor),
-      lineTotalMinor: int8ToNumber(item.lineTotalMinor),
-    })),
-    subtotalMinor: int8ToNumber(order.subtotalMinor),
-    deliveryFeeMinor: int8ToNumber(order.deliveryFeeMinor),
-    totalMinor: int8ToNumber(order.totalMinor),
-    delivery: {
-      addressLine1: order.addressLine1,
-      addressLine2: order.addressLine2,
-      city: order.city,
-      state: order.state,
-      landmark: order.landmark,
-      zoneName: order.deliveryZoneName,
-    },
-  };
-}
-
 export function createPaymentConfirmationService(
   deps: PaymentConfirmationDeps,
 ): PaymentConfirmationService {
   const { db, logger, provider, payments, orders, carts, reservations, outbox } = deps;
-
-  /**
-   * Sells the order's items: held units are committed; units without a hold (late payment after
-   * expiry / cancellation) are taken from available stock. All or nothing (savepoint).
-   */
-  async function fulfil(
-    trx: Database,
-    order: OrderRow,
-    items: readonly OrderItemRow[],
-  ): Promise<boolean> {
-    const held = new Map(
-      (await reservations.heldForOrder(trx, order.id)).map((h) => [h.variantId, h]),
-    );
-    const sorted = [...items].sort((a, b) =>
-      a.variantId < b.variantId ? -1 : a.variantId > b.variantId ? 1 : 0,
-    );
-    await sql`SAVEPOINT fulfil_order`.execute(trx);
-    for (const item of sorted) {
-      const hold = held.get(item.variantId);
-      if (hold?.quantity === item.quantity) {
-        if (!(await reservations.commitHeld(trx, item.variantId, item.quantity))) {
-          await sql`ROLLBACK TO SAVEPOINT fulfil_order`.execute(trx);
-          return false;
-        }
-        await reservations.logMovement(trx, {
-          variantId: item.variantId,
-          type: 'reservation_release',
-          quantity: item.quantity,
-          orderId: order.id,
-          note: 'sold (payment confirmed)',
-        });
-      } else {
-        if (hold) {
-          // Defensive: a hold that does not match the line is given back first.
-          await reservations.release(trx, hold.variantId, hold.quantity);
-          await reservations.logMovement(trx, {
-            variantId: hold.variantId,
-            type: 'reservation_release',
-            quantity: hold.quantity,
-            orderId: order.id,
-            note: 'hold did not match the order line',
-          });
-        }
-        if (!(await reservations.deductAvailable(trx, item.variantId, item.quantity))) {
-          await sql`ROLLBACK TO SAVEPOINT fulfil_order`.execute(trx);
-          return false;
-        }
-      }
-      await reservations.logMovement(trx, {
-        variantId: item.variantId,
-        type: 'sale',
-        quantity: item.quantity,
-        orderId: order.id,
-        note: 'payment confirmed',
-      });
-    }
-    await reservations.markCommittedForOrder(trx, order.id);
-    await sql`RELEASE SAVEPOINT fulfil_order`.execute(trx);
-    return true;
-  }
 
   async function applySuccess(
     trx: Database,
@@ -218,39 +130,27 @@ export function createPaymentConfirmationService(
     cartId: string | undefined,
     source: ConfirmationSource,
   ): Promise<ConfirmationOutcome> {
-    await payments.markResult(trx, payment.id, resultOf(tx, 'success', null));
     const items = await orders.items(trx, [order.id]);
     const late = order.orderStatus === ORDER.CANCELLED;
     const fulfillable = order.orderStatus === ORDER.PENDING_PAYMENT || late;
-    if (fulfillable && (await fulfil(trx, order, items))) {
-      await orders.applyPaymentOutcome(trx, order.id, {
-        orderStatus: ORDER.BEING_PREPARED,
-        paymentStatus: PAID,
-        markPaid: true,
-        clearCancellation: late,
-        clearReservation: true,
-      });
-      await orders.logStatus(
+    const sold =
+      fulfillable && (await sellOrderStock(trx, reservations, order, items, 'payment confirmed'));
+    await payments.markResult(
+      trx,
+      payment.id,
+      resultOf(tx, 'success', sold ? null : FAILURE_REASONS.LATE_NO_STOCK),
+    );
+    if (sold) {
+      await completeFulfilment(
         trx,
-        order.id,
-        order.orderStatus,
-        ORDER.BEING_PREPARED,
-        `payment confirmed (${source}${late ? ', late payment re-reserved' : ''})`,
-      );
-      if (cartId !== undefined) {
-        await carts.removePurchased(
-          trx,
+        { orders, carts, outbox },
+        {
+          order,
+          items,
           cartId,
-          items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
-        );
-      }
-      await outbox.enqueue(trx, {
-        template: 'order_confirmation',
-        recipient: order.contactEmail,
-        languageCode: order.languageCode,
-        orderId: order.id,
-        payload: confirmationEmail(order, items),
-      });
+          note: `payment confirmed (${source}${late ? ', late payment re-reserved' : ''})`,
+        },
+      );
       return 'paid';
     }
     // Money received but the order cannot be fulfilled: keep the payment, flag the order.

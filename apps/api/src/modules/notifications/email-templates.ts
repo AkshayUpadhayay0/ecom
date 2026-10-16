@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export type EmailTemplate = 'email_verification' | 'password_reset' | 'order_confirmation';
+export type EmailTemplate =
+  | 'email_verification'
+  | 'password_reset'
+  | 'order_confirmation'
+  | 'order_sent_out'
+  | 'order_delivered';
 
 /** Payload of the account emails (verification / password reset). */
 export interface AccountEmailPayload {
@@ -38,7 +43,16 @@ const orderConfirmationSchema = z.object({
 });
 export type OrderConfirmationPayload = z.infer<typeof orderConfirmationSchema>;
 
-export type EmailPayload = AccountEmailPayload | OrderConfirmationPayload;
+/** Payload of the admin-triggered status emails (sent out / delivered). No payment data. */
+const orderStatusEmailSchema = z.object({
+  orderNumber: z.string(),
+  recipientName: z.string(),
+  carrier: z.string().nullable(),
+  trackingReference: z.string().nullable(),
+});
+export type OrderStatusEmailPayload = z.infer<typeof orderStatusEmailSchema>;
+
+export type EmailPayload = AccountEmailPayload | OrderConfirmationPayload | OrderStatusEmailPayload;
 
 /**
  * Templates whose payload contains a one-time secret link. Their payload is replaced after
@@ -129,6 +143,54 @@ function renderOrderConfirmation(
 }
 
 /**
+ * Status email copy per language. TEMP English only; approved Pidgin copy is added as a 'pcm'
+ * entry later without touching the rendering code.
+ */
+const ORDER_STATUS_COPY = {
+  en: {
+    order_sent_out: {
+      subject: (orderNumber: string) => `Your Urban Ibile order ${orderNumber} is on its way`,
+      body: 'Good news: your order has been sent out.',
+    },
+    order_delivered: {
+      subject: (orderNumber: string) => `Your Urban Ibile order ${orderNumber} was delivered`,
+      body: 'Your order has been delivered. We hope you love it.',
+    },
+    greeting: (name: string) => `Hi ${name},`,
+    orderLabel: 'Order',
+    carrierLabel: 'Carrier',
+    trackingLabel: 'Tracking reference',
+  },
+} as const;
+type StatusCopy = (typeof ORDER_STATUS_COPY)[typeof DEFAULT_LANGUAGE];
+
+function statusCopyFor(language: string): StatusCopy {
+  return language in ORDER_STATUS_COPY
+    ? ORDER_STATUS_COPY[language as keyof typeof ORDER_STATUS_COPY]
+    : ORDER_STATUS_COPY[DEFAULT_LANGUAGE];
+}
+
+function renderOrderStatusEmail(
+  template: 'order_sent_out' | 'order_delivered',
+  payload: OrderStatusEmailPayload,
+  language: string,
+): RenderedEmail {
+  const copy = statusCopyFor(language);
+  const lines = [
+    copy.greeting(payload.recipientName),
+    '',
+    copy[template].body,
+    '',
+    `${copy.orderLabel}: ${payload.orderNumber}`,
+    ...(payload.carrier === null ? [] : [`${copy.carrierLabel}: ${payload.carrier}`]),
+    ...(payload.trackingReference === null
+      ? []
+      : [`${copy.trackingLabel}: ${payload.trackingReference}`]),
+  ];
+  return { subject: copy[template].subject(payload.orderNumber), text: lines.join('\n') };
+}
+
+/**
  * TEMP: plain-text templates. Final copy, Pidgin versions and HTML layout arrive with the email
  * provider decision. Account emails are English only for now.
  */
@@ -152,6 +214,9 @@ export function renderEmail(
         text: `Hi ${payload.fullName},\n\nReset your password with this link:\n${payload.link}\n\nIf you did not ask for this, ignore this email. Your password stays the same.`,
       };
     }
+    case 'order_sent_out':
+    case 'order_delivered':
+      return renderOrderStatusEmail(template, orderStatusEmailSchema.parse(rawPayload), language);
     case 'order_confirmation':
       return renderOrderConfirmation(orderConfirmationSchema.parse(rawPayload), language);
     default:

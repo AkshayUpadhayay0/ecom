@@ -4,6 +4,7 @@ import type { Env } from '../config/env.js';
 import type { Database } from '../db/database.js';
 import { apiRateLimit } from '../middleware/rate-limit.js';
 import { requireAdminRole } from '../middleware/require-role.js';
+import { createAdminCommerceRouter } from './admin-commerce.module.js';
 import { createAuditController } from './audit/audit.controller.js';
 import { createAuditRouter } from './audit/audit.routes.js';
 import { createAuditService } from './audit/audit.service.js';
@@ -52,6 +53,7 @@ import { createSettingsRouter } from './settings/settings.routes.js';
 import { createSettingsService } from './settings/settings.service.js';
 
 export const ADMIN_API_PATH = '/admin';
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export interface AdminApiDeps {
   env: Pick<
@@ -60,6 +62,9 @@ export interface AdminApiDeps {
     | 'SERIAL_HMAC_SECRET'
     | 'MEDIA_UPLOAD_RATE_LIMIT_WINDOW_MS'
     | 'MEDIA_UPLOAD_RATE_LIMIT_MAX'
+    | 'ADMIN_WRITE_RATE_LIMIT_WINDOW_MS'
+    | 'ADMIN_WRITE_RATE_LIMIT_MAX'
+    | 'ADMIN_STATS_CACHE_SECONDS'
   >;
   db: Database;
   storage: StorageProvider;
@@ -69,8 +74,8 @@ export interface AdminApiDeps {
 }
 
 /**
- * Admin API: catalog, inventory, delivery zones, settings, content, audit logs (Phase 2) and
- * hidden pages + serial import (Phase 2b).
+ * Admin API: catalog, inventory, delivery zones, settings, content, audit logs (Phase 2),
+ * hidden pages + serial import (Phase 2b), orders, payment reviews, customers, stats (Phase 7a).
  */
 export function createAdminApiRouter({
   env,
@@ -89,6 +94,18 @@ export function createAdminApiRouter({
 
   const router = Router();
   router.use(requireAdmin);
+  // Every admin write (non-GET) shares one per-IP limit; reads are not limited here.
+  const writeLimit = apiRateLimit({
+    windowMs: env.ADMIN_WRITE_RATE_LIMIT_WINDOW_MS,
+    max: env.ADMIN_WRITE_RATE_LIMIT_MAX,
+  });
+  router.use((req, res, next) => {
+    if (SAFE_METHODS.has(req.method)) {
+      next();
+      return;
+    }
+    void writeLimit(req, res, next);
+  });
   router.use(
     createCatalogRouter(
       createCatalogController({
@@ -185,6 +202,15 @@ export function createAdminApiRouter({
         max: env.MEDIA_UPLOAD_RATE_LIMIT_MAX,
       }),
       requireSuperAdmin,
+    }),
+  );
+  router.use(
+    createAdminCommerceRouter({
+      db,
+      logger,
+      settings,
+      requireSuperAdmin,
+      statsCacheSeconds: env.ADMIN_STATS_CACHE_SECONDS,
     }),
   );
   router.use(

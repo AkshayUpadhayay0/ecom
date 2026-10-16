@@ -132,6 +132,13 @@ export const envSchema = z.object({
   WEBHOOK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
   WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
 
+  // --- Admin (Phase 7a) ---
+  // Shared per-IP limit for every admin write (POST/PATCH/PUT/DELETE under /admin).
+  ADMIN_WRITE_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  ADMIN_WRITE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
+  // How long the dashboard numbers (GET /admin/stats/overview) are cached in memory.
+  ADMIN_STATS_CACHE_SECONDS: z.coerce.number().int().min(0).max(600).default(30),
+
   // --- Email provider ---
   // 'log' = MOCK: writes emails to the log and EMAIL_LOG_DIR, sends nothing. Refused in
   // production; the real provider is a Pending Client Decision.

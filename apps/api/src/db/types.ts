@@ -367,6 +367,14 @@ export interface OrderItems {
   variant_id: string;
 }
 
+export interface OrderNotes {
+  admin_id: string;
+  body: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  order_id: string;
+}
+
 export interface Orders {
   cancel_reason: string | null;
   cancelled_at: Timestamp | null;
@@ -421,6 +429,14 @@ export interface OrderStatusHistory {
   to_status: string;
 }
 
+export interface OrderStatusTransitions {
+  from_status: string;
+  is_active: Generated<boolean>;
+  requires_paid: Generated<boolean>;
+  requires_reason: Generated<boolean>;
+  to_status: string;
+}
+
 export interface PageAccessGrants {
   browser_token_hash: string | null;
   created_at: Generated<Timestamp>;
@@ -441,6 +457,18 @@ export interface PasswordResetTokens {
   id: Generated<string>;
   token_hash: string;
   used_at: Timestamp | null;
+}
+
+export interface PaymentReviewResolutions {
+  action: string;
+  admin_id: string;
+  amount_minor: Int8 | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  note: string;
+  order_id: string;
+  payment_id: string;
+  refund_reference: string | null;
 }
 
 export interface Payments {
@@ -764,11 +792,14 @@ export interface DB {
   media_assets: MediaAssets;
   media_renditions: MediaRenditions;
   order_items: OrderItems;
+  order_notes: OrderNotes;
   order_status_history: OrderStatusHistory;
+  order_status_transitions: OrderStatusTransitions;
   order_statuses: OrderStatuses;
   orders: Orders;
   page_access_grants: PageAccessGrants;
   password_reset_tokens: PasswordResetTokens;
+  payment_review_resolutions: PaymentReviewResolutions;
   payment_webhook_events: PaymentWebhookEvents;
   payments: Payments;
   product_images: ProductImages;

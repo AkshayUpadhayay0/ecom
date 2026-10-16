@@ -270,6 +270,14 @@ Paystack, verified server-side only: [docs/payments-api.md](docs/payments-api.md
 reconciles unresolved payments and sends the email outbox (MOCK `log` provider: files in
 `.mock-emails/`). The API process no longer sends emails, so run the worker in dev.
 
+## Admin orders, payment reviews, customers, stats (Phase 7a)
+
+Admin token required: [docs/admin-orders-api.md](docs/admin-orders-api.md). Order list/search and
+detail (fit snapshot, measurements, every payment attempt, history, notes), data-driven status
+changes (`order_status_transitions`) with optimistic concurrency and customer emails, append-only
+notes, the payment review queue (FULFIL / refund required / refunded; no automatic refunds),
+customer lookup and suspend/enable (super_admin), and `GET /admin/stats/overview`.
+
 ## Tests
 
 - Unit and HTTP tests run without a database.

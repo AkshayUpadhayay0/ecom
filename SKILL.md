@@ -110,9 +110,13 @@ Every minute (in-process timer; Redis/BullMQ is not required now, so do not add 
 
 ## 7. Recipe: admin order status change
 
-- Only statuses where `order_statuses.is_admin_selectable` is true. Order must be `payment_status = 'paid'`.
-- Transaction: update `orders.order_status` (+ `delivered_at` when delivered), insert `order_status_history` (admin id), insert `admin_audit_logs` with before/after.
-- Allowed flow (service-level): `being_prepared -> sent_out -> delivered`. Do not allow skipping backwards without an explicit rule from the client.
+- Allowed changes are DATA: `order_status_transitions (from_status, to_status, requires_paid, requires_reason, is_active)` (migration 0009). A new status = an `order_statuses` row + transition rows; no code change. Never hard-code the flow in services.
+- Seeded: `pending_payment -> being_prepared` (paid), `being_prepared -> sent_out` (paid), `sent_out -> delivered` (paid), `pending_payment -> cancelled` (unpaid only, reason required). `payment_review` is never a target (resolved via the payment review queue). Paid orders cannot be cancelled until the client decides the refund policy.
+- Optimistic concurrency: the request carries `expectedStatus`; lock the order, compare, then `UPDATE ... WHERE order_status = :expected` (0 rows = `ORDER_STATUS_CONFLICT`).
+- Cancelling an unpaid order with a payment attempt started within `payments.reconcile_after_minutes` and unresolved = `PAYMENT_IN_PROGRESS` unless `confirmInFlight: true`.
+- Same transaction: status (+ `delivered_at`, carrier/tracking on sent_out, holds released on cancel), `order_status_history` (admin id), `admin_audit_logs` before/after, and the customer email (`order_sent_out` / `order_delivered`; unique per order+template).
+- Payment review resolutions (super_admin): FULFIL (stock via `sellOrderStock`, all or nothing; overpayment -> automatic MARK_REFUND_REQUIRED for the excess), MARK_REFUND_REQUIRED, MARK_REFUNDED. Append-only `payment_review_resolutions`; no automatic refunds (Pending Client Decision). Lock order: cart -> order -> payment -> reservations -> variants.
+- Docs: `docs/admin-orders-api.md`.
 
 ## 8. Recipe: stock adjustment (admin)
 
