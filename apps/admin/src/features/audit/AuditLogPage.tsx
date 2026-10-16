@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { ScrollText } from 'lucide-react';
+import { Lock, ScrollText } from 'lucide-react';
 import { FilterBar, SearchInput } from '@/components/FilterBar';
 import { PageHeader } from '@/components/PageHeader';
 import { Pagination } from '@/components/Pagination';
 import { ListCard, QueryView } from '@/components/QueryStates';
+import { EmptyState } from '@/components/StateViews';
 import {
   Table,
   TableBody,
@@ -12,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useIsSuperAdmin } from '@/features/auth/roles';
 import { configApi } from '@/lib/api/config-api';
 import { formatDateTime } from '@/lib/format';
 import { useUrlFilters } from '@/lib/use-url-filters';
@@ -30,8 +32,30 @@ function Snapshot({ label, value }: { label: string; value: unknown }) {
   );
 }
 
+const DESCRIPTION =
+  'Every change made by admins, with before and after values. No passwords or secrets are ever recorded.';
+
 /** Every admin write (who, what, before/after). Super admins only (403 for others). */
 export function AuditLogPage() {
+  const isSuper = useIsSuperAdmin();
+  if (!isSuper) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Audit log" description={DESCRIPTION} />
+        <ListCard>
+          <EmptyState
+            icon={Lock}
+            title="Not available for your role"
+            description="Only a super admin can see the audit log. Ask a super admin if you need access."
+          />
+        </ListCard>
+      </div>
+    );
+  }
+  return <AuditLogView />;
+}
+
+function AuditLogView() {
   const { values, page, setFilter, setPage, clear, active } = useUrlFilters(FILTERS);
   const logs = useQuery({
     queryKey: ['config', 'audit', values, page],
@@ -40,10 +64,7 @@ export function AuditLogPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Audit log"
-        description="Every change made by admins, with before and after values. No passwords or secrets are ever recorded."
-      />
+      <PageHeader title="Audit log" description={DESCRIPTION} />
       <FilterBar active={active} onClear={clear}>
         <SearchInput
           label="Action"

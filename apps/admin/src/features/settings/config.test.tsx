@@ -184,6 +184,34 @@ describe('QR pages and serials', () => {
 });
 
 describe('audit log', () => {
+  it('a plain admin sees the role message and no request is made', async () => {
+    apiState.role = 'admin';
+    let requests = 0;
+    server.use(
+      http.get(`${API}/admin/audit-logs`, () => {
+        requests += 1;
+        return HttpResponse.json(emptyList());
+      }),
+    );
+    renderApp('/audit-log');
+    expect(await screen.findByText('Not available for your role')).toBeInTheDocument();
+    expect(requests).toBe(0);
+  });
+
+  it('sends the filters from the URL', async () => {
+    const urls: URL[] = [];
+    server.use(
+      http.get(`${API}/admin/audit-logs`, ({ request }) => {
+        urls.push(new URL(request.url));
+        return HttpResponse.json(emptyList());
+      }),
+    );
+    renderApp('/audit-log?entityType=order&action=order.status_change');
+    expect(await screen.findByText('No audit entries')).toBeInTheDocument();
+    expect(urls[0]?.searchParams.get('entityType')).toBe('order');
+    expect(urls[0]?.searchParams.get('action')).toBe('order.status_change');
+  });
+
   it('explains when the role cannot see it (403)', async () => {
     server.use(
       http.get(`${API}/admin/audit-logs`, () =>

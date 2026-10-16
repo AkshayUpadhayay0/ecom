@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import type { AdminOrderDetailDto } from '@urban-ibile/shared';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { InfoBanner } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -163,7 +164,11 @@ export function OrderStatusActions({ order }: { order: AdminOrderDetailDto }) {
       )}
       {order.needsAttention ? (
         <InfoBanner tone="warning">
-          Money was received but the order needs attention. Resolve it in Payment review.
+          Money was received but the order needs attention. Resolve it in{' '}
+          <Link to="/payment-reviews" className="font-medium underline underline-offset-4">
+            Payment review
+          </Link>
+          .
         </InfoBanner>
       ) : null}
       {active ? (
