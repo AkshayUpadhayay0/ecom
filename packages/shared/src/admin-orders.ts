@@ -303,7 +303,8 @@ export interface StatsOverviewDto {
   paymentsNeedingReview: number;
   lowStockVariants: number;
   outOfStockVariants: number;
-  failedMediaJobs: number;
+  /** Developer-only (super_admin): omitted from the response for role admin (19 Oct 2026). */
+  failedMediaJobs?: number;
   /** Return requests not completed / rejected / cancelled. */
   openReturns: number;
   /** Open returns waiting for an admin (submitted, under review, item received). */

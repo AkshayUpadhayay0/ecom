@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ApiData, SettingDto, SizeDto } from '@urban-ibile/shared';
+import type { ApiData, SettingDto, SizeDto, StatsOverviewDto } from '@urban-ibile/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -221,6 +221,17 @@ describe.skipIf(!hasTestDatabase)('admin role matrix', () => {
     expect((await admin.patch('/settings/store.currency', { value: 'USD' })).status).toBe(
       FORBIDDEN,
     );
+  });
+
+  it('stats omit developer-only fields for a normal admin', async () => {
+    const asAdmin = bodyOf<ApiData<StatsOverviewDto>>(await admin.get('/stats/overview')).data;
+    const asSuper = bodyOf<ApiData<StatsOverviewDto>>(await superAdmin.get('/stats/overview')).data;
+    expect(asAdmin).not.toHaveProperty('failedMediaJobs');
+    expect(typeof asSuper.failedMediaJobs).toBe('number');
+    // Everything else is the same for both roles.
+    const { failedMediaJobs: _internal, generatedAt: _a, ...superRest } = asSuper;
+    const { generatedAt: _b, ...adminRest } = asAdmin;
+    expect(adminRest).toEqual(superRest);
   });
 
   it('refuses unauthenticated calls to the new media routes', async () => {

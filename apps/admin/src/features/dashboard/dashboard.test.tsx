@@ -112,4 +112,14 @@ describe('dashboard (real API data only)', () => {
       await screen.findByText(/Couldn’t load the dashboard numbers/, undefined, { timeout: 8000 }),
     ).toBeInTheDocument();
   });
+  it('a normal admin gets no failed-media figure from the API and sees no such tile', async () => {
+    apiState.role = 'admin';
+    const { failedMediaJobs: _omitted, ...forAdmin } = STATS;
+    server.use(
+      http.get(`${API}/admin/stats/overview`, () => HttpResponse.json({ data: forAdmin })),
+    );
+    renderApp('/dashboard');
+    expect(await screen.findByRole('link', { name: /Open returns: 7/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Failed media jobs/ })).not.toBeInTheDocument();
+  });
 });

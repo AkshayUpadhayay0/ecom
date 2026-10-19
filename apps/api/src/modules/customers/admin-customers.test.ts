@@ -223,7 +223,10 @@ describe.skipIf(!hasTestDatabase)('Admin customers + dashboard stats (Phase 7a)'
         openReturns: 0,
         returnsAwaitingAction: 0,
       });
-      expect(stats.failedMediaJobs).toBeGreaterThanOrEqual(1);
+      // Developer-only figure (19 Oct 2026): omitted for role admin, included for super_admin.
+      expect(stats).not.toHaveProperty('failedMediaJobs');
+      const internal = dataOf<StatsOverviewDto>(await superAdmin.get('/stats/overview'));
+      expect(internal.failedMediaJobs).toBeGreaterThanOrEqual(1);
       await ctx.db.deleteFrom('media_assets').where('processing_status', '=', 'failed').execute();
     });
   });

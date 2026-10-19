@@ -138,14 +138,19 @@ export function KpiCards() {
       to: '/inventory',
       highlight: data.outOfStockVariants > 0,
     },
-    {
-      label: 'Failed media jobs',
-      value: String(data.failedMediaJobs),
-      hint: 'Uploads that could not be processed',
-      icon: ImageOff,
-      to: '/media?status=failed',
-      highlight: data.failedMediaJobs > 0,
-    },
+    // super_admin only: the API omits this figure for normal admins.
+    ...(data.failedMediaJobs === undefined
+      ? []
+      : [
+          {
+            label: 'Failed media jobs',
+            value: String(data.failedMediaJobs),
+            hint: 'Uploads that could not be processed',
+            icon: ImageOff,
+            to: '/media?status=failed',
+            highlight: data.failedMediaJobs > 0,
+          },
+        ]),
   ];
 
   return (

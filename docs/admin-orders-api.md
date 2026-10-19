@@ -154,6 +154,8 @@ A `note` is always required.
 
 ## Dashboard: `GET /stats/overview`
 
+`failedMediaJobs` is developer-only: it is included for `super_admin` and omitted for role `admin` (decision 19 Oct 2026). Everything else is the same for both roles.
+
 ```json
 {
   "currency": "NGN",
