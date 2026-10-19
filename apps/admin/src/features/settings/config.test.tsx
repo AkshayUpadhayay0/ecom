@@ -163,23 +163,24 @@ describe('QR pages and serials', () => {
     expect(document.body.textContent).not.toMatch(/GEN-SECRET-1|EXC-SECRET-2/);
   });
 
-  it('a plain admin cannot import serials and batches are not requested', async () => {
+  it('QR Pages is internal: a plain admin gets the role message and no pages or batches', async () => {
     apiState.role = 'admin';
-    let batchRequests = 0;
+    let requests = 0;
     server.use(
       http.get(`${API}/admin/serial-batches`, () => {
-        batchRequests += 1;
+        requests += 1;
+        return HttpResponse.json(emptyList());
+      }),
+      http.get(`${API}/admin/hidden-pages`, () => {
+        requests += 1;
         return HttpResponse.json(emptyList());
       }),
     );
     renderApp('/qr-pages');
-    await screen.findByText('Placeholder');
-    expect(screen.getByRole('button', { name: /Import/ })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: /Deactivate a serial/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
-    expect(batchRequests).toBe(0);
+    expect(await screen.findByText('Not available for your role')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Import/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit content' })).not.toBeInTheDocument();
+    expect(requests).toBe(0);
   });
 });
 

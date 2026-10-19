@@ -1,7 +1,11 @@
+import { Lock } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { EmptyState } from '@/components/StateViews';
+import { Card } from '@/components/ui/card';
 import { Navigate, useLocation, type Location } from 'react-router';
 import { FullPageLoader } from '@/components/FullPageLoader';
 import { useAuth } from './auth-context';
+import { useIsSuperAdmin } from './roles';
 
 export const DEFAULT_AUTHED_PATH = '/dashboard';
 export const LOGIN_PATH = '/login';
@@ -40,6 +44,25 @@ export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
         ? `${from.pathname}${from.search}${from.hash}`
         : DEFAULT_AUTHED_PATH;
     return <Navigate to={target} replace />;
+  }
+  return children;
+}
+
+/**
+ * Internal (developer) pages: super_admin only. A normal admin opening the URL directly sees an
+ * explanation instead of the page; the API refuses those routes with 403 anyway.
+ */
+export function RequireSuperAdmin({ children }: { children: ReactNode }) {
+  if (!useIsSuperAdmin()) {
+    return (
+      <Card>
+        <EmptyState
+          icon={Lock}
+          title="Not available for your role"
+          description="This is an internal tool for developers (super admins)."
+        />
+      </Card>
+    );
   }
   return children;
 }

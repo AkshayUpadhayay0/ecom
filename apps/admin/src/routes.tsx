@@ -28,6 +28,7 @@ import {
   LOGIN_PATH,
   RedirectIfAuthenticated,
   RequireAuth,
+  RequireSuperAdmin,
 } from '@/features/auth/route-guards';
 import { AppLayout } from '@/layout/AppLayout';
 import { NAV_ITEMS } from '@/layout/nav-items';
@@ -61,7 +62,11 @@ export const routes: RouteObject[] = [
       {
         // Read-only Sizes & Charts section (sub-tabs share SizesLayout).
         path: 'sizes',
-        element: <SizesLayout />,
+        element: (
+          <RequireSuperAdmin>
+            <SizesLayout />
+          </RequireSuperAdmin>
+        ),
         children: [
           { index: true, element: <SizesPage /> },
           { path: 'charts', element: <SizeChartsPage /> },
@@ -85,12 +90,33 @@ export const routes: RouteObject[] = [
       { path: 'customers', element: <CustomersListPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'inventory', element: <InventoryPage /> },
-      { path: 'media', element: <MediaPage /> },
+      {
+        path: 'media',
+        element: (
+          <RequireSuperAdmin>
+            <MediaPage />
+          </RequireSuperAdmin>
+        ),
+      },
       { path: 'delivery', element: <DeliveryPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'content', element: <ContentPage /> },
-      { path: 'qr-pages', element: <QrPagesPage /> },
-      { path: 'audit-log', element: <AuditLogPage /> },
+      {
+        path: 'qr-pages',
+        element: (
+          <RequireSuperAdmin>
+            <QrPagesPage />
+          </RequireSuperAdmin>
+        ),
+      },
+      {
+        path: 'audit-log',
+        element: (
+          <RequireSuperAdmin>
+            <AuditLogPage />
+          </RequireSuperAdmin>
+        ),
+      },
       ...comingSoonRoutes,
       { path: '*', element: <Navigate to={DEFAULT_AUTHED_PATH} replace /> },
     ],
