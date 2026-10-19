@@ -143,11 +143,14 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       const original = all.map((s) => s.id);
       try {
         const reversed = [...original].reverse();
-        const reordered = await api.put('/sizes/order', { ids: reversed });
+        // Reordering belongs to Sizes & Charts: super_admin only (19 Oct 2026).
+        expect((await api.put('/sizes/order', { ids: reversed })).status).toBe(403);
+        const superApi = adminClient(ctx, (await signInAdmin(ctx, 'super_admin')).token);
+        const reordered = await superApi.put('/sizes/order', { ids: reversed });
         expect(reordered.status).toBe(200);
         expect(bodyOf<ApiData<SizeDto[]>>(reordered).data.map((s) => s.id)).toEqual(reversed);
 
-        const incomplete = await api.put('/sizes/order', { ids: reversed.slice(1) });
+        const incomplete = await superApi.put('/sizes/order', { ids: reversed.slice(1) });
         expect(incomplete.status).toBe(400);
         expect(await auditCount(ctx, { action: 'size.reorder' })).toBe(1);
       } finally {

@@ -154,14 +154,14 @@ deactivated (`isActive: false`), products are archived.
 | Area                           | Endpoints                                                                                                                                                                                       |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Clothing types                 | `GET/POST /clothing-types`, `GET/PATCH /clothing-types/:id` (`?q=&isActive=&sort=`)                                                                                                             |
-| Sizes (seeded with the charts) | `GET /sizes`, `GET /sizes/:id`, `PUT /sizes/order`                                                                                                                                              |
+| Sizes (seeded with the charts) | `GET /sizes`, `GET /sizes/:id`, `PUT /sizes/order` (super admin)                                                                                                                                |
 | Products                       | `GET/POST /products` (`?q=&status=&clothingTypeId=&measurementProfileId=&sort=`), `GET/PATCH /products/:id`, `POST /products/:id/status`, `PUT /products/:id/video`, `PUT /products/:id/images` |
 | Variants and stock             | `GET/POST /products/:productId/variants`, `PATCH /variants/:id`, `POST /variants/:id/stock-adjustments`, `GET /variants/:id/stock-movements`, `GET /inventory/low-stock`                        |
 | Delivery zones                 | `GET/POST /delivery-zones`, `GET/PATCH /delivery-zones/:id`                                                                                                                                     |
-| Settings                       | `GET /settings`, `PATCH /settings/:key` (super admin)                                                                                                                                           |
+| Settings                       | `GET /settings`, `PATCH /settings/:key` (admin: contact + return-address keys only; super admin: every key)                                                                                     |
 | Content blocks                 | `GET /content-blocks`, `GET /content-blocks/:key`, `POST /content-blocks/:key/publish` / `unpublish`, `PUT /content-blocks/:key/media`                                                          |
 | Audit log                      | `GET /audit-logs` (`?entityType=&entityId=&adminId=&action=&from=&to=`, super admin)                                                                                                            |
-| Size charts (read-only)        | `GET /size-chart-groups`, `GET /size-chart-groups/:groupId/charts`, `GET /size-charts/:chartId` (grid + max-based checks), `GET /measurement-profiles`                                          |
+| Size charts (read-only)        | `GET /size-chart-groups`, `GET /size-chart-groups/:groupId/charts`, `GET /size-charts/:chartId` (grid + max-based checks; super admin), `GET /measurement-profiles` (every admin)               |
 
 - **Products** are canonical: one `name` (never translated) and one `description`. A nullable
   `measurementProfileId` says which body measurements Blueprint needs (null = no Blueprint).
@@ -193,8 +193,8 @@ a masked hint; no endpoint returns or lists serials. Set `SERIAL_HMAC_SECRET` (3
 | ----------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
 | `GET /api/v1/hidden-pages/:routeToken`          | public      | `{ locked: true }` or `{ locked: false, page: { title, body } }`; unknown token 404                      |
 | `POST /api/v1/hidden-pages/:routeToken/unlock`  | public      | `{ serial }`; any failure: 403 `SERIAL_NOT_VALID` with one generic message                               |
-| `GET /api/v1/admin/hidden-pages`, `GET .../:id` | admin       | slot, slug, `routeToken`, `publicUrl` (`PUBLIC_WEB_URL/h/<token>`), content                              |
-| `PUT /api/v1/admin/hidden-pages/:id/content`    | admin       | `{ title, body }`; route token never changes                                                             |
+| `GET /api/v1/admin/hidden-pages`, `GET .../:id` | super admin | slot, slug, `routeToken`, `publicUrl` (`PUBLIC_WEB_URL/h/<token>`), content                              |
+| `PUT /api/v1/admin/hidden-pages/:id/content`    | super admin | `{ title, body }`; route token never changes (developers apply the client's write-ups)                   |
 | `POST /api/v1/admin/serial-imports`             | super admin | body = CSV (`Content-Type: text/csv`), header `serial,category,pageSlot`; `?dryRun=true`, `?sourceName=` |
 | `GET /api/v1/admin/serial-batches`              | super admin | batches with counts (no serials)                                                                         |
 | `POST /api/v1/admin/serials/deactivate`         | super admin | `{ serial }`; also withdraws access it granted                                                           |
@@ -211,15 +211,17 @@ a masked hint; no endpoint returns or lists serials. Set `SERIAL_HMAC_SECRET` (3
 Uploads go straight from the browser to storage; the API only signs URLs, verifies the object and
 queues processing. A separate worker turns uploads into renditions.
 
-| Endpoint (admin)                                                               | Notes                                                                                                                                                    |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v1/admin/media/uploads`                                             | `{ fileName, mimeType, sizeBytes, visibility?, isTemporary? }` -> asset (`pending`) + presigned `PUT` (exact type and size, short expiry). Rate-limited. |
-| `POST /api/v1/admin/media/:id/complete`                                        | HEAD + size/type + magic-byte check -> `uploaded` (queued). Idempotent.                                                                                  |
-| `GET /api/v1/admin/media`                                                      | `?kind=&status=&visibility=&mimeType=&retired=` paginated, with renditions                                                                               |
-| `GET /api/v1/admin/media/:id`                                                  | status, attempts, error, renditions (progress for the UI)                                                                                                |
-| `GET /api/v1/admin/media/:id/url`                                              | public: CDN URL; private: short-lived signed URL                                                                                                         |
-| `POST /api/v1/admin/media/:id/purge`, `POST /api/v1/admin/media/purge-retired` | super admin; deletes files of retired, unreferenced media (rows kept)                                                                                    |
-| `GET /api/v1/me/media/:id/url`                                                 | customer; signed URL for their own private return evidence only                                                                                          |
+| Endpoint (admin)                                                               | Notes                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/admin/media/uploads`                                             | `{ fileName, mimeType, sizeBytes, visibility?, isTemporary? }` -> asset (`pending`) + presigned `PUT` (exact type and size, short expiry). Rate-limited. Normal admins: public only (private = 403). |
+| `POST /api/v1/admin/media/:id/complete`                                        | HEAD + size/type + magic-byte check -> `uploaded` (queued). Idempotent.                                                                                                                              |
+| `GET /api/v1/admin/media`                                                      | super admin (Media Library). `?kind=&status=&visibility=&mimeType=&retired=` paginated, with renditions                                                                                              |
+| `GET /api/v1/admin/media/picker`                                               | every admin: `?kind=` public, ready, non-retired media no customer owns ("Choose existing")                                                                                                          |
+| `GET /api/v1/admin/media/:id`                                                  | status, attempts, error, renditions (progress for the UI). Normal admins: public product media only (else 404)                                                                                       |
+| `POST /api/v1/admin/media/:id/retry`                                           | every admin: requeue a FAILED processing job of public product media (fresh attempts, audited); rejected uploads need a new upload (409)                                                             |
+| `GET /api/v1/admin/media/:id/url`                                              | super admin. public: CDN URL; private: short-lived signed URL                                                                                                                                        |
+| `POST /api/v1/admin/media/:id/purge`, `POST /api/v1/admin/media/purge-retired` | super admin; deletes files of retired, unreferenced media (rows kept)                                                                                                                                |
+| `GET /api/v1/me/media/:id/url`                                                 | customer; signed URL for their own private return evidence only                                                                                                                                      |
 
 - **Types**: video/mp4, video/quicktime, video/webm, image/jpeg, image/png, image/webp. Size limits
   and all processing values are settings (`media.*`, seeded by migration 0004).

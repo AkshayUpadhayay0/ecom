@@ -5,11 +5,16 @@ export interface MediaRouteDeps {
   controller: MediaController;
   /** Per-IP limit on creating upload URLs. */
   uploadLimit: RequestHandler;
-  /** Purging deletes stored files: super admins only. */
+  /** Media Library (browse all, private links, purge): super admins only. */
   requireSuperAdmin: RequestHandler;
 }
 
-/** Admin media routes, mounted under /admin behind requireAdmin. */
+/**
+ * Admin media routes, mounted under /admin behind requireAdmin.
+ * - Every admin (product form): create upload, complete, status, retry failed processing, and
+ *   the picker. A normal admin only reaches public media no customer owns (service scope).
+ * - super_admin (Media Library): browse everything, signed URLs (private files), purge.
+ */
 export function createMediaRouter({
   controller,
   uploadLimit,
@@ -19,10 +24,13 @@ export function createMediaRouter({
   router.post('/media/uploads', uploadLimit, controller.createUpload);
   // Before /media/:id routes so "purge-retired" is not read as an id.
   router.post('/media/purge-retired', requireSuperAdmin, controller.purgeRetired);
-  router.get('/media', controller.list);
+  router.get('/media', requireSuperAdmin, controller.list);
+  // Before /media/:id so "picker" is not read as an id.
+  router.get('/media/picker', controller.picker);
   router.get('/media/:id', controller.get);
-  router.get('/media/:id/url', controller.getUrl);
+  router.get('/media/:id/url', requireSuperAdmin, controller.getUrl);
   router.post('/media/:id/complete', controller.completeUpload);
+  router.post('/media/:id/retry', controller.retry);
   router.post('/media/:id/purge', requireSuperAdmin, controller.purge);
   return router;
 }

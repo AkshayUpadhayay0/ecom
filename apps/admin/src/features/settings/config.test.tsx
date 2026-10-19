@@ -135,13 +135,13 @@ describe('settings', () => {
     expect(calls[0]?.url).toContain('/admin/settings/catalog.page_size');
   });
 
-  it('greys out editing for a plain admin', async () => {
+  it('a plain admin can edit contact settings only; sensitive ones are greyed out', async () => {
     apiState.role = 'admin';
     renderApp('/settings');
     await screen.findByText('catalog.page_size');
-    for (const button of screen.getAllByRole('button', { name: 'Edit' })) {
-      expect(button).toHaveAttribute('aria-disabled', 'true');
-    }
+    const [pageSize, supportEmail] = screen.getAllByRole('button', { name: 'Edit' });
+    expect(pageSize).toHaveAttribute('aria-disabled', 'true');
+    expect(supportEmail).not.toHaveAttribute('aria-disabled');
   });
 });
 

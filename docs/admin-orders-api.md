@@ -12,7 +12,7 @@ Orders are never deleted.
 | --- | --- | --- |
 | Read orders, notes, customers, stats, payment review queue | ✔ | ✔ |
 | Add order notes, change order status | ✔ | ✔ |
-| Resolve payment reviews (`POST /payment-reviews/:id/resolve`) | `403` | ✔ |
+| Resolve payment reviews (`POST /payment-reviews/:id/resolve`, note required, audited; decision 19 Oct 2026) | ✔ | ✔ |
 | Suspend / enable customers (`PATCH /customers/:id/status`) | `403` | ✔ |
 
 Create a super_admin with `pnpm admin:create` (interactive; choose role `super_admin`).
@@ -111,7 +111,7 @@ Each entry shows:
 
 An item is **open** while the payment is `needs_review`, or paid but the order is still in `payment_review`, or a refund is recorded as owed and not yet marked refunded.
 
-### `POST /payment-reviews/:paymentId/resolve` (super_admin)
+### `POST /payment-reviews/:paymentId/resolve` (any admin; was super_admin until 19 Oct 2026)
 
 A `note` is always required.
 

@@ -31,11 +31,18 @@ export function createHiddenPagesRouter(deps: HiddenPagesRouteDeps): Router {
   return router;
 }
 
-/** Admin routes, mounted under /admin behind requireAdmin. Slugs/route tokens are read-only. */
-export function createHiddenPagesAdminRouter(controller: HiddenPagesAdminController): Router {
+/**
+ * Admin routes, mounted under /admin behind requireAdmin. Internal tool: super_admin only (the
+ * client supplies the write-ups; developers apply them). Slugs/route tokens are read-only.
+ * The guard is per route: a router-level use() would also run for every later admin route.
+ */
+export function createHiddenPagesAdminRouter(
+  controller: HiddenPagesAdminController,
+  requireSuperAdmin: RequestHandler,
+): Router {
   const router = Router();
-  router.get('/hidden-pages', controller.list);
-  router.get('/hidden-pages/:id', controller.get);
-  router.put('/hidden-pages/:id/content', controller.updateContent);
+  router.get('/hidden-pages', requireSuperAdmin, controller.list);
+  router.get('/hidden-pages/:id', requireSuperAdmin, controller.get);
+  router.put('/hidden-pages/:id/content', requireSuperAdmin, controller.updateContent);
   return router;
 }

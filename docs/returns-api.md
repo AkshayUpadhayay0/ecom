@@ -92,7 +92,7 @@ The detail view has the status and its label, the product and size, the reason, 
 | `POST /admin/returns/:id/mark-received` `{ expectedStatus, note? }` | admin | → `RETURN_RECEIVED` |
 | `POST /admin/returns/:id/status` `{ expectedStatus, toStatus, note?, carrier?, trackingReference? }` | admin | Every other move: `UNDER_REVIEW`, `RETURN_IN_TRANSIT`, `EXCHANGE_PROCESSING`, `EXCHANGE_SENT` (carrier and tracking), `REFUND_PROCESSING`, `COMPLETED` |
 | `POST /admin/returns/:id/inspect` `{ outcome, notes?, restockQuantity? }` | admin | At `RETURN_RECEIVED`; recorded once |
-| `PATCH /admin/returns/:id/responsibility` `{ responsibility, faultCause, payer?, note }` | **super_admin** | Any change of who pays; note required |
+| `PATCH /admin/returns/:id/responsibility` `{ responsibility, faultCause, payer?, note }` | admin | Any change of who pays; note required; audited (decision 19 Oct 2026, was super_admin) |
 | `POST /admin/returns/:id/notes` `{ body }` | admin | Internal, append-only |
 
 - **Data-driven workflow:** the allowed moves live in `return_status_transitions`, stored per actor, with optional request type, reason-required and inspection-required flags. A new status means inserting rows, with no code change. The detail view lists `allowedTransitions`.
@@ -114,7 +114,7 @@ Ledger rows reference `reference_type = 'return_request'`. The replacement stays
 - **NOT_RESELLABLE:** never re-enters stock.
 - **Once only:** a second inspection gets `409 RETURN_ALREADY_INSPECTED`.
 
-### Responsibility (super_admin)
+### Responsibility (any admin, note required; decision 19 Oct 2026)
 
 - **Allowed causes:**
   - BRAND_FAULT: `BLUEPRINT_FAILURE`, `WRONG_ITEM_DELIVERED`, `DEFECTIVE_ITEM`;

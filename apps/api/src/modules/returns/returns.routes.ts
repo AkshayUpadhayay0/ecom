@@ -192,13 +192,11 @@ export function createAdminReturnsController(service: AdminReturnsService): Admi
 }
 
 /**
- * Mounted under /admin (requireAdmin). Review and fulfilment actions for every admin; changing
- * responsibility / cause / payer (who pays) is super_admin only (decision 16 Oct 2026).
+ * Mounted under /admin (requireAdmin). Every admin role may review, fulfil and change
+ * responsibility / cause / payer (decision 19 Oct 2026, replacing the 16 Oct super_admin rule);
+ * a responsibility change needs a note and is audited.
  */
-export function createAdminReturnsRouter(
-  controller: AdminReturnsController,
-  requireSuperAdmin: RequestHandler,
-): Router {
+export function createAdminReturnsRouter(controller: AdminReturnsController): Router {
   const router = Router();
   router.get('/returns', controller.list);
   router.get('/returns/:id', controller.get);
@@ -208,7 +206,7 @@ export function createAdminReturnsRouter(
   router.post('/returns/:id/mark-received', controller.markReceived);
   router.post('/returns/:id/status', controller.advance);
   router.post('/returns/:id/inspect', controller.inspect);
-  router.patch('/returns/:id/responsibility', requireSuperAdmin, controller.setResponsibility);
+  router.patch('/returns/:id/responsibility', controller.setResponsibility);
   router.post('/returns/:id/notes', controller.addNote);
   return router;
 }

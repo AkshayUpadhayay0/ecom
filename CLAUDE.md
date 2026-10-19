@@ -89,6 +89,17 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
 10. Search covers the whole catalog (name, clothing type, keywords), not just the current page. Empty result message: `No outfits found. Try another word.` Shop pages show 20 products per page.
 11. Never hard-code delivery fees, size rules, contact details, palette or policy text. They are configurable data.
 12. Secrets (DB password, JWT secrets, Paystack keys, R2 keys) come from environment variables only. Never commit `.env`; keep `.env.example` current.
+13. **Admin roles (decision 19 Oct 2026; enforced by the API with `requireAdminRole`, never only by hiding UI).** The client's staff are role `admin`; developers are `super_admin`. A restricted route called by a normal admin answers 403 (private media it may not see: 404). Every admin write is audited whoever makes it; restricting who can VIEW the Audit Log never stops recording.
+
+    | Area | `admin` | `super_admin` |
+    |---|---|---|
+    | Dashboard, Orders (status, notes), Returns (all actions incl. responsibility / cause / payer, note required), Payment review (read + resolve, note required), Customers (read), Products, Inventory, Content (hero video + publish), Delivery | yes | yes |
+    | Product-form media: create PUBLIC upload, complete, status, retry failed processing, picker (`GET /admin/media/picker`: public, ready, non-retired, not customer-owned) | yes (public product media only; private / evidence = 404) | yes |
+    | `GET /admin/sizes`, `GET /admin/measurement-profiles` (product form) | yes | yes |
+    | Settings: `GET` all; `PATCH` only `ADMIN_EDITABLE_SETTING_KEYS` (support.email/phone/whatsapp, social.links, returns.return_address/instructions) | yes | every key |
+    | Customer suspend / enable | 403 | yes |
+    | Internal: Media Library (`GET /admin/media`, `/media/:id/url`, purge), Sizes & Charts (`PUT /sizes/order`, chart groups / versions / grids), QR Pages (`/admin/hidden-pages*` incl. content edit), serial import / batches / deactivate, Audit Log | 403 | yes |
+    | Stats: `failedMediaJobs` | omitted | included |
 
 ## 5. Information status labels
 

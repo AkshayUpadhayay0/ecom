@@ -77,6 +77,8 @@ export interface MediaFilters {
   visibility?: MediaVisibility | undefined;
   mimeType?: string | undefined;
   retired?: boolean | undefined;
+  /** true = only media no customer owns and not purged (excludes return evidence uploads). */
+  ownerless?: boolean | undefined;
   order: 'asc' | 'desc';
 }
 
@@ -140,6 +142,8 @@ export interface MediaRepository {
   completeProcessing(db: Database, id: string, result: ProcessingResult): Promise<void>;
   scheduleRetry(db: Database, id: string, error: string, retryAt: Date): Promise<void>;
   failProcessing(db: Database, id: string, error: string): Promise<void>;
+  /** Admin retry of a failed processing job: back in the queue with a fresh attempt budget. */
+  requeueFailed(db: Database, id: string): Promise<void>;
   /** Retired, not yet purged assets (purge candidates). */
   listRetiredUnpurged(db: Database): Promise<MediaRow[]>;
   markPurged(db: Database, id: string): Promise<void>;
@@ -192,6 +196,9 @@ export function createMediaRepository(): MediaRepository {
       if (filters.mimeType !== undefined) query = query.where('mime_type', '=', filters.mimeType);
       if (filters.retired !== undefined) {
         query = query.where('retired_at', filters.retired ? 'is not' : 'is', null);
+      }
+      if (filters.ownerless === true) {
+        query = query.where('owner_customer_id', 'is', null).where('purged_at', 'is', null);
       }
       const [rows, count] = await Promise.all([
         query
@@ -329,6 +336,21 @@ export function createMediaRepository(): MediaRepository {
           processing_started_at: null,
         })
         .where('id', '=', id)
+        .execute();
+    },
+
+    async requeueFailed(db, id) {
+      await db
+        .updateTable('media_assets')
+        .set({
+          processing_status: 'uploaded',
+          processing_attempts: 0,
+          processing_error: null,
+          processing_started_at: null,
+          next_attempt_at: new Date(),
+        })
+        .where('id', '=', id)
+        .where('processing_status', '=', 'failed')
         .execute();
     },
 

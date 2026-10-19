@@ -179,3 +179,22 @@ export interface SettingDto {
   updatedAt: string | null;
   updatedBy: string | null;
 }
+
+/**
+ * Settings a normal admin (role `admin`) may change: client contact details and return address
+ * copy. Every other setting is sensitive configuration (payments, media, email, checkout, cart,
+ * catalog, QR, Blueprint, currency, logistics, palette, policy keys) and is super_admin only.
+ * Enforced by the API (PATCH /admin/settings/:key); the admin UI greys out the rest.
+ */
+export const ADMIN_EDITABLE_SETTING_KEYS = [
+  'support.email',
+  'support.phone',
+  'support.whatsapp',
+  'social.links',
+  'returns.return_address',
+  'returns.return_instructions',
+] as const;
+
+export function isAdminEditableSetting(key: string): boolean {
+  return (ADMIN_EDITABLE_SETTING_KEYS as readonly string[]).includes(key);
+}

@@ -12,7 +12,6 @@ import {
 } from '@urban-ibile/shared';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { SuperAdminOnly } from '@/components/SuperAdminOnly';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -378,11 +377,9 @@ export function ReturnActions({ detail }: { detail: Detail }) {
           })}
         </div>
       )}
-      <SuperAdminOnly>
-        <Button variant="outline" size="sm" onClick={() => setOpen({ kind: 'responsibility' })}>
-          Change responsibility
-        </Button>
-      </SuperAdminOnly>
+      <Button variant="outline" size="sm" onClick={() => setOpen({ kind: 'responsibility' })}>
+        Change responsibility
+      </Button>
       {open?.kind === 'transition' ? (
         <TransitionDialog
           key={open.transition.toStatus}

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SettingDto } from '@urban-ibile/shared';
+import { isAdminEditableSetting, type SettingDto } from '@urban-ibile/shared';
 import { Settings } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -19,6 +19,7 @@ import { humanise } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 
 const settingsKey = ['config', 'settings'] as const;
+const SENSITIVE_SETTING = 'Sensitive setting: only a super admin can change it.';
 
 type Kind = 'number' | 'boolean' | 'string' | 'json';
 
@@ -137,7 +138,7 @@ export function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Settings"
-        description="Store configuration (limits, timings, contact details). Items marked “not provided” are pending client decisions; the shop uses the default meanwhile. Only super admins can change settings."
+        description="Store configuration (limits, timings, contact details). Items marked “not provided” are pending client decisions; the shop uses the default meanwhile. Contact details and the return address can be changed by every admin; other settings are sensitive configuration and only a super admin can change them."
       />
       <QueryView
         query={settings}
@@ -193,13 +194,19 @@ export function SettingsPage() {
                           ) : null}
                         </div>
                         <div className="flex shrink-0 gap-2">
-                          <SuperAdminOnly>
+                          <SuperAdminOnly
+                            restricted={!isAdminEditableSetting(setting.key)}
+                            reason={SENSITIVE_SETTING}
+                          >
                             <Button variant="outline" size="sm" onClick={() => setEditing(setting)}>
                               Edit
                             </Button>
                           </SuperAdminOnly>
                           {setting.value !== null ? (
-                            <SuperAdminOnly>
+                            <SuperAdminOnly
+                              restricted={!isAdminEditableSetting(setting.key)}
+                              reason={SENSITIVE_SETTING}
+                            >
                               <Button
                                 variant="ghost"
                                 size="sm"

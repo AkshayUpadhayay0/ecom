@@ -18,12 +18,15 @@ interface ActionProps {
 export function SuperAdminOnly({
   children,
   reason = SUPER_ADMIN_ONLY,
+  restricted = true,
 }: {
   children: ReactElement<ActionProps>;
   reason?: string;
+  /** false = every admin may do it (e.g. a non-sensitive setting): renders the action as is. */
+  restricted?: boolean;
 }) {
   const allowed = useIsSuperAdmin();
-  if (allowed) return children;
+  if (allowed || !restricted) return children;
   const blocked = cloneElement(children, {
     'aria-disabled': true,
     className: cn(children.props.className, 'cursor-not-allowed opacity-60'),

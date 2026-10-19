@@ -60,6 +60,15 @@ export const listMediaQuerySchema = paginationQuerySchema.extend({
 });
 export type ListMediaQuery = z.infer<typeof listMediaQuerySchema>;
 
+/**
+ * GET /admin/media/picker ("Choose existing" in the product form, every admin): public, ready,
+ * non-retired media that no customer owns. Never private files or return evidence.
+ */
+export const mediaPickerQuerySchema = paginationQuerySchema
+  .extend({ kind: z.enum(MEDIA_KINDS).optional() })
+  .strict();
+export type MediaPickerQuery = z.infer<typeof mediaPickerQuerySchema>;
+
 export interface MediaRenditionDto {
   label: string;
   format: string;

@@ -87,7 +87,7 @@ export interface AdminReturnsService {
     id: string,
     input: InspectReturnRequest,
   ): Promise<AdminReturnDetailDto>;
-  /** super_admin only (route guard): any change of responsibility / cause / payer. */
+  /** Any admin (note required, audited): any change of responsibility / cause / payer. */
   setResponsibility(
     actor: AuditActor,
     id: string,

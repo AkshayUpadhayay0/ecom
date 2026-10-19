@@ -92,16 +92,18 @@ describe('payment review queue', () => {
     );
   });
 
-  it('a plain admin sees the decisions disabled', async () => {
+  it('a plain admin (client staff) can resolve, with the note still required', async () => {
     apiState.role = 'admin';
     const { user } = renderApp('/payment-reviews');
     const fulfil = await screen.findByRole('button', { name: 'Fulfil order' });
-    expect(fulfil).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: 'Mark refunded' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(fulfil).not.toHaveAttribute('aria-disabled');
     await user.click(fulfil);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Fulfil order' })).toBeDisabled();
+    await user.type(within(dialog).getByRole('textbox', { name: /Note/ }), 'Approved by staff');
+    await user.click(within(dialog).getByRole('button', { name: 'Fulfil order' }));
+    await waitFor(() =>
+      expect(resolveBodies[0]).toEqual({ action: 'FULFIL', note: 'Approved by staff' }),
+    );
   });
 });

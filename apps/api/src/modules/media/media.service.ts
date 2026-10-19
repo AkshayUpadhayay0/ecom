@@ -8,6 +8,7 @@ import {
   type ListMediaQuery,
   type MediaAssetDto,
   type MediaMimeType,
+  type MediaPickerQuery,
   type MediaUrlDto,
   type PurgeRetiredResultDto,
 } from '@urban-ibile/shared';
@@ -28,7 +29,7 @@ import {
   originalKey,
   sanitizeFileName,
 } from './media-files.js';
-import type { MediaRepository, MediaRow } from './media.repository.js';
+import type { MediaFilters, MediaRepository, MediaRow } from './media.repository.js';
 import type { StorageProvider } from './storage/storage-provider.js';
 
 const ENTITY = 'media_asset';
@@ -37,15 +38,33 @@ const MS_PER_SECOND = 1000;
 /** Statuses after a verified upload: completing again is a no-op (idempotent). */
 const ALREADY_COMPLETED = new Set(['uploaded', 'processing', 'ready']);
 
+/**
+ * What an admin may reach through the media routes. `library` (super_admin): every asset.
+ * `product` (normal admin): only public media that no customer owns (product / content media);
+ * private files and return evidence look like they do not exist (404).
+ */
+export type MediaScope = 'library' | 'product';
+
 export interface MediaService {
-  createUpload(actor: AuditActor, input: CreateUploadRequest): Promise<CreateUploadResultDto>;
+  createUpload(
+    actor: AuditActor,
+    input: CreateUploadRequest,
+    scope: MediaScope,
+  ): Promise<CreateUploadResultDto>;
   /**
    * Verifies the stored object (exists, exact size, declared type, magic bytes), marks the asset
    * 'uploaded' and queues processing. Calling it again after success returns the same asset.
    */
-  completeUpload(actor: AuditActor, id: string): Promise<MediaAssetDto>;
+  completeUpload(actor: AuditActor, id: string, scope: MediaScope): Promise<MediaAssetDto>;
   list(query: ListMediaQuery): Promise<Page<MediaAssetDto>>;
-  get(id: string): Promise<MediaAssetDto>;
+  /** "Choose existing": public, ready, non-retired media no customer owns. */
+  picker(query: MediaPickerQuery): Promise<Page<MediaAssetDto>>;
+  get(id: string, scope: MediaScope): Promise<MediaAssetDto>;
+  /**
+   * Requeues a failed PROCESSING job of public product media (fresh attempt budget). Uploads that
+   * were rejected at verification have no stored file: they need a new upload (409).
+   */
+  retry(actor: AuditActor, id: string, scope: MediaScope): Promise<MediaAssetDto>;
   /** Public: the CDN URL. Private: a short-lived signed URL. */
   getUrlForAdmin(id: string): Promise<MediaUrlDto>;
   /**
@@ -99,6 +118,32 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
     const row = await repository.findById(executor, id, lock);
     if (!row) throw notFoundError('Media asset');
     return row;
+  }
+
+  /** Public media no customer owns: what a normal admin (product scope) may reach. */
+  function isProductMedia(row: MediaRow): boolean {
+    return row.visibility === 'public' && row.ownerCustomerId === null;
+  }
+
+  function assertInScope(row: MediaRow, scope: MediaScope): void {
+    // Out-of-scope assets are reported as missing so their existence is not revealed.
+    if (scope === 'product' && !isProductMedia(row)) throw notFoundError('Media asset');
+  }
+
+  async function listWith(
+    filters: MediaFilters,
+    query: { page: number; pageSize?: number | undefined },
+  ): Promise<Page<MediaAssetDto>> {
+    const page = toPageRequest(query, await settings.getLimit(db, 'catalog.page_size'));
+    const { rows, total } = await repository.list(db, filters, page);
+    const renditions = await repository.renditionsFor(
+      db,
+      rows.map((row) => row.id),
+    );
+    return {
+      items: rows.map((row) => toMediaAssetDto(row, renditions.get(row.id) ?? [], storage)),
+      meta: toPageMeta(page, total),
+    };
   }
 
   /** Checks the stored object against the pending asset. Read-only (no DB writes). */
@@ -175,12 +220,14 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
     id: string,
     actor: AuditActor | undefined,
     ownerCustomerId?: string,
+    scope: MediaScope = 'library',
   ): Promise<MediaAssetDto> {
     const outcome = await db.transaction().execute(async (trx): Promise<CompleteOutcome> => {
       const row = await loadRow(trx, id, true);
       if (ownerCustomerId !== undefined && row.ownerCustomerId !== ownerCustomerId) {
         throw notFoundError('Media asset');
       }
+      if (ownerCustomerId === undefined) assertInScope(row, scope);
       if (ALREADY_COMPLETED.has(row.status)) return { ok: true, row };
       if (row.status === 'failed') {
         return {
@@ -257,7 +304,14 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
   }
 
   return {
-    async createUpload(actor, input) {
+    async createUpload(actor, input, scope) {
+      if (scope === 'product' && input.visibility !== 'public') {
+        throw new AppError(
+          'FORBIDDEN',
+          HTTP_STATUS.FORBIDDEN,
+          'Only a super admin can upload private media. Product images and videos are public.',
+        );
+      }
       if (!isMediaMimeType(input.mimeType)) {
         throw new AppError(
           'UNSUPPORTED_MEDIA_TYPE',
@@ -327,7 +381,7 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
       };
     },
 
-    completeUpload: (actor, id) => completeCore(id, actor),
+    completeUpload: (actor, id, scope) => completeCore(id, actor, undefined, scope),
 
     async createCustomerUpload(customerId, input) {
       const mimeType = input.mimeType;
@@ -390,10 +444,8 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
 
     completeCustomerUpload: (customerId, id) => completeCore(id, undefined, customerId),
 
-    async list(query) {
-      const page = toPageRequest(query, await settings.getLimit(db, 'catalog.page_size'));
-      const { rows, total } = await repository.list(
-        db,
+    list: (query) =>
+      listWith(
         {
           kind: query.kind,
           status: query.status,
@@ -402,20 +454,68 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
           retired: query.retired,
           order: query.order ?? 'desc',
         },
-        page,
-      );
-      const renditions = await repository.renditionsFor(
-        db,
-        rows.map((row) => row.id),
-      );
-      return {
-        items: rows.map((row) => toMediaAssetDto(row, renditions.get(row.id) ?? [], storage)),
-        meta: toPageMeta(page, total),
-      };
+        query,
+      ),
+
+    picker: (query) =>
+      listWith(
+        {
+          kind: query.kind,
+          status: 'ready',
+          visibility: 'public',
+          retired: false,
+          ownerless: true,
+          order: query.order ?? 'desc',
+        },
+        query,
+      ),
+
+    async get(id, scope) {
+      const row = await loadRow(db, id);
+      assertInScope(row, scope);
+      return toDto(db, row);
     },
 
-    async get(id) {
-      return toDto(db, await loadRow(db, id));
+    async retry(actor, id, scope) {
+      const row = await db.transaction().execute(async (trx) => {
+        const current = await loadRow(trx, id, true);
+        assertInScope(current, scope);
+        // Retry is for catalogue media; customer evidence and private files are not retried here.
+        if (!isProductMedia(current)) throw notFoundError('Media asset');
+        if (current.status !== 'failed') {
+          throw new AppError(
+            'INVALID_STATE',
+            HTTP_STATUS.CONFLICT,
+            'Only media whose processing failed can be retried.',
+            { status: current.status },
+          );
+        }
+        if (
+          current.processingAttempts === 0 ||
+          current.retiredAt !== null ||
+          current.purgedAt !== null
+        ) {
+          // Rejected at upload verification: the file was not kept. A new upload is needed.
+          throw new AppError(
+            'INVALID_STATE',
+            HTTP_STATUS.CONFLICT,
+            'This upload was rejected and its file was not kept. Upload the file again.',
+            { processingError: current.processingError },
+          );
+        }
+        await repository.requeueFailed(trx, id);
+        await writeAuditLog(trx, {
+          adminId: actor.adminId,
+          action: 'media.processing_retry',
+          entityType: ENTITY,
+          entityId: id,
+          before: { status: current.status, processingError: current.processingError },
+          after: { status: 'uploaded' },
+          ipAddress: actor.ipAddress,
+        });
+        return loadRow(trx, id);
+      });
+      return toDto(db, row);
     },
 
     async getUrlForAdmin(id) {

@@ -32,18 +32,15 @@ export function createPaymentReviewsController(
   };
 }
 
-/** Mounted under /admin. Reading for every admin; resolving (money decisions) super_admin only. */
-export function createPaymentReviewsRouter(deps: {
-  controller: PaymentReviewsController;
-  requireSuperAdmin: RequestHandler;
-}): Router {
+/**
+ * Mounted under /admin. Every admin role may read and resolve (decision 19 Oct 2026: the
+ * client's staff make these business decisions); a note is required and every resolution is
+ * audited.
+ */
+export function createPaymentReviewsRouter(deps: { controller: PaymentReviewsController }): Router {
   const router = Router();
   router.get('/payment-reviews', deps.controller.list);
   router.get(`/payment-reviews/:${PAYMENT_ID}`, deps.controller.get);
-  router.post(
-    `/payment-reviews/:${PAYMENT_ID}/resolve`,
-    deps.requireSuperAdmin,
-    deps.controller.resolve,
-  );
+  router.post(`/payment-reviews/:${PAYMENT_ID}/resolve`, deps.controller.resolve);
   return router;
 }

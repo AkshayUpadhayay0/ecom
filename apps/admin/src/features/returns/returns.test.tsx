@@ -279,13 +279,14 @@ describe('return review', () => {
     expect(await screen.findByText(/1 item\(s\) back in stock/)).toBeInTheDocument();
   });
 
-  it('responsibility change is super admin only', async () => {
+  it('a plain admin (client staff) can open the responsibility change', async () => {
     apiState.role = 'admin';
     const { user } = renderApp(`/returns/${RETURN_ID}`);
     const button = await screen.findByRole('button', { name: 'Change responsibility' });
-    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).not.toHaveAttribute('aria-disabled');
     await user.click(button);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Save responsibility' })).toBeDisabled();
   });
 
   it('responsibility change states who will pay and needs a note', async () => {

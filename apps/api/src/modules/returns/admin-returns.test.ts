@@ -501,20 +501,20 @@ describe.skipIf(!hasTestDatabase)('Admin returns, exchange, inspection (Phase 7b
     });
   });
 
-  describe('responsibility (super_admin only)', () => {
-    it('sets BRAND_FAULT / BLUEPRINT_FAILURE on a locked decision; audited; plain admins refused', async () => {
+  describe('responsibility (any admin, note required)', () => {
+    it('sets BRAND_FAULT / BLUEPRINT_FAILURE on a locked decision; audited; plain admins allowed', async () => {
       const req = await newRequest();
       const body = {
         responsibility: 'BRAND_FAULT',
         faultCause: 'BLUEPRINT_FAILURE',
         note: 'Measured garment confirms the chart was wrong.',
       };
-      expect((await admin.patch(`/returns/${req.id}/responsibility`, body)).status).toBe(403);
+      // Decision 19 Oct 2026: role admin may change responsibility; the note stays required.
       expect(
-        (await superAdmin.patch(`/returns/${req.id}/responsibility`, { ...body, note: undefined }))
+        (await admin.patch(`/returns/${req.id}/responsibility`, { ...body, note: undefined }))
           .status,
       ).toBe(400);
-      const res = await superAdmin.patch(`/returns/${req.id}/responsibility`, body);
+      const res = await admin.patch(`/returns/${req.id}/responsibility`, body);
       expect(res.status).toBe(200);
       expect(dataOf<AdminReturnDetailDto>(res)).toMatchObject({
         responsibility: 'BRAND_FAULT',

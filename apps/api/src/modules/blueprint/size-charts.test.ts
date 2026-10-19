@@ -43,7 +43,8 @@ describe.skipIf(!hasTestDatabase)('admin size charts viewer (read-only)', () => 
 
   beforeEach(async () => {
     await resetAdminApiData(ctx);
-    api = adminClient(ctx, (await signInAdmin(ctx)).token);
+    // Internal tool (19 Oct 2026): chart grids are super_admin only.
+    api = adminClient(ctx, (await signInAdmin(ctx, 'super_admin')).token);
     groups = bodyOf<ApiList<SizeChartGroupDto>>(await api.get('/size-chart-groups')).data;
   });
 

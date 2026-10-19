@@ -125,6 +125,7 @@ export function createAdminApiRouter({
           settings,
         }),
       }),
+      requireSuperAdmin,
     ),
   );
   router.use(
@@ -147,9 +148,7 @@ export function createAdminApiRouter({
       ),
     ),
   );
-  router.use(
-    createSettingsRouter({ controller: createSettingsController(settings), requireSuperAdmin }),
-  );
+  router.use(createSettingsRouter({ controller: createSettingsController(settings) }));
   router.use(
     createContentBlocksRouter(
       createContentBlocksController(
@@ -167,6 +166,7 @@ export function createAdminApiRouter({
       createSizeChartsController(
         createSizeChartsService({ db, repository: createSizeChartsRepository(), settings }),
       ),
+      requireSuperAdmin,
     ),
   );
   router.use(
@@ -179,6 +179,7 @@ export function createAdminApiRouter({
           publicWebUrl: env.PUBLIC_WEB_URL,
         }),
       ),
+      requireSuperAdmin,
     ),
   );
   router.use(
@@ -214,7 +215,7 @@ export function createAdminApiRouter({
       statsCacheSeconds: env.ADMIN_STATS_CACHE_SECONDS,
     }),
   );
-  router.use(createAdminReturnsModule({ db, logger, settings, storage, requireSuperAdmin }));
+  router.use(createAdminReturnsModule({ db, logger, settings, storage }));
   router.use(
     createAuditRouter({
       controller: createAuditController(createAuditService({ db, settings })),

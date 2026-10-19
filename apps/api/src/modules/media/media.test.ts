@@ -49,6 +49,7 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
   let ctx: MediaTestContext;
   let api: AdminClient;
   let adminToken: string;
+  let superToken: string;
   let superApi: AdminClient;
   let settings: SettingsSnapshot;
   const repo = createMediaRepository();
@@ -64,7 +65,8 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
     await restoreSettings(ctx, settings);
     adminToken = (await signInAdmin(ctx)).token;
     api = adminClient(ctx, adminToken);
-    superApi = adminClient(ctx, (await signInAdmin(ctx, 'super_admin')).token);
+    superToken = (await signInAdmin(ctx, 'super_admin')).token;
+    superApi = adminClient(ctx, superToken);
   });
 
   afterAll(async () => {
@@ -443,23 +445,155 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
     });
   });
 
-  describe('private media', () => {
-    it('never gets a public URL; admins get a short-lived signed URL', async () => {
+  describe('normal admin scope (product-form media, 19 Oct 2026)', () => {
+    it('uploads public product media only; private uploads are for super admins', async () => {
+      const privateUpload = await createUpload({
+        fileName: 'x.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 10,
+        visibility: 'private',
+      });
+      expect(privateUpload.status).toBe(403);
       const id = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'look.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      expect((await getAsset(id)).visibility).toBe('public');
+      expect(await auditCount(ctx, { action: 'media.upload_complete', entityId: id })).toBe(1);
+    });
+
+    it('cannot list, read, link, purge or retry private media (evidence stays in returns)', async () => {
+      const privateId = await uploadAndComplete(ctx, superToken, {
+        fileName: 'evidence.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+        visibility: 'private',
+      });
+      expect((await api.get('/media?visibility=private')).status).toBe(403);
+      expect((await api.get(`/media/${privateId}`)).status).toBe(404);
+      expect((await api.get(`/media/${privateId}/url`)).status).toBe(403);
+      expect((await api.post(`/media/${privateId}/complete`)).status).toBe(404);
+      expect((await api.post(`/media/${privateId}/retry`)).status).toBe(404);
+      expect((await api.post(`/media/${privateId}/purge`)).status).toBe(403);
+      expect((await api.post('/media/purge-retired')).status).toBe(403);
+      const picker = await api.get('/media/picker');
+      expect(JSON.stringify(bodyOf<ApiList<MediaAssetDto>>(picker).data)).not.toContain(privateId);
+      // The library still works for super admins.
+      expect((await superApi.get(`/media/${privateId}`)).status).toBe(200);
+    });
+
+    it('the picker lists only public, ready, non-retired media', async () => {
+      const readyImage = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'ready.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      await makeProcessor(ctx, stubFfmpeg()).processNext(['image']);
+      const retired = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'old.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      await makeProcessor(ctx, stubFfmpeg()).processNext(['image']);
+      // Queued, never processed: not ready yet.
+      const processing = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'queued.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      await ctx.db
+        .updateTable('media_assets')
+        .set({ retired_at: new Date() })
+        .where('id', '=', retired)
+        .execute();
+      const ids = bodyOf<ApiList<MediaAssetDto>>(
+        await api.get('/media/picker?kind=image'),
+      ).data.map((a) => a.id);
+      expect(ids).toContain(readyImage);
+      expect(ids).not.toContain(processing);
+      expect(ids).not.toContain(retired);
+      expect((await api.get('/media/picker?kind=video')).status).toBe(200);
+      expect((await api.get('/media/picker?visibility=private')).status).toBe(400);
+    });
+
+    it('retries failed processing (audited) and the retried asset becomes ready', async () => {
+      const id = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'look.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      // Simulate a processing job that used up its attempts.
+      await ctx.db
+        .updateTable('media_assets')
+        .set({
+          processing_status: 'failed',
+          processing_attempts: 3,
+          processing_error: 'ffmpeg exited with code 1',
+        })
+        .where('id', '=', id)
+        .execute();
+      const failed = await getAsset(id);
+      expect(failed).toMatchObject({
+        status: 'failed',
+        processingError: 'ffmpeg exited with code 1',
+      });
+
+      const retried = await api.post(`/media/${id}/retry`);
+      expect(retried.status).toBe(200);
+      expect(bodyOf<ApiData<MediaAssetDto>>(retried).data).toMatchObject({
+        status: 'uploaded',
+        processingAttempts: 0,
+        processingError: null,
+      });
+      expect(await auditCount(ctx, { action: 'media.processing_retry', entityId: id })).toBe(1);
+      expect(await makeProcessor(ctx, stubFfmpeg()).processNext(['image'])).toBe(true);
+      expect((await getAsset(id)).status).toBe('ready');
+      // Only failed media can be retried.
+      const again = await api.post(`/media/${id}/retry`);
+      expect(again.status).toBe(409);
+    });
+
+    it('an upload rejected at verification cannot be retried (its file was not kept)', async () => {
+      const rejected = await ctx.db
+        .insertInto('media_assets')
+        .values({
+          kind: 'image',
+          original_key: 'test/rejected.jpg',
+          mime_type: 'image/jpeg',
+          size_bytes: 10,
+          processing_status: 'failed',
+          processing_error: 'upload rejected: The file content does not match its declared type.',
+          visibility: 'public',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      const res = await api.post(`/media/${rejected.id}/retry`);
+      expect(res.status).toBe(409);
+      expect(bodyOf<ApiErrorBody>(res).error.message).toMatch(/Upload the file again/);
+    });
+  });
+
+  describe('private media', () => {
+    it('never gets a public URL; super admins get a short-lived signed URL', async () => {
+      // Private uploads and signed URLs are Media Library (super_admin) features.
+      const id = await uploadAndComplete(ctx, superToken, {
         fileName: 'evidence.jpg',
         mimeType: 'image/jpeg',
         bytes: await tinyJpeg(400, 300),
         visibility: 'private',
       });
       await makeProcessor(ctx, stubFfmpeg()).processNext(['image']);
-      const asset = await getAsset(id);
+      const asset = bodyOf<ApiData<MediaAssetDto>>(await superApi.get(`/media/${id}`)).data;
       expect(asset).toMatchObject({ visibility: 'private', status: 'ready', publicUrl: null });
       expect(asset.renditions.length).toBeGreaterThan(0);
       expect(asset.renditions.every((r) => r.url === null)).toBe(true);
-      const list = bodyOf<ApiList<MediaAssetDto>>(await api.get('/media?visibility=private')).data;
+      const list = bodyOf<ApiList<MediaAssetDto>>(
+        await superApi.get('/media?visibility=private'),
+      ).data;
       expect(JSON.stringify(list)).not.toContain('/public/');
 
-      const signed = await api.get(`/media/${id}/url`);
+      const signed = await superApi.get(`/media/${id}/url`);
       const url = bodyOf<ApiData<MediaUrlDto>>(signed).data;
       expect(url.url).toContain('/media-local/private/');
       expect(url.expiresAt).not.toBeNull();
@@ -476,7 +610,7 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
     });
 
     it('serves private media to customers only for their own return evidence', async () => {
-      const id = await uploadAndComplete(ctx, adminToken, {
+      const id = await uploadAndComplete(ctx, superToken, {
         fileName: 'evidence.jpg',
         mimeType: 'image/jpeg',
         bytes: await tinyJpeg(),

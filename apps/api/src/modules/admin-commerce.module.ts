@@ -83,7 +83,6 @@ export function createAdminCommerceRouter(deps: {
           settings,
         }),
       ),
-      requireSuperAdmin,
     }),
   );
   router.use(

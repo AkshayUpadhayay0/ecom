@@ -166,7 +166,7 @@ describe.skipIf(!hasTestDatabase)('Payment review queue (Phase 7a)', () => {
     await ctx.db.destroy();
   });
 
-  it('lists open reviews with reason and amounts; plain admins can read but not resolve', async () => {
+  it('lists open reviews with reason and amounts; plain admins can read and resolve with a note', async () => {
     const under = await mismatchedOrder({ amountMinor: TOTAL_ONE_CAP - 100 });
     const late = await lateNoStockOrder();
     const res = await plainAdmin.get('/payment-reviews');
@@ -194,13 +194,17 @@ describe.skipIf(!hasTestDatabase)('Payment review queue (Phase 7a)', () => {
       paymentStatus: 'success',
       order: { orderStatus: 'payment_review', paymentStatus: 'paid' },
     });
-    const forbidden = await resolve(
+    // Decision 19 Oct 2026: the client's staff (role admin) resolve reviews; a note is required.
+    expect((await resolve(under.paymentId, { action: 'FULFIL' }, plainAdmin)).status).toBe(400);
+    const recorded = await resolve(
       under.paymentId,
-      { action: 'MARK_REFUND_REQUIRED', amountMinor: 1, note: 'x' },
+      { action: 'MARK_REFUND_REQUIRED', amountMinor: 1, note: 'Customer short-paid' },
       plainAdmin,
     );
-    expect(forbidden.status).toBe(403);
-    expect((await resolve(under.paymentId, { action: 'FULFIL' })).status).toBe(400); // note required
+    expect(recorded.status).toBe(200);
+    expect(
+      await auditCount(ctx, { action: 'payment_review.resolve', entityId: under.paymentId }),
+    ).toBe(1);
   });
 
   describe('FULFIL', () => {

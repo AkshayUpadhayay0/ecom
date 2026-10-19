@@ -9,7 +9,6 @@ import { InfoBanner, PageHeader } from '@/components/PageHeader';
 import { Pagination } from '@/components/Pagination';
 import { QueryView } from '@/components/QueryStates';
 import { StatusBadge } from '@/components/StatusBadge';
-import { SuperAdminOnly } from '@/components/SuperAdminOnly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -207,15 +206,14 @@ function ReviewCard({
         ) : null}
         <div className="flex flex-wrap gap-2">
           {availableActions(review).map((action) => (
-            <SuperAdminOnly key={action}>
-              <Button
-                size="sm"
-                variant={action === 'FULFIL' ? 'default' : 'outline'}
-                onClick={() => onAction(action)}
-              >
-                {ACTION_TEXT[action].label}
-              </Button>
-            </SuperAdminOnly>
+            <Button
+              key={action}
+              size="sm"
+              variant={action === 'FULFIL' ? 'default' : 'outline'}
+              onClick={() => onAction(action)}
+            >
+              {ACTION_TEXT[action].label}
+            </Button>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
@@ -242,7 +240,7 @@ export function PaymentReviewsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Payment review"
-        description="Payments where money was received but something did not match (amount, currency, duplicate, or stock gone). Each needs a decision with a note. Only super admins can decide."
+        description="Payments where money was received but something did not match (amount, currency, duplicate, or stock gone). Each needs a decision with a note; every decision is recorded in the audit log."
       />
       <InfoBanner tone="warning">
         {REFUND_STATEMENT} The refund policy is a pending client decision.

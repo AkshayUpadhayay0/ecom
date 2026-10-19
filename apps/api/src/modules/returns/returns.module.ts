@@ -53,7 +53,6 @@ export function createAdminReturnsModule(deps: {
   logger: Logger;
   settings: SettingsService;
   storage: StorageProvider;
-  requireSuperAdmin: RequestHandler;
 }): Router {
   const service = createAdminReturnsService({
     ...workflowDeps(),
@@ -63,5 +62,5 @@ export function createAdminReturnsModule(deps: {
     storage: deps.storage,
     orderReads: createAdminOrdersRepository(),
   });
-  return createAdminReturnsRouter(createAdminReturnsController(service), deps.requireSuperAdmin);
+  return createAdminReturnsRouter(createAdminReturnsController(service));
 }
