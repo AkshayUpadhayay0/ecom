@@ -251,16 +251,22 @@ export function QrPagesPage() {
     queryFn: async () => (await configApi.hiddenPages()).data,
   });
   const [editing, setEditing] = useState<AdminHiddenPageDto | null>(null);
+  // Defence in depth: the route is super_admin only and the API refuses edits to anyone else.
+  const isSuper = useIsSuperAdmin();
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="QR Pages"
-        description="Hidden pages opened from permanent QR codes. A page unlocks only with a valid serial number; the QR code alone never unlocks anything."
+        description="Internal developer view of the hidden pages behind the permanent QR codes. A page unlocks only with a valid serial number; the QR code alone never unlocks anything."
       />
       <InfoBanner>
-        Final page texts and the serial lists are pending from the client. Links and route tokens
-        never change, so printed QR codes keep working.
+        Workflow: the client supplies the final write-ups and the General / Exclusive serial lists;
+        developers apply them here and configure serial access; the company receives the permanent
+        QR-code files. The client does not edit these pages. Write-ups and serial lists are still
+        pending from the client. Links and route tokens never change, so printed QR codes keep
+        working. A General serial opens only its own page (never an exclusive-only page); an
+        Exclusive serial opens every page.
       </InfoBanner>
       <ListCard>
         <QueryView
@@ -301,17 +307,21 @@ export function QrPagesPage() {
                     <TableCell className="max-w-xs truncate font-mono text-xs" title={p.publicUrl}>
                       {p.publicUrl}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="space-x-1 space-y-1">
                       {p.exclusiveOnly ? (
                         <Badge tone="accent">Exclusive serials only</Badge>
                       ) : (
-                        <Badge>General or Exclusive</Badge>
+                        <Badge>General (this page) or Exclusive</Badge>
                       )}
+                      {p.isPublished ? null : <Badge tone="warning">Not published</Badge>}
+                      {p.tokenLockedAt ? <Badge tone="info">Route token locked</Badge> : null}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(p)}>
-                        Edit content
-                      </Button>
+                      {isSuper ? (
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(p)}>
+                          Edit content
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}

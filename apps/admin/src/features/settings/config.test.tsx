@@ -150,6 +150,8 @@ describe('QR pages and serials', () => {
     const { user } = renderApp('/qr-pages');
     expect(await screen.findByText('Placeholder')).toBeInTheDocument();
     expect(screen.getByText('http://localhost:3000/q/tok123')).toBeInTheDocument();
+    // Developers (super_admin) apply the client's write-ups.
+    expect(screen.getByRole('button', { name: 'Edit content' })).toBeInTheDocument();
     const csv = new File(
       ['serial,category,pageSlot\nGEN-SECRET-1,GENERAL,1\nEXC-SECRET-2,EXCLUSIVE,\n'],
       'serials.csv',
