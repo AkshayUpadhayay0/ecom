@@ -17,6 +17,8 @@ import type { MediaAssetsService } from '../media/media-assets.service.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import { toProductDto, toProductSummaryDto } from './catalog.dto.js';
 import type { ClothingTypesRepository } from './clothing-types.repository.js';
+import type { PendingMediaRepository } from './pending-media.repository.js';
+import { placeProductMedia, type ProductMediaDeps } from './product-media.js';
 import type { ProductsRepository } from './products.repository.js';
 
 const ENTITY = 'product';
@@ -34,9 +36,12 @@ export interface ProductsService {
   update(actor: AuditActor, id: string, input: UpdateProductRequest): Promise<ProductDto>;
   /** draft / active / inactive / archived. Products are archived, never deleted. */
   changeStatus(actor: AuditActor, id: string, status: ProductStatus): Promise<ProductDto>;
-  /** Points the product at an existing ready, public video asset (uploads are Phase 3). */
+  /**
+   * Sets the product video (public asset, uploaded / processing / ready). Replacing a LIVE video
+   * with one still processing stores a pending replacement instead (see product-media.ts).
+   */
   setVideo(actor: AuditActor, id: string, mediaAssetId: string): Promise<ProductDto>;
-  /** Replaces the product's images with existing ready, public image assets. */
+  /** Replaces the product's images; same live / pending rules as the video. */
   setImages(actor: AuditActor, id: string, mediaAssetIds: string[]): Promise<ProductDto>;
 }
 
@@ -46,6 +51,7 @@ export interface ProductsServiceDeps {
   clothingTypes: ClothingTypesRepository;
   measurementProfiles: MeasurementProfilesRepository;
   media: MediaAssetsService;
+  pending: PendingMediaRepository;
   settings: SettingsService;
 }
 
@@ -61,15 +67,17 @@ function invalidReference(path: string, message: string): AppError {
 
 export function createProductsService(deps: ProductsServiceDeps): ProductsService {
   const { db, repository, settings } = deps;
+  const mediaDeps: ProductMediaDeps = { repository, pending: deps.pending, media: deps.media };
 
   async function load(executor: Database, id: string, lock = false): Promise<ProductDto> {
     const row = await repository.findById(executor, id, lock);
     if (!row) throw notFoundError('Product');
-    const [description, imageAssetIds] = await Promise.all([
+    const [description, imageAssetIds, pending] = await Promise.all([
       repository.descriptionOf(executor, id),
       repository.imageAssetIds(executor, id),
+      deps.pending.forProduct(executor, id),
     ]);
-    return toProductDto(row, description, imageAssetIds);
+    return toProductDto(row, description, imageAssetIds, pending);
   }
 
   async function assertReferences(
@@ -119,21 +127,24 @@ export function createProductsService(deps: ProductsServiceDeps): ProductsServic
     }
   }
 
-  /** Locks the product, applies `change`, audits before/after in the same transaction. */
+  /**
+   * Locks the product, applies `change`, audits before/after in the same transaction. `change`
+   * may return a more specific audit action (e.g. a pending media replacement).
+   */
   async function mutate(
     actor: AuditActor,
     id: string,
     action: string,
-    change: (trx: Database, before: ProductDto) => Promise<void>,
+    change: (trx: Database, before: ProductDto) => Promise<string | undefined>,
   ): Promise<ProductDto> {
     return db.transaction().execute(async (trx) => {
       const before = await load(trx, id, true);
       assertEditable(before);
-      await change(trx, before);
+      const actionTaken = (await change(trx, before)) ?? action;
       const after = await load(trx, id);
       await writeAuditLog(trx, {
         adminId: actor.adminId,
-        action,
+        action: actionTaken,
         entityType: ENTITY,
         entityId: id,
         before,
@@ -182,6 +193,13 @@ export function createProductsService(deps: ProductsServiceDeps): ProductsServic
         });
         if (id === undefined) throw slugTaken();
         await repository.setDescription(trx, id, input.description);
+        // Media chosen in the form: a new product has no live media, so it attaches now.
+        if (input.videoAssetId != null) {
+          await placeProductMedia(mediaDeps, trx, actor, id, 'video', [input.videoAssetId]);
+        }
+        if (input.imageAssetIds !== undefined && input.imageAssetIds.length > 0) {
+          await placeProductMedia(mediaDeps, trx, actor, id, 'images', input.imageAssetIds);
+        }
         const after = await load(trx, id);
         await writeAuditLog(trx, {
           adminId: actor.adminId,
@@ -239,22 +257,16 @@ export function createProductsService(deps: ProductsServiceDeps): ProductsServic
     },
 
     async setVideo(actor, id, mediaAssetId) {
-      return mutate(actor, id, 'product.video_replace', async (trx, before) => {
-        await deps.media.assertReadyVideo(trx, mediaAssetId);
-        await repository.setVideo(trx, id, mediaAssetId);
-        // The old video is kept (retired, not deleted) unless something else still uses it.
-        if (before.videoAssetId !== null && before.videoAssetId !== mediaAssetId) {
-          await deps.media.retireUnreferenced(trx, actor, [before.videoAssetId]);
-        }
+      return mutate(actor, id, 'product.video_replace', async (trx) => {
+        const placed = await placeProductMedia(mediaDeps, trx, actor, id, 'video', [mediaAssetId]);
+        return placed === 'pending' ? 'product.video_replace_pending' : undefined;
       });
     },
 
     async setImages(actor, id, mediaAssetIds) {
-      return mutate(actor, id, 'product.images_replace', async (trx, before) => {
-        await deps.media.assertReadyImages(trx, mediaAssetIds);
-        await repository.setImages(trx, id, mediaAssetIds);
-        const removed = before.imageAssetIds.filter((assetId) => !mediaAssetIds.includes(assetId));
-        await deps.media.retireUnreferenced(trx, actor, removed);
+      return mutate(actor, id, 'product.images_replace', async (trx) => {
+        const placed = await placeProductMedia(mediaDeps, trx, actor, id, 'images', mediaAssetIds);
+        return placed === 'pending' ? 'product.images_replace_pending' : undefined;
       });
     },
   };

@@ -288,10 +288,12 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       );
     });
 
-    it('assigns only existing READY, PUBLIC, non-retired media (video and images)', async () => {
+    it('assigns only existing PUBLIC, non-retired media that finished uploading (video and images)', async () => {
       const product = await createProduct();
       const video = await insertMediaAsset(ctx, { kind: 'video', status: 'ready' });
-      const processing = await insertMediaAsset(ctx, { kind: 'video', status: 'processing' });
+      // 19 Oct 2026: processing media may be attached; unfinished uploads and failures may not.
+      const unfinished = await insertMediaAsset(ctx, { kind: 'video', status: 'pending' });
+      const failed = await insertMediaAsset(ctx, { kind: 'video', status: 'failed' });
       const privateVideo = await insertMediaAsset(ctx, {
         kind: 'video',
         status: 'ready',
@@ -307,7 +309,8 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
 
       const putVideo = (mediaAssetId: string) =>
         api.put(`/products/${product.id}/video`, { mediaAssetId });
-      expect(errorCode(await putVideo(processing))).toBe('MEDIA_NOT_READY');
+      expect(errorCode(await putVideo(unfinished))).toBe('MEDIA_NOT_READY');
+      expect(errorCode(await putVideo(failed))).toBe('MEDIA_NOT_READY');
       expect((await putVideo(privateVideo)).status).toBe(404);
       expect(errorCode(await putVideo(retired))).toBe('INVALID_STATE');
       expect(errorCode(await putVideo(image1))).toBe('INVALID_MEDIA_TYPE');

@@ -1,6 +1,5 @@
-import { useQueries } from '@tanstack/react-query';
 import { PRODUCT_STATUSES, type ProductDto, type ProductStatus } from '@urban-ibile/shared';
-import { ArrowLeft, Film, ImagePlus, Pencil } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -10,13 +9,14 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NativeSelect } from '@/components/ui/native-select';
-import { MediaPicker } from '@/features/media/MediaPicker';
+import { Badge } from '@/components/ui/badge';
 import { MediaThumb } from '@/features/media/MediaThumb';
 import { catalogApi } from '@/lib/api/catalog';
 import { formatDateTime, formatNaira } from '@/lib/format';
 import { humanise, productStatusDisplay } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 import { ProductFormDialog } from './ProductFormDialog';
+import { itemState, useDraftAssets } from './ProductMediaFields';
 import { catalogKeys, useProduct } from './products.queries';
 import { StorefrontPreview } from './StorefrontPreview';
 import { VariantsPanel } from './VariantsPanel';
@@ -30,31 +30,42 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
-function MediaSection({ product }: { product: ProductDto }) {
-  const [picker, setPicker] = useState<'video' | 'images' | null>(null);
-  const ids = [...(product.videoAssetId ? [product.videoAssetId] : []), ...product.imageAssetIds];
-  const assets = useQueries({
-    queries: ids.map((id) => ({
-      queryKey: ['catalog', 'media-asset', id],
-      queryFn: () => catalogApi.mediaAsset(id),
-    })),
-  });
-  const byId = new Map(assets.flatMap((q) => (q.data ? [[q.data.id, q.data] as const] : [])));
-  const setVideo = useAdminMutation(
-    (mediaId: string) => catalogApi.setProductVideo(product.id, mediaId),
-    {
-      success: 'Video updated.',
-      invalidate: [catalogKeys.product(product.id), catalogKeys.preview(product.slug)],
-    },
-  );
-  const setImages = useAdminMutation(
-    (mediaIds: string[]) => catalogApi.setProductImages(product.id, mediaIds),
-    {
-      success: 'Images updated.',
-      invalidate: [catalogKeys.product(product.id), catalogKeys.preview(product.slug)],
-    },
-  );
-  const video = product.videoAssetId ? byId.get(product.videoAssetId) : undefined;
+function MediaSection({ product, onEdit }: { product: ProductDto; onEdit: () => void }) {
+  const live = {
+    video: product.videoAssetId ? [product.videoAssetId] : [],
+    images: product.imageAssetIds,
+  };
+  const pendingVideo = product.pendingMedia.videoAssetId;
+  const pendingImages = product.pendingMedia.imageAssetIds;
+  const draft = {
+    video: null,
+    images: [
+      ...live.video,
+      ...live.images,
+      ...(pendingVideo ? [pendingVideo] : []),
+      ...(pendingImages ?? []),
+    ].map((id) => ({ key: id, fileName: '', assetId: id, uploading: false, uploadError: null })),
+  };
+  const assets = useDraftAssets(draft);
+
+  function tile(id: string, caption: string) {
+    const asset = assets.get(id);
+    const state = itemState(
+      { key: id, fileName: '', assetId: id, uploading: false, uploadError: null },
+      asset,
+    );
+    return (
+      <figure key={`${caption}-${id}`} className="space-y-1">
+        {asset ? (
+          <MediaThumb asset={asset} />
+        ) : (
+          <div className="aspect-square rounded-md bg-muted" />
+        )}
+        <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
+        <Badge tone={state.tone}>{state.label}</Badge>
+      </figure>
+    );
+  }
 
   return (
     <Card>
@@ -62,57 +73,39 @@ function MediaSection({ product }: { product: ProductDto }) {
         <div>
           <CardTitle>Media</CardTitle>
           <CardDescription>
-            The product video (shown first) and images, picked from the media library.
+            The product video (shown first) and images. The shop shows each file once it is ready.
           </CardDescription>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setPicker('video')}>
-            <Film aria-hidden="true" /> {product.videoAssetId ? 'Replace video' : 'Choose video'}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setPicker('images')}>
-            <ImagePlus aria-hidden="true" /> Choose images
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={onEdit}>
+          <ImagePlus aria-hidden="true" /> Edit images and video
+        </Button>
       </CardHeader>
-      <div className="grid grid-cols-3 gap-3 px-5 pb-5 sm:grid-cols-6">
-        {video ? (
-          <figure>
-            <MediaThumb asset={video} />
-            <figcaption className="mt-1 text-xs text-muted-foreground">Video</figcaption>
-          </figure>
-        ) : (
-          <p className="col-span-3 text-sm text-muted-foreground">No video yet.</p>
-        )}
-        {product.imageAssetIds.map((id, index) => {
-          const asset = byId.get(id);
-          return asset ? (
-            <figure key={id}>
-              <MediaThumb asset={asset} />
-              <figcaption className="mt-1 text-xs text-muted-foreground">
-                Image {index + 1}
-              </figcaption>
-            </figure>
-          ) : null;
-        })}
+      <div className="space-y-4 px-5 pb-5">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+          {live.video.length === 0 && live.images.length === 0 ? (
+            <p className="col-span-3 text-sm text-muted-foreground">No media yet.</p>
+          ) : null}
+          {live.video.map((id) => tile(id, 'Video'))}
+          {live.images.map((id, index) => tile(id, `Image ${index + 1}`))}
+        </div>
+        {pendingVideo || pendingImages ? (
+          <div className="rounded-lg border border-info/25 bg-info-soft p-3">
+            <p className="text-sm font-medium">
+              {pendingVideo
+                ? 'Will replace the current video when ready'
+                : 'Will replace the current images when ready'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              The current media stays in the shop until processing finishes. If processing fails,
+              nothing changes; open “Edit images and video” to retry.
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-6">
+              {pendingVideo ? tile(pendingVideo, 'New video') : null}
+              {(pendingImages ?? []).map((id, index) => tile(id, `New image ${index + 1}`))}
+            </div>
+          </div>
+        ) : null}
       </div>
-      <MediaPicker
-        open={picker === 'video'}
-        onOpenChange={(open) => !open && setPicker(null)}
-        kind="video"
-        multiple={false}
-        initial={product.videoAssetId ? [product.videoAssetId] : []}
-        title="Choose the product video"
-        onPick={(selected) => (selected[0] ? setVideo.mutateAsync(selected[0]) : Promise.resolve())}
-      />
-      <MediaPicker
-        open={picker === 'images'}
-        onOpenChange={(open) => !open && setPicker(null)}
-        kind="image"
-        multiple
-        initial={product.imageAssetIds}
-        title="Choose product images"
-        onPick={(selected) => setImages.mutateAsync(selected)}
-      />
     </Card>
   );
 }
@@ -196,7 +189,7 @@ export function ProductDetailPage() {
                   </dl>
                 </Card>
                 <VariantsPanel productId={p.id} />
-                <MediaSection product={p} />
+                <MediaSection product={p} onEdit={() => setEditing(true)} />
               </div>
               <StorefrontPreview slug={p.slug} />
             </div>

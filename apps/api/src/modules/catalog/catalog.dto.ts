@@ -60,6 +60,17 @@ export function toProductDto(
   row: ProductRow,
   description: string | null,
   imageAssetIds: string[],
+  pending: readonly { slot: 'video' | 'images'; assetIds: string[] }[] = [],
 ): ProductDto {
-  return { ...toProductSummaryDto(row), description, imageAssetIds };
+  const pendingVideo = pending.find((p) => p.slot === 'video');
+  const pendingImages = pending.find((p) => p.slot === 'images');
+  return {
+    ...toProductSummaryDto(row),
+    description,
+    imageAssetIds,
+    pendingMedia: {
+      videoAssetId: pendingVideo?.assetIds[0] ?? null,
+      imageAssetIds: pendingImages?.assetIds ?? null,
+    },
+  };
 }

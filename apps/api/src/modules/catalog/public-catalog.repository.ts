@@ -103,6 +103,8 @@ export interface PublicCatalogRepository {
   /** Active variants in active sizes, by size order. */
   sizesFor(db: Database, productId: string): Promise<SizeRow[]>;
   imageAssetIds(db: Database, productId: string): Promise<string[]>;
+  /** Image asset ids per product, in display order (one query for a whole page). */
+  imageAssetIdsFor(db: Database, productIds: string[]): Promise<Map<string, string[]>>;
   profileMeasurements(db: Database, profileId: string): Promise<MeasurementRow[]>;
   listClothingTypes(db: Database): Promise<{ slug: string; name: string | null }[]>;
 }
@@ -206,6 +208,21 @@ export function createPublicCatalogRepository(): PublicCatalogRepository {
         .orderBy('id')
         .execute();
       return rows.map((row) => row.media_asset_id);
+    },
+
+    async imageAssetIdsFor(db, productIds) {
+      const result = new Map<string, string[]>(productIds.map((id) => [id, []]));
+      if (productIds.length === 0) return result;
+      const rows = await db
+        .selectFrom('product_images')
+        .select(['product_id', 'media_asset_id'])
+        .where('product_id', 'in', productIds)
+        .orderBy('product_id')
+        .orderBy('sort_order')
+        .orderBy('id')
+        .execute();
+      for (const row of rows) result.get(row.product_id)?.push(row.media_asset_id);
+      return result;
     },
 
     async profileMeasurements(db, profileId) {

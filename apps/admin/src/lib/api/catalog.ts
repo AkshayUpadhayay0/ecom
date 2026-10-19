@@ -74,7 +74,12 @@ export const catalogApi = {
     getList<LowStockVariantDto>('/admin/inventory/low-stock', params),
 
   // Media
+  /** Media Library (super_admin only). */
   media: (params: ListParams) => getList<MediaAssetDto>('/admin/media', params),
+  /** "Choose existing" (every admin): public, ready, non-retired media no customer owns. */
+  mediaPicker: (params: ListParams) => getList<MediaAssetDto>('/admin/media/picker', params),
+  /** Requeue failed processing of public product media. */
+  retryMedia: (id: string) => send<MediaAssetDto>('POST', `/admin/media/${id}/retry`),
   mediaAsset: (id: string) => getData<MediaAssetDto>(`/admin/media/${id}`),
   mediaUrl: (id: string) => getData<MediaUrlDto>(`/admin/media/${id}/url`),
   createUpload: (body: {

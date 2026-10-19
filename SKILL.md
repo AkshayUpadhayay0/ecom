@@ -171,6 +171,7 @@ Endpoints (customer auth required):
 2. Client uploads directly to R2, then calls `complete`. API enqueues the processing job.
 3. Worker (FFmpeg): create small muted MP4/WebM loop renditions + poster image, write `media_renditions` with versioned keys, set `processing_status = 'ready'`.
 4. Replacing a video = new asset, then repoint `products.video_asset_id` / `content_blocks.media_asset_id`. Never overwrite old keys (CDN caching). Old assets are retained until a cleanup job decides otherwise.
+5. Product media placement (19 Oct 2026, `catalog/product-media.ts`): attach uploaded/processing/ready assets at once when the slot has no live media; when it has live media and the new assets are not ready, upsert `product_pending_media` and let the worker's `onReady` hook (same transaction that marks the asset ready; lock product row, then pending rows) apply it, retire the old asset and audit in the requesting admin's name. Classify assets with `assertAttachable` (rows locked FOR SHARE so the swap cannot race the check). Content hero video stays ready-only.
 5. Public catalog responses return the poster URL + rendition URLs only for `ready` assets.
 
 ## 11. Recipe: catalog and search

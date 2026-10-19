@@ -13,6 +13,7 @@ import { createCatalogController } from './catalog/catalog.controller.js';
 import { createCatalogRouter } from './catalog/catalog.routes.js';
 import { createClothingTypesRepository } from './catalog/clothing-types.repository.js';
 import { createClothingTypesService } from './catalog/clothing-types.service.js';
+import { createPendingMediaRepository } from './catalog/pending-media.repository.js';
 import { createProductsRepository } from './catalog/products.repository.js';
 import { createProductsService } from './catalog/products.service.js';
 import { createSizesRepository } from './catalog/sizes.repository.js';
@@ -122,6 +123,7 @@ export function createAdminApiRouter({
           clothingTypes: clothingTypesRepository,
           measurementProfiles: createMeasurementProfilesRepository(),
           media,
+          pending: createPendingMediaRepository(),
           settings,
         }),
       }),

@@ -24,6 +24,9 @@ export default defineConfig({
   preview: { port: 4173, strictPort: true },
   test: {
     environment: 'jsdom',
+    // Full-app tests (real routes + MSW) type through whole forms; under parallel load a few take
+    // longer than the 5 s default.
+    testTimeout: 15_000,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     css: false,

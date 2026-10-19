@@ -54,8 +54,14 @@ export function availabilityOf(
 export function createPublicCatalogService(deps: PublicCatalogServiceDeps): PublicCatalogService {
   const { db, repository, storage, settings } = deps;
 
-  function toCard(row: CardRow, media: ReadonlyMap<string, UsableMedia>): PublicProductCardDto {
+  function toCard(
+    row: CardRow,
+    media: ReadonlyMap<string, UsableMedia>,
+    imageIds: readonly string[],
+  ): PublicProductCardDto {
     const video = row.videoAssetId === null ? undefined : media.get(row.videoAssetId);
+    // Only ready media is in `media` (loadUsableMedia), so this is the first READY image.
+    const image = imageIds.map((id) => media.get(id)).find((m) => m?.kind === 'image');
     return {
       id: row.id,
       slug: row.slug,
@@ -64,7 +70,8 @@ export function createPublicCatalogService(deps: PublicCatalogServiceDeps): Publ
       priceMinor: int8ToNumber(row.priceMinor),
       currency: row.currency,
       inStock: row.inStock,
-      media: video ? toGridMedia(storage, video) : null,
+      media: video?.kind === 'video' ? toGridMedia(storage, video) : null,
+      image: image ? toImage(storage, image) : null,
     };
   }
 
@@ -74,12 +81,19 @@ export function createPublicCatalogService(deps: PublicCatalogServiceDeps): Publ
   ): Promise<PublicProductListDto> {
     const request = toPageRequest(query, await settings.getLimit(db, 'catalog.page_size'));
     const { rows, total } = await repository.listCards(db, filters, request);
-    // One batched media lookup for the whole page (no N+1).
-    const media = await loadUsableMedia(
+    // Batched lookups for the whole page (no N+1): videos plus images for the fallback.
+    const images = await repository.imageAssetIdsFor(
       db,
-      rows.map((row) => row.videoAssetId),
+      rows.map((row) => row.id),
     );
-    return { data: rows.map((row) => toCard(row, media)), meta: toPageMeta(request, total) };
+    const media = await loadUsableMedia(db, [
+      ...rows.map((row) => row.videoAssetId),
+      ...[...images.values()].flat(),
+    ]);
+    return {
+      data: rows.map((row) => toCard(row, media, images.get(row.id) ?? [])),
+      meta: toPageMeta(request, total),
+    };
   }
 
   return {
@@ -114,7 +128,7 @@ export function createPublicCatalogService(deps: PublicCatalogServiceDeps): Publ
         .filter((m): m is UsableMedia => m?.kind === 'image');
 
       return {
-        ...toCard(product, media),
+        ...toCard(product, media, imageIds),
         description: product.description,
         videos: video?.kind === 'video' ? [toVideo(storage, video)] : [],
         images: images.map((image) => toImage(storage, image)),

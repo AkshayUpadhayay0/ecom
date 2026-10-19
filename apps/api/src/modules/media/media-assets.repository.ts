@@ -7,6 +7,7 @@ export interface MediaAssetStatusRow {
   processingStatus: string;
   visibility: string;
   retiredAt: Date | null;
+  purgedAt: Date | null;
 }
 
 /**
@@ -14,7 +15,11 @@ export interface MediaAssetStatusRow {
  * Phase 3.
  */
 export interface MediaAssetsRepository {
-  findStatuses(db: Database, ids: string[]): Promise<MediaAssetStatusRow[]>;
+  /**
+   * `lock` = FOR SHARE: a concurrent worker cannot mark these assets ready until the caller's
+   * transaction ends, so "not ready -> store a pending replacement" never races the swap.
+   */
+  findStatuses(db: Database, ids: string[], lock?: boolean): Promise<MediaAssetStatusRow[]>;
   /**
    * Which of `ids` are still used anywhere: product video or images, content blocks (hero),
    * hidden pages, return evidence, or as another asset's poster.
@@ -26,9 +31,9 @@ export interface MediaAssetsRepository {
 
 export function createMediaAssetsRepository(): MediaAssetsRepository {
   return {
-    async findStatuses(db, ids) {
+    async findStatuses(db, ids, lock = false) {
       if (ids.length === 0) return [];
-      return db
+      let query = db
         .selectFrom('media_assets')
         .select([
           'id',
@@ -36,9 +41,11 @@ export function createMediaAssetsRepository(): MediaAssetsRepository {
           'processing_status as processingStatus',
           'visibility',
           'retired_at as retiredAt',
+          'purged_at as purgedAt',
         ])
-        .where('id', 'in', ids)
-        .execute();
+        .where('id', 'in', ids);
+      if (lock) query = query.forShare();
+      return query.execute();
     },
 
     async referencedIds(db, ids) {

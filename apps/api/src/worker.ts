@@ -15,6 +15,7 @@ import { API_BASE_PATH } from './app.js';
 import { EnvValidationError, loadEnv, type Env } from './config/env.js';
 import { createDatabase } from './db/database.js';
 import { createLogger } from './lib/logger.js';
+import { buildPendingMediaApplier } from './modules/catalog/pending-media.module.js';
 import { releaseExpiredReservations } from './modules/checkout/reservation-expiry.js';
 import { createReservationsRepository } from './modules/inventory/reservations.repository.js';
 import { createMediaRepository } from './modules/media/media.repository.js';
@@ -93,6 +94,8 @@ const processor = createMediaProcessor({
   logger,
   encode: { preset: env.FFMPEG_X264_PRESET, crf: env.FFMPEG_X264_CRF },
   tempDir: env.MEDIA_TEMP_DIR ?? tmpdir(),
+  // Swaps in pending product media replacements once their assets are ready.
+  onReady: buildPendingMediaApplier(logger),
 });
 
 let running = true;

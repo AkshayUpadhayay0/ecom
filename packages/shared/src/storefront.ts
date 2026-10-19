@@ -67,7 +67,13 @@ export interface PublicProductCardDto {
   currency: string;
   /** At least one size can be bought right now (no quantities are exposed). */
   inStock: boolean;
+  /** Ready video only; null while the video is processing or when there is none. */
   media: PublicGridMediaDto | null;
+  /**
+   * First ready product image: the fallback to show when `media` is null (no broken player while
+   * a new video is still processing). null when no image is ready either.
+   */
+  image: PublicImageDto | null;
 }
 
 export interface PublicPageMeta {

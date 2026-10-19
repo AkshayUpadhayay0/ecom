@@ -110,6 +110,17 @@ export const createProductSchema = z.object({
   displayOrder: sortOrderSchema.default(0),
   /** New products cannot start archived. */
   status: productStatusSchema.exclude(['archived']).default('draft'),
+  /**
+   * Optional media saved in the same transaction (19 Oct 2026): public assets uploaded from the
+   * product form, attached in any state (uploaded / processing / ready); the public catalogue
+   * shows them once ready. Pending (unfinished upload) or failed assets are refused.
+   */
+  videoAssetId: z.uuid().nullable().optional(),
+  imageAssetIds: z
+    .array(z.uuid())
+    .max(MAX_PRODUCT_IMAGES)
+    .refine((ids) => new Set(ids).size === ids.length, 'imageAssetIds must be unique')
+    .optional(),
 });
 export type CreateProductRequest = z.infer<typeof createProductSchema>;
 
@@ -174,4 +185,9 @@ export interface ProductDto extends ProductSummaryDto {
   description: string | null;
   /** Image media asset ids in display order. */
   imageAssetIds: string[];
+  /**
+   * Replacements waiting for processing: the current media stays live and the worker swaps
+   * these in when every asset is ready (null = nothing pending for that slot).
+   */
+  pendingMedia: { videoAssetId: string | null; imageAssetIds: string[] | null };
 }

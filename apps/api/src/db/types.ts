@@ -513,6 +513,14 @@ export interface ProductImages {
   sort_order: Generated<number>;
 }
 
+export interface ProductPendingMedia {
+  asset_ids: string[];
+  created_at: Generated<Timestamp>;
+  product_id: string;
+  requested_by: string;
+  slot: string;
+}
+
 export interface Products {
   clothing_type_id: string;
   created_at: Generated<Timestamp>;
@@ -821,6 +829,7 @@ export interface DB {
   payment_webhook_events: PaymentWebhookEvents;
   payments: Payments;
   product_images: ProductImages;
+  product_pending_media: ProductPendingMedia;
   product_translations: ProductTranslations;
   product_variants: ProductVariants;
   products: Products;

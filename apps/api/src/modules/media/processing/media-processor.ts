@@ -47,6 +47,11 @@ export interface MediaProcessorDeps {
   encode: EncodeOptions;
   /** Scratch folder; one sub-folder per job, always removed afterwards. */
   tempDir: string;
+  /**
+   * Runs inside the transaction that marks an asset ready (e.g. apply pending product media
+   * replacements). A failure rolls the completion back and the job is retried.
+   */
+  onReady?: (trx: Database, assetId: string) => Promise<void>;
 }
 
 /** Exponential backoff: base, 2x base, 4x base, ... */
@@ -201,6 +206,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
           : await processImage(row, input, dir);
       await db.transaction().execute(async (trx) => {
         await repository.completeProcessing(trx, row.id, result);
+        await deps.onReady?.(trx, row.id);
       });
       logger.info(
         {

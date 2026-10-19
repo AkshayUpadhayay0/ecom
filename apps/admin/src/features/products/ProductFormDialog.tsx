@@ -17,6 +17,15 @@ import { catalogApi } from '@/lib/api/catalog';
 import { koboToNairaInput, nairaToKobo } from '@/lib/money';
 import { errorMessage } from '@/lib/notify';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
+import {
+  ProductMediaFields,
+  draftImageIds,
+  draftProblem,
+  draftVideoId,
+  initialDraft,
+  useDraftAssets,
+  type MediaDraft,
+} from './ProductMediaFields';
 import { catalogKeys, useClothingTypes, useProfiles } from './products.queries';
 
 const SLUG_MAX = 100;
@@ -64,7 +73,23 @@ interface ProductFormDialogProps {
   onSaved?: (product: ProductDto) => void;
 }
 
-/** Create or edit a product. Names are canonical (never translated). Mounted only while open. */
+const sameIds = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((id, index) => id === b[index]);
+
+/** Toast after saving: say when new media will only replace the live media once ready. */
+function savedMessage(saved: ProductDto, editing: boolean): string {
+  const pending =
+    saved.pendingMedia.videoAssetId !== null || saved.pendingMedia.imageAssetIds !== null;
+  if (pending) {
+    return 'Product saved. The new media will replace the current media when it is ready.';
+  }
+  return editing ? 'Product saved.' : 'Product created.';
+}
+
+/**
+ * Create or edit a product, including its images and video (uploaded or chosen inside the form).
+ * Names are canonical (never translated). Mounted only while open.
+ */
 export function ProductFormDialog(props: ProductFormDialogProps) {
   return props.open ? <ProductForm key={props.product?.id ?? 'new'} {...props} /> : null;
 }
@@ -75,6 +100,10 @@ function ProductForm({ open, onOpenChange, product, onSaved }: ProductFormDialog
   const [form, setForm] = useState<FormState>(() => initialState(product));
   const [slugTouched, setSlugTouched] = useState(product !== undefined);
   const [error, setError] = useState<string | null>(null);
+  const [startMedia] = useState<MediaDraft>(() => initialDraft(product));
+  const [media, setMedia] = useState<MediaDraft>(startMedia);
+  const assets = useDraftAssets(media);
+  const mediaProblem = draftProblem(media, assets);
 
   const save = useAdminMutation(
     async (state: FormState) => {
@@ -90,12 +119,28 @@ function ProductForm({ open, onOpenChange, product, onSaved }: ProductFormDialog
         searchKeywords: state.searchKeywords.trim(),
         displayOrder: Number(state.displayOrder) || 0,
       };
-      return product
-        ? catalogApi.updateProduct(product.id, common)
-        : catalogApi.createProduct({ ...common, status: state.status });
+      const videoAssetId = draftVideoId(media);
+      const imageAssetIds = draftImageIds(media);
+      if (!product) {
+        // One transaction: the product and its media (attached even while still processing).
+        return catalogApi.createProduct({
+          ...common,
+          status: state.status,
+          ...(videoAssetId !== null && { videoAssetId }),
+          ...(imageAssetIds.length > 0 && { imageAssetIds }),
+        });
+      }
+      let saved = await catalogApi.updateProduct(product.id, common);
+      if (videoAssetId !== null && videoAssetId !== draftVideoId(startMedia)) {
+        saved = await catalogApi.setProductVideo(product.id, videoAssetId);
+      }
+      if (!sameIds(imageAssetIds, draftImageIds(startMedia))) {
+        saved = await catalogApi.setProductImages(product.id, imageAssetIds);
+      }
+      return saved;
     },
     {
-      success: product ? 'Product saved.' : 'Product created.',
+      success: (saved) => savedMessage(saved, product !== undefined),
       invalidate: [catalogKeys.all],
     },
   );
@@ -122,11 +167,12 @@ function ProductForm({ open, onOpenChange, product, onSaved }: ProductFormDialog
     form.slug.trim() === '' ||
     form.clothingTypeId === '' ||
     form.description.trim() === '' ||
-    nairaToKobo(form.price) === null;
+    nairaToKobo(form.price) === null ||
+    mediaProblem !== null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit product' : 'New product'}</DialogTitle>
           <DialogDescription>
@@ -236,6 +282,12 @@ function ProductForm({ open, onOpenChange, product, onSaved }: ProductFormDialog
               </NativeSelect>
             </Field>
           )}
+          <ProductMediaFields draft={media} onChange={setMedia} assets={assets} product={product} />
+          {mediaProblem ? (
+            <p className="text-sm text-muted-foreground sm:col-span-2" role="status">
+              {mediaProblem}
+            </p>
+          ) : null}
           {error ? (
             <p
               role="alert"

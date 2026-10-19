@@ -1,3 +1,4 @@
+import { buildPendingMediaApplier } from '../src/modules/catalog/pending-media.module.js';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -168,5 +169,6 @@ export function makeProcessor(
     logger: pino({ level: 'silent' }),
     encode: { preset: 'ultrafast', crf: 30 },
     tempDir: tmpdir(),
+    onReady: buildPendingMediaApplier(pino({ level: 'silent' })),
   });
 }

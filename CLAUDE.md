@@ -17,6 +17,7 @@ Read this file fully before every task. Source documents live in the repo:
 - `db/migrations/0008_payments.sql` - order status `payment_review` (money received, needs attention), payment status `needs_review`, `payments.failure_reason` / `last_checked_at`, settings `payments.reconcile_*` and `email.max_attempts` / `email.retry_base_seconds` (TEAM DESIGN)
 - `db/migrations/0009_admin_orders.sql` - data-driven `order_status_transitions`, append-only `order_notes` and `payment_review_resolutions`, one status email per order/template, admin order list/search/stats indexes (Phase 7a)
 - `db/migrations/0010_returns.sql` - data-driven `return_status_transitions`, status `EXCHANGE_SENT` + replacement carrier/tracking, internal/customer event visibility (append-only events), customer-owned private media (`owner_customer_id`), once-per-event email `dedupe_key`, return settings (evidence limits TEAM DESIGN; return address/instructions PLACEHOLDER) (Phase 7b)
+- `db/migrations/0011_product_pending_media.sql` - `product_pending_media`: a replacement for LIVE product media waits until its new assets are ready, then the media worker swaps it in atomically (old retired, audited) (admin simplification, 19 Oct 2026)
 - `db/seeds/obsolete/seed_0002_blueprint_qr.sql` - OBSOLETE (height/weight sample rules). Not run by the seed runner.
 - `db/seeds/seed_0003_charts.sql` - the client's real size charts (inches), measurement profiles, default return policy, hidden-page placeholders (`pnpm db:seed`; re-runnable)
 - `db/seed_v2.sql` - seed data (sample values are flagged)

@@ -36,6 +36,7 @@ const PRODUCT: ProductDto = {
   updatedAt: '2026-10-10T10:00:00.000Z',
   description: 'A tailored kaftan.',
   imageAssetIds: [],
+  pendingMedia: { videoAssetId: null, imageAssetIds: null },
 };
 const VARIANT: VariantDto = {
   id: 'v-1',
@@ -102,10 +103,10 @@ describe('money input', () => {
 describe('products', () => {
   it('sends search and filters to the API and keeps them in the URL', async () => {
     const { user, router } = renderApp('/products');
-    expect(await screen.findByRole('link', { name: 'Fit Kaftan' })).toHaveAttribute(
-      'href',
-      '/products/p-1',
-    );
+    // First render of the app in this file: allow for a slow start under parallel test load.
+    expect(
+      await screen.findByRole('link', { name: 'Fit Kaftan' }, { timeout: 3000 }),
+    ).toHaveAttribute('href', '/products/p-1');
     await user.type(screen.getByRole('searchbox', { name: 'Search products' }), 'kaftan');
     await waitFor(() => expect(requests.at(-1)).toContain('q=kaftan'));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'active');

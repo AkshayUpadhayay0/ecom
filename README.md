@@ -171,8 +171,17 @@ deactivated (`isActive: false`), products are archived.
   (`STOCK_BELOW_RESERVED`); each call writes a `stock_movements` ledger row.
 - **No product cap**: `catalog.max_active_products` is NULL. It is enforced
   (`ACTIVE_PRODUCT_LIMIT_REACHED`) only if a number is set.
-- **Media**: only existing assets that are `ready`, `public` and not retired can be assigned
-  (videos for product/hero video, images for product images). Uploads are Phase 3.
+- **Product media** (19 Oct 2026): uploaded inside the product form (public) or chosen with
+  `GET /media/picker`. `POST /products` takes optional `videoAssetId` / `imageAssetIds` (same
+  transaction). Public, non-retired assets that are `uploaded`, `processing` or `ready` can be
+  attached; `pending` (unfinished upload) and `failed` give `409 MEDIA_NOT_READY`. A slot with no
+  live media attaches at once; replacing LIVE media with media that is not ready stores a pending
+  replacement (`product.pendingMedia`, migration 0011): the old media stays live and the media
+  worker swaps the new one in when every asset is ready (old retired, `product.*_replace` audit
+  row). Failed processing leaves the old media live; `POST /media/:id/retry` requeues it. The
+  public catalogue only shows ready media; cards carry `image` (first ready image) as the fallback
+  while no video is ready.
+- **Hero video** (Content): ready, public videos only.
 - **Sizes**: reordering changes Blueprint results (it compares `sizes.sort_order`).
 - **Size charts** are read-only here (developers load them; editing comes with the Blueprint
   phase). Matching uses only `max_inches` (smallest size whose max covers the value), so each chart

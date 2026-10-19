@@ -22,8 +22,8 @@ import { MediaThumb } from './MediaThumb';
 const PICKER_PAGE_SIZE = 24;
 
 /**
- * Pick processed, public media from the library: one video, or an ordered list of images (the
- * order of clicks is the display order).
+ * "Choose existing": pick processed, public media for reuse (GET /admin/media/picker, every
+ * admin): one video, or an ordered list of images (the order of clicks is the display order).
  */
 interface MediaPickerProps {
   open: boolean;
@@ -53,17 +53,10 @@ function MediaPickerDialog({
   const [selected, setSelected] = useState<string[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const params = {
-    kind,
-    status: 'ready',
-    visibility: 'public',
-    retired: false,
-    page,
-    pageSize: PICKER_PAGE_SIZE,
-  };
+  const params = { kind, page, pageSize: PICKER_PAGE_SIZE };
   const media = useQuery({
-    queryKey: catalogKeys.media(params),
-    queryFn: () => catalogApi.media(params),
+    queryKey: [...catalogKeys.media(params), 'picker'],
+    queryFn: () => catalogApi.mediaPicker(params),
   });
 
   function toggle(asset: MediaAssetDto) {
@@ -94,8 +87,8 @@ function MediaPickerDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Only processed, public {kind === 'video' ? 'videos' : 'images'} can be used. Upload new
-            files on the Media page.
+            Reuse a processed, public {kind === 'video' ? 'video' : 'image'} that was uploaded
+            before.
             {multiple ? ' Click images in the order they should appear.' : ''}
           </DialogDescription>
         </DialogHeader>
@@ -106,7 +99,7 @@ function MediaPickerDialog({
           empty={{
             icon: ImageIcon,
             title: 'Nothing to choose yet',
-            description: 'Upload files on the Media page and wait for processing to finish.',
+            description: 'Nothing has been uploaded and processed yet. Upload a new file instead.',
           }}
         >
           {(data) => (
