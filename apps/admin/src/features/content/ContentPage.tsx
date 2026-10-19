@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ContentBlockSummaryDto, MediaKind } from '@urban-ibile/shared';
+import type { ContentBlockSummaryDto, MediaAssetDto } from '@urban-ibile/shared';
 import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -23,7 +23,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { MediaPicker } from '@/features/media/MediaPicker';
+import { UploadButton, itemState } from '@/features/products/ProductMediaFields';
+import { catalogApi } from '@/lib/api/catalog';
 import { configApi } from '@/lib/api/config-api';
+import { MEDIA_POLL_MS, STILL_WORKING, VIDEO_TYPES, uploadPublicFile } from '@/lib/media-upload';
+import { errorMessage } from '@/lib/notify';
 import { formatDateTime } from '@/lib/format';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 
@@ -32,12 +36,78 @@ const contentKeys = {
   block: (key: string) => ['config', 'content', key] as const,
 };
 
+/**
+ * Upload a new hero video from Content (the Media Library is internal). Hero video stays
+ * ready-only (decision 19 Oct 2026): it can be used once processing has finished.
+ */
+function HeroVideoUpload({ onUse }: { onUse: (assetId: string) => Promise<unknown> }) {
+  const [assetId, setAssetId] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const asset = useQuery({
+    queryKey: ['catalog', 'media-asset', assetId],
+    queryFn: () => catalogApi.mediaAsset(assetId ?? ''),
+    enabled: assetId !== null,
+    refetchInterval: (query: { state: { data?: MediaAssetDto } }) =>
+      query.state.data && !STILL_WORKING.has(query.state.data.status) ? false : MEDIA_POLL_MS,
+  });
+
+  function start(file: File) {
+    setFileName(file.name);
+    setUploading(true);
+    setUploadError(null);
+    setAssetId(null);
+    uploadPublicFile(file).then(
+      (created) => {
+        setAssetId(created.id);
+        setUploading(false);
+      },
+      (err: unknown) => {
+        setUploadError(errorMessage(err));
+        setUploading(false);
+      },
+    );
+  }
+
+  const state =
+    fileName === ''
+      ? null
+      : itemState({ key: 'hero', fileName, assetId, uploading, uploadError }, asset.data);
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <UploadButton
+        label="Upload new video"
+        accept={VIDEO_TYPES}
+        multiple={false}
+        onFiles={(files) => files[0] && start(files[0])}
+      />
+      {state ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs" role="status">
+          <span className="font-medium">{fileName}</span>
+          <Badge tone={state.tone}>{state.label}</Badge>
+          {state.detail ? <span className="text-muted-foreground">{state.detail}</span> : null}
+          {asset.data?.status === 'ready' && assetId ? (
+            <Button size="sm" onClick={() => void onUse(assetId)}>
+              Use as this block's video
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          The new video can be used here once processing has finished.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BlockDialog({ blockKey, onClose }: { blockKey: string; onClose: () => void }) {
   const block = useQuery({
     queryKey: contentKeys.block(blockKey),
     queryFn: () => configApi.contentBlock(blockKey),
   });
-  const [picker, setPicker] = useState<MediaKind | null>(null);
+  const [picker, setPicker] = useState(false);
   const setMedia = useAdminMutation((id: string | null) => configApi.setBlockMedia(blockKey, id), {
     success: 'Media updated.',
     invalidate: [contentKeys.list, contentKeys.block(blockKey)],
@@ -48,7 +118,7 @@ function BlockDialog({ blockKey, onClose }: { blockKey: string; onClose: () => v
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{blockKey}</DialogTitle>
           <DialogDescription>
-            Text is approved copy applied by developers; here you choose the media and publish.
+            Text is approved copy applied by developers; here you choose the video and publish.
           </DialogDescription>
         </DialogHeader>
         <QueryView query={block} what="content block">
@@ -67,13 +137,10 @@ function BlockDialog({ blockKey, onClose }: { blockKey: string; onClose: () => v
                 </div>
               ))}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">Media:</span>
+                <span className="text-muted-foreground">Video:</span>
                 <span className="font-mono text-xs">{data.mediaAssetId ?? 'none'}</span>
-                <Button size="sm" variant="outline" onClick={() => setPicker('video')}>
-                  Choose video
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setPicker('image')}>
-                  Choose image
+                <Button size="sm" variant="outline" onClick={() => setPicker(true)}>
+                  Choose existing video
                 </Button>
                 {data.mediaAssetId ? (
                   <Button size="sm" variant="ghost" onClick={() => setMedia.mutate(null)}>
@@ -81,13 +148,14 @@ function BlockDialog({ blockKey, onClose }: { blockKey: string; onClose: () => v
                   </Button>
                 ) : null}
               </div>
+              <HeroVideoUpload onUse={(id) => setMedia.mutateAsync(id)} />
               <MediaPicker
-                open={picker !== null}
-                onOpenChange={(o) => !o && setPicker(null)}
-                kind={picker ?? 'image'}
+                open={picker}
+                onOpenChange={(o) => !o && setPicker(false)}
+                kind="video"
                 multiple={false}
                 initial={data.mediaAssetId ? [data.mediaAssetId] : []}
-                title={`Choose ${picker ?? 'media'} for ${blockKey}`}
+                title={`Choose a video for ${blockKey}`}
                 onPick={(ids) => (ids[0] ? setMedia.mutateAsync(ids[0]) : Promise.resolve())}
               />
             </div>
@@ -120,8 +188,10 @@ export function ContentPage() {
         description="Site content blocks (hero, banners). Publish them and choose their video or image."
       />
       <InfoBanner>
-        English / Pidgin copy is supplied by the client’s writer and applied by developers. There is
-        no translation editor by design.
+        Content currently manages the hero video and approved public blocks only (choose or upload
+        the video, publish or unpublish). It does not edit the hidden-page write-ups, QR links,
+        serial access or translations: English / Pidgin copy is supplied by the client’s writer and
+        applied by developers.
       </InfoBanner>
       <ListCard>
         <QueryView

@@ -6,14 +6,15 @@ import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MediaPicker } from '@/features/media/MediaPicker';
 import { MediaThumb } from '@/features/media/MediaThumb';
-import { catalogApi, putToStorage } from '@/lib/api/catalog';
+import { catalogApi } from '@/lib/api/catalog';
+import {
+  IMAGE_TYPES,
+  MEDIA_POLL_MS,
+  STILL_WORKING,
+  VIDEO_TYPES,
+  uploadPublicFile,
+} from '@/lib/media-upload';
 import { errorMessage } from '@/lib/notify';
-
-/** How often a file that is still uploading / processing is re-checked. */
-const MEDIA_POLL_MS = 3000;
-const VIDEO_TYPES = 'video/mp4,video/quicktime,video/webm';
-const IMAGE_TYPES = 'image/jpeg,image/png,image/webp';
-const STILL_WORKING = new Set(['pending', 'uploaded', 'processing']);
 
 /** One file in the form: being uploaded, failed to upload, or an asset on the server. */
 export interface MediaItem {
@@ -100,19 +101,7 @@ export function draftProblem(draft: MediaDraft, assets: Map<string, MediaAssetDt
   return null;
 }
 
-async function uploadFile(file: File): Promise<MediaAssetDto> {
-  const created = await catalogApi.createUpload({
-    fileName: file.name,
-    mimeType: file.type,
-    sizeBytes: file.size,
-    visibility: 'public',
-    isTemporary: false,
-  });
-  await putToStorage(created.upload, file);
-  return catalogApi.completeUpload(created.asset.id);
-}
-
-function UploadButton({
+export function UploadButton({
   label,
   accept,
   multiple,
@@ -276,7 +265,7 @@ export function ProductMediaFields({
         ? { ...current, video: item }
         : { ...current, images: [...current.images, item] },
     );
-    uploadFile(file).then(
+    uploadPublicFile(file).then(
       (asset) => patch({ assetId: asset.id, uploading: false }),
       (err: unknown) => patch({ uploading: false, uploadError: errorMessage(err) }),
     );
