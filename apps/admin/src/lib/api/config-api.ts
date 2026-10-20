@@ -11,6 +11,7 @@ import {
   type SerialImportResultDto,
   type SettingDto,
   type UpdateDeliveryZoneRequest,
+  type UpdateContentTextRequest,
   type UpdateHiddenPageContentRequest,
 } from '@urban-ibile/shared';
 import { apiRequest } from './client';
@@ -38,6 +39,9 @@ export const configApi = {
     send<ContentBlockDto>('POST', `/admin/content-blocks/${encodeURIComponent(key)}/publish`),
   unpublishBlock: (key: string) =>
     send<ContentBlockDto>('POST', `/admin/content-blocks/${encodeURIComponent(key)}/unpublish`),
+  /** Text blocks only (footer, policies): English plain-text title and body. */
+  setBlockText: (key: string, text: UpdateContentTextRequest) =>
+    send<ContentBlockDto>('PUT', `/admin/content-blocks/${encodeURIComponent(key)}/text`, text),
   setBlockMedia: (key: string, mediaAssetId: string | null) =>
     send<ContentBlockDto>('PUT', `/admin/content-blocks/${encodeURIComponent(key)}/media`, {
       mediaAssetId,

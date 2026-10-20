@@ -9,5 +9,6 @@ export function createContentBlocksRouter(controller: ContentBlocksController): 
   router.post('/content-blocks/:key/publish', controller.publish);
   router.post('/content-blocks/:key/unpublish', controller.unpublish);
   router.put('/content-blocks/:key/media', controller.setMedia);
+  router.put('/content-blocks/:key/text', controller.setText);
   return router;
 }

@@ -3,7 +3,9 @@ import type {
   ApiList,
   ContentBlockDto,
   ContentBlockSummaryDto,
+  PublicContentBlockDto,
 } from '@urban-ibile/shared';
+import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   adminClient,
@@ -127,5 +129,110 @@ describe.skipIf(!hasTestDatabase)('admin content blocks API', () => {
     expect(await auditCount(ctx, { action: 'content_block.media_replace', entityId: HERO })).toBe(
       2,
     );
+  });
+
+  describe('editor by content type (20 Oct 2026)', () => {
+    const TERMS = 'policy.terms';
+    const site = (key: string) => request(ctx.app).get(`/api/v1/site/content/${key}`);
+
+    it('knows which blocks are video (hero) and which are text, and which text is pending', async () => {
+      const list = bodyOf<ApiList<ContentBlockSummaryDto>>(await api.get('/content-blocks')).data;
+      const byKey = new Map(list.map((b) => [b.key, b]));
+      expect(byKey.get(HERO)).toMatchObject({ kind: 'video', pending: false });
+      for (const key of ['footer.about', 'policy.privacy', 'policy.terms', 'policy.returns']) {
+        // Seed placeholders were turned into "pending client content" (no copy invented).
+        expect(byKey.get(key), key).toMatchObject({ kind: 'text', pending: true });
+      }
+    });
+
+    it('saves plain English text for a text block (audited); the public API shows it as plain parts', async () => {
+      const pending = bodyOf<{ data: PublicContentBlockDto }>(await site(TERMS)).data;
+      expect(pending).toMatchObject({ key: TERMS, status: 'pending', title: null, parts: [] });
+
+      const body = [
+        '# Using this site',
+        'By shopping you agree.',
+        'Second line.',
+        '',
+        'Payments are in naira.',
+      ].join('\n');
+      const saved = await api.put(`/content-blocks/${TERMS}/text`, { title: 'Terms', body });
+      expect(saved.status).toBe(200);
+      expect(bodyOf<ApiData<ContentBlockDto>>(saved).data).toMatchObject({
+        kind: 'text',
+        pending: false,
+        translations: { en: { title: 'Terms', body } },
+      });
+      expect(await auditCount(ctx, { action: 'content_block.text_update', entityId: TERMS })).toBe(
+        1,
+      );
+
+      const shown = bodyOf<{ data: PublicContentBlockDto }>(await site(TERMS)).data;
+      expect(shown).toMatchObject({
+        status: 'available',
+        title: 'Terms',
+        parts: [
+          { type: 'heading', text: 'Using this site' },
+          { type: 'paragraph', text: ['By shopping you agree.', 'Second line.'].join('\n') },
+          { type: 'paragraph', text: 'Payments are in naira.' },
+        ],
+      });
+      // No Pidgin / other language row was created by the editor.
+      const languages = await ctx.db
+        .selectFrom('content_block_translations as t')
+        .innerJoin('content_blocks as b', 'b.id', 't.content_block_id')
+        .select('t.language_code')
+        .where('b.block_key', '=', TERMS)
+        .execute();
+      expect(languages.map((l) => l.language_code)).toEqual(['en']);
+    });
+
+    it('validates: required, length limits, no HTML, strict body', async () => {
+      const put = (body: object) => api.put(`/content-blocks/${TERMS}/text`, body);
+      expect((await put({ title: '', body: 'x' })).status).toBe(400);
+      expect((await put({ title: 'T', body: '   ' })).status).toBe(400);
+      expect((await put({ title: 'T', body: 'x'.repeat(20_001) })).status).toBe(400);
+      expect((await put({ title: 'x'.repeat(201), body: 'x' })).status).toBe(400);
+      const html = await put({ title: 'T', body: 'Hello <script>alert(1)</script>' });
+      expect(html.status).toBe(400);
+      expect(JSON.stringify(bodyOf<unknown>(html))).toMatch(/plain text/);
+      expect((await put({ title: '<b>T</b>', body: 'x' })).status).toBe(400);
+      expect((await put({ title: 'T', body: 'x', language: 'pcm' })).status).toBe(400);
+      // Text that merely mentions < and > is fine.
+      expect((await put({ title: 'T', body: 'Sizes 1 < 2 and 3 > 2' })).status).toBe(200);
+    });
+
+    it('keeps the editors apart: no video on text blocks, no text on the hero', async () => {
+      const video = await insertMediaAsset(ctx, { kind: 'video', status: 'ready' });
+      const onText = await api.put(`/content-blocks/${TERMS}/media`, { mediaAssetId: video });
+      expect(onText.status).toBe(409);
+      const onHero = await api.put(`/content-blocks/${HERO}/text`, { title: 'T', body: 'x' });
+      expect(onHero.status).toBe(409);
+      expect(errorCode(onHero)).toBe('INVALID_STATE');
+      // The hero keeps working as before.
+      expect((await api.put(`/content-blocks/${HERO}/media`, { mediaAssetId: video })).status).toBe(
+        200,
+      );
+    });
+
+    it('draft / publish: an unpublished text block is not public; the hero is not a text block', async () => {
+      await api.put(`/content-blocks/${TERMS}/text`, { title: 'Terms', body: 'Text.' });
+      expect((await api.post(`/content-blocks/${TERMS}/unpublish`)).status).toBe(200);
+      expect((await site(TERMS)).status).toBe(404);
+      expect((await api.post(`/content-blocks/${TERMS}/publish`)).status).toBe(200);
+      expect((await site(TERMS)).status).toBe(200);
+      expect((await site(HERO)).status).toBe(404);
+      expect((await site('qr.page-one')).status).toBe(404);
+    });
+
+    it('is open to the client admin role (Content is a client page)', async () => {
+      const admin = adminClient(ctx, (await signInAdmin(ctx, 'admin')).token);
+      expect(
+        (await admin.put(`/content-blocks/${TERMS}/text`, { title: 'T', body: 'x' })).status,
+      ).toBe(200);
+      expect(
+        (await request(ctx.app).put(`/api/v1/admin/content-blocks/${TERMS}/text`)).status,
+      ).toBe(401);
+    });
   });
 });

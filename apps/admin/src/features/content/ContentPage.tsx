@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { MediaPicker } from '@/features/media/MediaPicker';
+import { TextBlockEditor } from './TextBlockEditor';
 import { UploadButton, itemState } from '@/features/products/ProductMediaFields';
 import { catalogApi } from '@/lib/api/catalog';
 import { configApi } from '@/lib/api/config-api';
@@ -118,48 +119,58 @@ function BlockDialog({ blockKey, onClose }: { blockKey: string; onClose: () => v
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{blockKey}</DialogTitle>
           <DialogDescription>
-            Text is approved copy applied by developers; here you choose the video and publish.
+            {block.data?.kind === 'text'
+              ? 'Write the English text and save it. Publishing decides whether the shop shows it.'
+              : 'Choose or upload the hero video; it is saved as soon as you pick it.'}
           </DialogDescription>
         </DialogHeader>
         <QueryView query={block} what="content block">
-          {(data) => (
-            <div className="space-y-4 text-sm">
-              {Object.entries(data.translations).map(([language, t]) => (
-                <div key={language} className="rounded-lg border p-3">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {language}
-                  </p>
-                  <p className="mt-1 font-medium">{t.title ?? '—'}</p>
-                  {t.body ? (
-                    <p className="mt-1 whitespace-pre-line text-muted-foreground">{t.body}</p>
-                  ) : null}
-                  {t.ctaLabel ? <p className="mt-1 text-xs">Button: {t.ctaLabel}</p> : null}
-                </div>
-              ))}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">Video:</span>
-                <span className="font-mono text-xs">{data.mediaAssetId ?? 'none'}</span>
-                <Button size="sm" variant="outline" onClick={() => setPicker(true)}>
-                  Choose existing video
-                </Button>
-                {data.mediaAssetId ? (
-                  <Button size="sm" variant="ghost" onClick={() => setMedia.mutate(null)}>
-                    Remove media
-                  </Button>
-                ) : null}
-              </div>
-              <HeroVideoUpload onUse={(id) => setMedia.mutateAsync(id)} />
-              <MediaPicker
-                open={picker}
-                onOpenChange={(o) => !o && setPicker(false)}
-                kind="video"
-                multiple={false}
-                initial={data.mediaAssetId ? [data.mediaAssetId] : []}
-                title={`Choose a video for ${blockKey}`}
-                onPick={(ids) => (ids[0] ? setMedia.mutateAsync(ids[0]) : Promise.resolve())}
+          {(data) =>
+            data.kind === 'text' ? (
+              <TextBlockEditor
+                key={data.updatedAt}
+                block={data}
+                invalidate={[contentKeys.list, contentKeys.block(blockKey)]}
               />
-            </div>
-          )}
+            ) : (
+              <div className="space-y-4 text-sm">
+                {Object.entries(data.translations).map(([language, t]) => (
+                  <div key={language} className="rounded-lg border p-3">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      {language}
+                    </p>
+                    <p className="mt-1 font-medium">{t.title ?? '—'}</p>
+                    {t.body ? (
+                      <p className="mt-1 whitespace-pre-line text-muted-foreground">{t.body}</p>
+                    ) : null}
+                    {t.ctaLabel ? <p className="mt-1 text-xs">Button: {t.ctaLabel}</p> : null}
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">Video:</span>
+                  <span className="font-mono text-xs">{data.mediaAssetId ?? 'none'}</span>
+                  <Button size="sm" variant="outline" onClick={() => setPicker(true)}>
+                    Choose existing video
+                  </Button>
+                  {data.mediaAssetId ? (
+                    <Button size="sm" variant="ghost" onClick={() => setMedia.mutate(null)}>
+                      Remove media
+                    </Button>
+                  ) : null}
+                </div>
+                <HeroVideoUpload onUse={(id) => setMedia.mutateAsync(id)} />
+                <MediaPicker
+                  open={picker}
+                  onOpenChange={(o) => !o && setPicker(false)}
+                  kind="video"
+                  multiple={false}
+                  initial={data.mediaAssetId ? [data.mediaAssetId] : []}
+                  title={`Choose a video for ${blockKey}`}
+                  onPick={(ids) => (ids[0] ? setMedia.mutateAsync(ids[0]) : Promise.resolve())}
+                />
+              </div>
+            )
+          }
         </QueryView>
       </DialogContent>
     </Dialog>
@@ -209,8 +220,8 @@ export function ContentPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead scope="col">Block</TableHead>
-                  <TableHead scope="col">Languages</TableHead>
-                  <TableHead scope="col">Media</TableHead>
+                  <TableHead scope="col">Type</TableHead>
+                  <TableHead scope="col">Content</TableHead>
                   <TableHead scope="col">State</TableHead>
                   <TableHead scope="col">Updated</TableHead>
                   <TableHead scope="col" className="text-right">
@@ -222,8 +233,20 @@ export function ContentPage() {
                 {data.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-mono text-xs">{b.key}</TableCell>
-                    <TableCell>{b.languages.join(', ') || '—'}</TableCell>
-                    <TableCell>{b.mediaAssetId ? 'Set' : '—'}</TableCell>
+                    <TableCell>{b.kind === 'video' ? 'Hero video' : 'Text'}</TableCell>
+                    <TableCell>
+                      {b.kind === 'video' ? (
+                        b.mediaAssetId ? (
+                          'Video set'
+                        ) : (
+                          <span className="text-muted-foreground">No video yet</span>
+                        )
+                      ) : b.pending ? (
+                        <Badge tone="warning">Pending client content</Badge>
+                      ) : (
+                        'Text provided'
+                      )}
+                    </TableCell>
                     <TableCell>
                       {b.isPublished ? (
                         <Badge tone="success">Published</Badge>

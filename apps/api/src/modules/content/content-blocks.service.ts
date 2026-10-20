@@ -1,6 +1,13 @@
-import type { ContentBlockDto, ContentBlockSummaryDto, PaginationQuery } from '@urban-ibile/shared';
+import {
+  CONTENT_TEXT_LANGUAGE,
+  type ContentBlockDto,
+  type ContentBlockSummaryDto,
+  type PaginationQuery,
+  type UpdateContentTextRequest,
+} from '@urban-ibile/shared';
 import type { Database } from '../../db/database.js';
-import { notFoundError } from '../../lib/errors.js';
+import { AppError, notFoundError } from '../../lib/errors.js';
+import { HTTP_STATUS } from '../../lib/http-status.js';
 import { toPageMeta, toPageRequest, type Page } from '../../lib/pagination.js';
 import { writeAuditLog } from '../audit/audit-log.repository.js';
 import type { AuditActor } from '../audit/audit-actor.js';
@@ -11,17 +18,34 @@ import type { ContentBlocksRepository } from './content-blocks.repository.js';
 
 const ENTITY = 'content_block';
 
+/** The editor must match the block: video for the hero, text for footer and policies. */
+function assertKind(block: ContentBlockDto, kind: ContentBlockDto['kind']): void {
+  if (block.kind !== kind) {
+    throw new AppError(
+      'INVALID_STATE',
+      HTTP_STATUS.CONFLICT,
+      kind === 'video'
+        ? 'This content block holds text, not a video.'
+        : 'This content block holds the hero video, not text.',
+      { key: block.key, kind: block.kind },
+    );
+  }
+}
+
 /**
- * Content blocks (hero, policies, footer). Admin can publish/unpublish and replace the hero
- * media; static copy (English/Pidgin) is developer-managed, so there is no text editing here.
- * Hidden pages are NOT content blocks and have no admin endpoints.
+ * Content blocks (hero, policies, footer). Every block can be published/unpublished. VIDEO blocks
+ * (home.hero) take a ready public video; TEXT blocks (footer, policies) take a plain-text English
+ * title and body (20 Oct 2026). Pidgin copy, translations, hidden pages, QR mappings and serial
+ * rules are NOT edited here.
  */
 export interface ContentBlocksService {
   list(query: PaginationQuery): Promise<Page<ContentBlockSummaryDto>>;
   get(key: string): Promise<ContentBlockDto>;
   setPublished(actor: AuditActor, key: string, isPublished: boolean): Promise<ContentBlockDto>;
-  /** Hero video: an existing ready, public video asset, or null to clear. */
+  /** Hero video: an existing ready, public video asset, or null to clear. Video blocks only. */
   setMedia(actor: AuditActor, key: string, mediaAssetId: string | null): Promise<ContentBlockDto>;
+  /** English plain-text title and body. Text blocks only. */
+  setText(actor: AuditActor, key: string, text: UpdateContentTextRequest): Promise<ContentBlockDto>;
 }
 
 export interface ContentBlocksServiceDeps {
@@ -92,12 +116,21 @@ export function createContentBlocksService(deps: ContentBlocksServiceDeps): Cont
 
     async setMedia(actor, key, mediaAssetId) {
       return mutate(actor, key, 'content_block.media_replace', async (trx, block) => {
+        assertKind(block, 'video');
         if (mediaAssetId !== null) await deps.media.assertReadyVideo(trx, mediaAssetId);
         await repository.touch(trx, block.id, actor.adminId, { mediaAssetId });
         // Replaced hero media is kept (retired) unless something else still uses it.
         if (block.mediaAssetId !== null && block.mediaAssetId !== mediaAssetId) {
           await deps.media.retireUnreferenced(trx, actor, [block.mediaAssetId]);
         }
+      });
+    },
+
+    async setText(actor, key, text) {
+      return mutate(actor, key, 'content_block.text_update', async (trx, block) => {
+        assertKind(block, 'text');
+        await repository.upsertText(trx, block.id, CONTENT_TEXT_LANGUAGE, text);
+        await repository.touch(trx, block.id, actor.adminId, {});
       });
     },
   };

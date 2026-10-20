@@ -3,6 +3,7 @@ import {
   contentBlockKeySchema,
   listContentBlocksQuerySchema,
   setContentMediaSchema,
+  updateContentTextSchema,
 } from '@urban-ibile/shared';
 import { HTTP_STATUS } from '../../lib/http-status.js';
 import { stringParam } from '../../lib/params.js';
@@ -16,6 +17,7 @@ export interface ContentBlocksController {
   publish: RequestHandler;
   unpublish: RequestHandler;
   setMedia: RequestHandler;
+  setText: RequestHandler;
 }
 
 export function createContentBlocksController(
@@ -49,6 +51,11 @@ export function createContentBlocksController(
       const key = keyOf(req);
       const { mediaAssetId } = setContentMediaSchema.parse(bodyOf(req));
       sendData(res, HTTP_STATUS.OK, await service.setMedia(auditActorOf(req), key, mediaAssetId));
+    },
+    setText: async (req, res) => {
+      const key = keyOf(req);
+      const text = updateContentTextSchema.parse(bodyOf(req));
+      sendData(res, HTTP_STATUS.OK, await service.setText(auditActorOf(req), key, text));
     },
   };
 }

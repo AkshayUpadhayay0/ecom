@@ -182,3 +182,15 @@ export const PUBLIC_SETTING_KEYS = [
   'brand.palette',
   'policy.returns_content_key',
 ] as const;
+
+/**
+ * GET /site/content/:key (published text blocks: footer, policies). Plain strings only, never
+ * HTML: render each part as escaped text. `pending` = the client has not supplied the copy yet.
+ */
+export interface PublicContentBlockDto {
+  key: string;
+  status: 'pending' | 'available';
+  title: string | null;
+  parts: { type: 'heading' | 'paragraph'; text: string }[];
+  updatedAt: string;
+}

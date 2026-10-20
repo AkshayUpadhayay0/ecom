@@ -23,6 +23,14 @@ export interface SiteConfigRepository {
   settings(db: Database, keys: readonly string[]): Promise<{ key: string; value: unknown }[]>;
   /** The published content block, or undefined. */
   publishedBlock(db: Database, blockKey: string): Promise<HeroRow | undefined>;
+  /** A published TEXT block with its text in `languageCode` (null fields = not supplied yet). */
+  publishedTextBlock(
+    db: Database,
+    blockKey: string,
+    languageCode: string,
+  ): Promise<
+    { key: string; title: string | null; body: string | null; updatedAt: Date } | undefined
+  >;
   /** Active zones only; the DB guarantees an active zone has a fee. */
   activeZones(db: Database): Promise<ZoneRow[]>;
   languages(db: Database): Promise<{ code: string; isDefault: boolean }[]>;
@@ -54,6 +62,19 @@ export function createSiteConfigRepository(): SiteConfigRepository {
         .orderBy('language_code')
         .execute();
       return { mediaAssetId: block.mediaAssetId, translations };
+    },
+
+    async publishedTextBlock(db, blockKey, languageCode) {
+      return db
+        .selectFrom('content_blocks as b')
+        .leftJoin('content_block_translations as t', (join) =>
+          join.onRef('t.content_block_id', '=', 'b.id').on('t.language_code', '=', languageCode),
+        )
+        .select(['b.block_key as key', 't.title', 't.body', 'b.updated_at as updatedAt'])
+        .where('b.block_key', '=', blockKey)
+        .where('b.content_kind', '=', 'text')
+        .where('b.is_published', '=', true)
+        .executeTakeFirst();
     },
 
     async activeZones(db) {

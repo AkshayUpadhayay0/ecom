@@ -4,6 +4,8 @@ import type { PageRequest } from '../../lib/pagination.js';
 export interface ContentBlockRow {
   id: string;
   key: string;
+  /** content_kind: 'video' (hero) or 'text' (footer, policies). */
+  kind: 'text' | 'video';
   isPublished: boolean;
   mediaAssetId: string | null;
   updatedAt: Date;
@@ -20,6 +22,7 @@ export interface ContentTranslationRow {
 const COLUMNS = [
   'id',
   'block_key as key',
+  'content_kind as kind',
   'is_published as isPublished',
   'media_asset_id as mediaAssetId',
   'updated_at as updatedAt',
@@ -34,6 +37,13 @@ export interface ContentBlocksRepository {
   ): Promise<{ rows: ContentBlockRow[]; total: number }>;
   findByKey(db: Database, key: string, lock?: boolean): Promise<ContentBlockRow | undefined>;
   translationsFor(db: Database, blockIds: string[]): Promise<Map<string, ContentTranslationRow[]>>;
+  /** Writes the title / body of one language (text blocks; English only from the admin). */
+  upsertText(
+    db: Database,
+    blockId: string,
+    languageCode: string,
+    text: { title: string; body: string },
+  ): Promise<void>;
   /** Sets the given columns plus updated_by / updated_at. */
   touch(
     db: Database,
@@ -56,13 +66,35 @@ export function createContentBlocksRepository(): ContentBlocksRepository {
           .execute(),
         query.select((eb) => eb.fn.countAll<string>().as('total')).executeTakeFirstOrThrow(),
       ]);
-      return { rows, total: Number(count.total) };
+      return {
+        rows: rows.map((row) => ({ ...row, kind: row.kind as ContentBlockRow['kind'] })),
+        total: Number(count.total),
+      };
     },
 
     async findByKey(db, key, lock = false) {
       let query = db.selectFrom('content_blocks').select(COLUMNS).where('block_key', '=', key);
       if (lock) query = query.forUpdate();
-      return query.executeTakeFirst();
+      const row = await query.executeTakeFirst();
+      // content_kind is CHECK-constrained to these values.
+      return row && { ...row, kind: row.kind as ContentBlockRow['kind'] };
+    },
+
+    async upsertText(db, blockId, languageCode, text) {
+      await db
+        .insertInto('content_block_translations')
+        .values({
+          content_block_id: blockId,
+          language_code: languageCode,
+          title: text.title,
+          body: text.body,
+        })
+        .onConflict((oc) =>
+          oc
+            .columns(['content_block_id', 'language_code'])
+            .doUpdateSet({ title: text.title, body: text.body }),
+        )
+        .execute();
     },
 
     async translationsFor(db, blockIds) {

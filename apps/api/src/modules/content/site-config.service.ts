@@ -1,4 +1,11 @@
-import { PUBLIC_SETTING_KEYS, type PublicSiteConfigDto } from '@urban-ibile/shared';
+import {
+  CONTENT_TEXT_LANGUAGE,
+  PUBLIC_SETTING_KEYS,
+  parsePlainText,
+  type PublicContentBlockDto,
+  type PublicSiteConfigDto,
+} from '@urban-ibile/shared';
+import { notFoundError } from '../../lib/errors.js';
 import type { Database } from '../../db/database.js';
 import { int8ToNumber } from '../../lib/db-errors.js';
 import { toVideo } from '../media/public-media.dto.js';
@@ -12,6 +19,11 @@ export const HERO_BLOCK_KEY = 'home.hero';
 export interface SiteConfigService {
   /** Public settings (explicit allow-list), hero, active delivery zones, languages. */
   get(): Promise<PublicSiteConfigDto>;
+  /**
+   * A published text block (footer, policies) as plain-text parts; `pending` until the client
+   * supplies the copy. Unknown, unpublished or video blocks are 404.
+   */
+  content(key: string): Promise<PublicContentBlockDto>;
 }
 
 export interface SiteConfigServiceDeps {
@@ -26,6 +38,20 @@ export function createSiteConfigService({
   storage,
 }: SiteConfigServiceDeps): SiteConfigService {
   return {
+    async content(key) {
+      const block = await repository.publishedTextBlock(db, key, CONTENT_TEXT_LANGUAGE);
+      if (!block) throw notFoundError('Content');
+      const body = block.body?.trim() ?? '';
+      return {
+        key: block.key,
+        status: body === '' ? 'pending' : 'available',
+        title: body === '' ? null : block.title,
+        // Plain strings only: clients render each part as escaped text (never as HTML).
+        parts: body === '' ? [] : parsePlainText(body),
+        updatedAt: block.updatedAt.toISOString(),
+      };
+    },
+
     async get() {
       const [settingRows, hero, zones, languages] = await Promise.all([
         repository.settings(db, PUBLIC_SETTING_KEYS),

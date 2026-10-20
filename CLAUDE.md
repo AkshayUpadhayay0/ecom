@@ -19,6 +19,7 @@ Read this file fully before every task. Source documents live in the repo:
 - `db/migrations/0010_returns.sql` - data-driven `return_status_transitions`, status `EXCHANGE_SENT` + replacement carrier/tracking, internal/customer event visibility (append-only events), customer-owned private media (`owner_customer_id`), once-per-event email `dedupe_key`, return settings (evidence limits TEAM DESIGN; return address/instructions PLACEHOLDER) (Phase 7b)
 - `db/migrations/0011_product_pending_media.sql` - `product_pending_media`: a replacement for LIVE product media waits until its new assets are ready, then the media worker swaps it in atomically (old retired, audited) (admin simplification, 19 Oct 2026)
 - `db/migrations/0012_store_timezone.sql` - setting `store.timezone` (IANA, default `Africa/Lagos`, TECHNICAL RECOMMENDATION): dashboard "today / 7 / 30 days", date-only admin filters and every date shown in the admin app use it; timestamps stay UTC (super_admin only)
+- `db/migrations/0013_content_text_blocks.sql` - `content_blocks.content_kind` ('video' = home.hero, 'text' = footer/policies), ensures the five public blocks exist, turns untouched seed placeholders into "Pending client content" (NULL). Text blocks: plain-text English title/body via `PUT /admin/content-blocks/:key/text` (no HTML, length-limited, audited); public `GET /site/content/:key`
 - `db/seeds/obsolete/seed_0002_blueprint_qr.sql` - OBSOLETE (height/weight sample rules). Not run by the seed runner.
 - `db/seeds/seed_0003_charts.sql` - the client's real size charts (inches), measurement profiles, default return policy, hidden-page placeholders (`pnpm db:seed`; re-runnable)
 - `db/seed_v2.sql` - seed data (sample values are flagged)
@@ -95,7 +96,7 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
 
     | Area | `admin` | `super_admin` |
     |---|---|---|
-    | Dashboard, Orders (status, notes), Returns (all actions incl. responsibility / cause / payer, note required), Payment review (read + resolve, note required), Customers (read), Products, Inventory, Content (hero video + publish), Delivery | yes | yes |
+    | Dashboard, Orders (status, notes), Returns (all actions incl. responsibility / cause / payer, note required), Payment review (read + resolve, note required), Customers (read), Products, Inventory, Content (hero video; plain-text English footer/policy blocks; publish), Delivery | yes | yes |
     | Product-form media: create PUBLIC upload, complete, status, retry failed processing, picker (`GET /admin/media/picker`: public, ready, non-retired, not customer-owned) | yes (public product media only; private / evidence = 404) | yes |
     | `GET /admin/sizes`, `GET /admin/measurement-profiles` (product form) | yes | yes |
     | Settings: `GET` all; `PATCH` only `ADMIN_EDITABLE_SETTING_KEYS` (support.email/phone/whatsapp, social.links, returns.return_address/instructions) | yes | every key |

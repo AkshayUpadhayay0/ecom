@@ -163,6 +163,10 @@ export interface ClothingTypeTranslations {
 
 export interface ContentBlocks {
   block_key: string;
+  /**
+   * Admin editor: video (hero media) or text (plain-text title/body, English). Data, not code.
+   */
+  content_kind: Generated<string>;
   id: Generated<string>;
   is_published: Generated<boolean>;
   media_asset_id: string | null;
