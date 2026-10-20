@@ -35,6 +35,7 @@ export interface CatalogController {
   changeProductStatus: RequestHandler;
   setProductVideo: RequestHandler;
   setProductImages: RequestHandler;
+  deleteProduct: RequestHandler;
 }
 
 export interface CatalogServices {
@@ -95,6 +96,9 @@ export function createCatalogController(services: CatalogServices): CatalogContr
       const id = uuidParam(req);
       const { status } = changeProductStatusSchema.parse(bodyOf(req));
       sendData(res, HTTP_STATUS.OK, await products.changeStatus(auditActorOf(req), id, status));
+    },
+    deleteProduct: async (req, res) => {
+      sendData(res, HTTP_STATUS.OK, await products.delete(auditActorOf(req), uuidParam(req)));
     },
     setProductVideo: async (req, res) => {
       const id = uuidParam(req);

@@ -1,7 +1,7 @@
 import { PRODUCT_STATUSES, type ProductDto, type ProductStatus } from '@urban-ibile/shared';
-import { ArrowLeft, ImagePlus, Pencil } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { QueryView } from '@/components/QueryStates';
@@ -115,6 +115,15 @@ export function ProductDetailPage() {
   const product = useProduct(id);
   const [editing, setEditing] = useState(false);
   const [nextStatus, setNextStatus] = useState<ProductStatus | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
+  const remove = useAdminMutation(() => catalogApi.deleteProduct(id), {
+    success: (r) =>
+      r.removedCartLines > 0
+        ? `Product deleted. It was removed from ${r.removedCartLines} customer cart(s).`
+        : 'Product deleted.',
+    invalidate: [catalogKeys.all],
+  });
   const changeStatus = useAdminMutation(
     (status: ProductStatus) => catalogApi.changeProductStatus(id, { status }),
     {
@@ -156,6 +165,9 @@ export function ProductDetailPage() {
                   </label>
                   <Button variant="outline" onClick={() => setEditing(true)}>
                     <Pencil aria-hidden="true" /> Edit details
+                  </Button>
+                  <Button variant="outline" onClick={() => setDeleting(true)}>
+                    <Trash2 aria-hidden="true" /> Delete
                   </Button>
                 </>
               }
@@ -202,12 +214,24 @@ export function ProductDetailPage() {
                 nextStatus === 'active'
                   ? 'The product becomes visible in the shop.'
                   : nextStatus === 'archived'
-                    ? 'Archived products are hidden and kept for order history (products are never deleted).'
+                    ? 'Archived products are hidden from the shop but stay in the admin list. To remove a product completely, use Delete.'
                     : 'The product will not be visible in the shop.'
               }
               confirmLabel="Change status"
               destructive={nextStatus === 'archived'}
               onConfirm={() => changeStatus.mutateAsync(nextStatus ?? p.status)}
+            />
+            <ConfirmDialog
+              open={deleting}
+              onOpenChange={setDeleting}
+              title={`Delete ${p.name}?`}
+              description="It will be removed from the shop, the catalogue, search and customers’ carts. Order history keeps its own copy of this product (name, size and price), so past orders and returns are not affected. Its images and video stay in the media library."
+              confirmLabel="Delete product"
+              destructive
+              onConfirm={async () => {
+                await remove.mutateAsync(undefined);
+                void navigate('/products');
+              }}
             />
           </>
         )}

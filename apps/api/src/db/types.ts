@@ -529,6 +529,11 @@ export interface Products {
   clothing_type_id: string;
   created_at: Generated<Timestamp>;
   currency: Generated<string>;
+  /**
+   * Soft delete: hidden everywhere; history (orders, ledger, returns, Blueprint) keeps the row.
+   */
+  deleted_at: Timestamp | null;
+  deleted_by: string | null;
   display_order: Generated<number>;
   id: Generated<string>;
   measurement_profile_id: string | null;

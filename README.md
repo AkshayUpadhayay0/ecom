@@ -171,6 +171,7 @@ deactivated (`isActive: false`), products are archived.
   `newOnHand` before any movement, `adjustment` + `quantity` or `newOnHand`); every call needs a
   `note` (the reason). One conditional UPDATE per call; it can never go below reserved units
   (`STOCK_BELOW_RESERVED`); each call writes a `stock_movements` ledger row.
+- **Deleting a product** (`DELETE /products/:id`, every admin) is a soft delete: hidden from the shop, catalogue, search, admin lists and pickers; order items, payments, returns, the stock ledger and Blueprint decisions are untouched. Blocked (`409 PRODUCT_DELETE_BLOCKED`, reasons listed) while it has unpaid orders, held stock, open returns/exchanges or a pending media replacement. Its lines are removed from active carts, its media is detached (kept, unused) and its variants are deactivated. The slug can be reused.
 - **No product cap**: `catalog.max_active_products` is NULL. It is enforced
   (`ACTIVE_PRODUCT_LIMIT_REACHED`) only if a number is set.
 - **Product media** (19 Oct 2026): uploaded inside the product form (public) or chosen with

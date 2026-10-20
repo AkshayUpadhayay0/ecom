@@ -1,6 +1,7 @@
 import type {
   CreateProductRequest,
   ListProductsQuery,
+  ProductDeletionResultDto,
   ProductDto,
   ProductStatus,
   ProductSummaryDto,
@@ -19,7 +20,7 @@ import { toProductDto, toProductSummaryDto } from './catalog.dto.js';
 import type { ClothingTypesRepository } from './clothing-types.repository.js';
 import type { PendingMediaRepository } from './pending-media.repository.js';
 import { placeProductMedia, type ProductMediaDeps } from './product-media.js';
-import type { ProductsRepository } from './products.repository.js';
+import type { DeletionBlockers, ProductsRepository } from './products.repository.js';
 
 const ENTITY = 'product';
 const ACTIVE: ProductStatus = 'active';
@@ -43,6 +44,13 @@ export interface ProductsService {
   setVideo(actor: AuditActor, id: string, mediaAssetId: string): Promise<ProductDto>;
   /** Replaces the product's images; same live / pending rules as the video. */
   setImages(actor: AuditActor, id: string, mediaAssetIds: string[]): Promise<ProductDto>;
+  /**
+   * Soft delete (20 Oct 2026): blocked while the product can still be bought or returned through
+   * open business (unpaid orders, held stock, open returns/exchanges, pending media). Removes
+   * its lines from active carts, detaches its media, deactivates its variants and hides it
+   * everywhere. Order history, payments, returns, ledger and Blueprint rows are not touched.
+   */
+  delete(actor: AuditActor, id: string): Promise<ProductDeletionResultDto>;
 }
 
 export interface ProductsServiceDeps {
@@ -53,6 +61,26 @@ export interface ProductsServiceDeps {
   media: MediaAssetsService;
   pending: PendingMediaRepository;
   settings: SettingsService;
+}
+
+/** Human reasons for a blocked deletion (shown to the admin as is). */
+function deletionBlocked(blockers: DeletionBlockers): AppError | null {
+  const reasons = [
+    blockers.unpaidOrders > 0 &&
+      `${blockers.unpaidOrders} unpaid order(s) still include it (waiting for payment or in payment review)`,
+    blockers.activeReservations > 0 &&
+      `${blockers.activeReservations} stock reservation(s) are holding its sizes (checkout or exchange)`,
+    blockers.openReturns > 0 &&
+      `${blockers.openReturns} return or exchange request(s) are still open for it`,
+    blockers.pendingMedia > 0 && 'a new image or video is still waiting to replace its media',
+  ].filter((reason): reason is string => typeof reason === 'string');
+  if (reasons.length === 0) return null;
+  return new AppError(
+    'PRODUCT_DELETE_BLOCKED',
+    HTTP_STATUS.CONFLICT,
+    `This product cannot be deleted yet: ${reasons.join('; ')}. Finish or cancel those first.`,
+    { reasons, ...blockers },
+  );
 }
 
 function slugTaken(): AppError {
@@ -260,6 +288,37 @@ export function createProductsService(deps: ProductsServiceDeps): ProductsServic
       return mutate(actor, id, 'product.video_replace', async (trx) => {
         const placed = await placeProductMedia(mediaDeps, trx, actor, id, 'video', [mediaAssetId]);
         return placed === 'pending' ? 'product.video_replace_pending' : undefined;
+      });
+    },
+
+    async delete(actor, id) {
+      return db.transaction().execute(async (trx) => {
+        // Lock order: product, then its variants (a checkout reserving them waits for us).
+        const before = await load(trx, id, true);
+        await repository.lockVariants(trx, id);
+        const blocked = deletionBlocked(await repository.deletionBlockers(trx, id));
+        if (blocked) throw blocked;
+        const removedCartLines = await repository.removeFromActiveCarts(trx, id);
+        const detachedMediaIds = await repository.detachMedia(trx, id);
+        const deactivatedVariants = await repository.deactivateVariants(trx, id);
+        const deletedAt = await repository.markDeleted(trx, id, actor.adminId);
+        const result: ProductDeletionResultDto = {
+          id,
+          deletedAt: deletedAt.toISOString(),
+          removedCartLines,
+          detachedMediaIds,
+          deactivatedVariants,
+        };
+        await writeAuditLog(trx, {
+          adminId: actor.adminId,
+          action: 'product.delete',
+          entityType: ENTITY,
+          entityId: id,
+          before,
+          after: { ...result, status: ARCHIVED },
+          ipAddress: actor.ipAddress,
+        });
+        return result;
       });
     },
 

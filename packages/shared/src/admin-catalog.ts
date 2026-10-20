@@ -191,3 +191,14 @@ export interface ProductDto extends ProductSummaryDto {
    */
   pendingMedia: { videoAssetId: string | null; imageAssetIds: string[] | null };
 }
+
+/** DELETE /admin/products/:id (soft delete). History keeps its own copy of the product. */
+export interface ProductDeletionResultDto {
+  id: string;
+  deletedAt: string;
+  /** Lines removed from customers' active carts. */
+  removedCartLines: number;
+  /** Media detached from the product (kept in the library, unused). */
+  detachedMediaIds: string[];
+  deactivatedVariants: number;
+}

@@ -254,3 +254,54 @@ describe('inventory and media', () => {
     });
   });
 });
+
+describe('product deletion (soft delete)', () => {
+  it('confirms in plain words, deletes and returns to the list', async () => {
+    apiState.hasSession = true;
+    let deleted = 0;
+    server.use(
+      ...catalogHandlers(),
+      http.delete(`${API}/admin/products/p-1`, () => {
+        deleted += 1;
+        return HttpResponse.json({
+          data: {
+            id: 'p-1',
+            deletedAt: '2026-10-20T10:00:00.000Z',
+            removedCartLines: 2,
+            detachedMediaIds: [],
+            deactivatedVariants: 1,
+          },
+        });
+      }),
+    );
+    const { user, router } = renderApp('/products/p-1');
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete Fit Kaftan?' });
+    expect(dialog).toHaveTextContent(/removed from the shop/);
+    expect(dialog).toHaveTextContent(/Order history keeps its own copy/);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete product' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/products'));
+    expect(deleted).toBe(1);
+    expect(await screen.findByText(/removed from 2 customer cart/)).toBeInTheDocument();
+  });
+
+  it('shows why a deletion is blocked and keeps the product', async () => {
+    apiState.hasSession = true;
+    server.use(
+      ...catalogHandlers(),
+      http.delete(`${API}/admin/products/p-1`, () =>
+        errorResponse(
+          409,
+          'PRODUCT_DELETE_BLOCKED',
+          'This product cannot be deleted yet: 1 unpaid order(s) still include it. Finish or cancel those first.',
+        ),
+      ),
+    );
+    const { user, router } = renderApp('/products/p-1');
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete Fit Kaftan?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete product' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/unpaid order/);
+    expect(router.state.location.pathname).toBe('/products/p-1');
+  });
+});

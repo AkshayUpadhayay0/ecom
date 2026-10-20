@@ -268,10 +268,10 @@ describe.skipIf(!hasTestDatabase)('admin catalog API', () => {
       expect(free.status).toBe(200);
     });
 
-    it('archives instead of deleting; archived products are read-only until restored', async () => {
+    it('archives products; archived products are read-only until restored', async () => {
       const product = await createProduct();
 
-      expect((await api.delete(`/products/${product.id}`)).status).toBe(404);
+      // DELETE is a soft delete since 20 Oct 2026 (product-delete.test.ts); archiving is separate.
 
       const archived = await api.post(`/products/${product.id}/status`, { status: 'archived' });
       expect(bodyOf<ApiData<ProductDto>>(archived).data.status).toBe('archived');

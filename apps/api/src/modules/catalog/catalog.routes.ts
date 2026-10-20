@@ -2,8 +2,8 @@ import { Router, type RequestHandler } from 'express';
 import type { CatalogController } from './catalog.controller.js';
 
 /**
- * Admin catalog routes, mounted under /admin behind requireAdmin. There are no DELETE routes:
- * clothing types are deactivated, products are archived. Sizes are seeded with the size charts,
+ * Admin catalog routes, mounted under /admin behind requireAdmin. Clothing types are deactivated;
+ * products are archived or soft-deleted (DELETE marks deleted_at, never removes the row). Sizes are seeded with the size charts,
  * so the admin can only list and reorder them. Listing sizes is open to every admin (variants and
  * the product form need the names); reordering belongs to Sizes & Charts (super_admin).
  */
@@ -30,6 +30,8 @@ export function createCatalogRouter(
   router.post('/products/:id/status', controller.changeProductStatus);
   router.put('/products/:id/video', controller.setProductVideo);
   router.put('/products/:id/images', controller.setProductImages);
+  // Soft delete (every admin): history keeps its copy; blocked while business is still open.
+  router.delete('/products/:id', controller.deleteProduct);
 
   return router;
 }

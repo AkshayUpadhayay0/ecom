@@ -10,6 +10,7 @@ import {
   type MeasurementProfileDto,
   type MediaAssetDto,
   type MediaUrlDto,
+  type ProductDeletionResultDto,
   type ProductDto,
   type ProductSummaryDto,
   type PublicProductDetailDto,
@@ -38,6 +39,8 @@ export const catalogApi = {
     send<ProductDto>('PATCH', `/admin/products/${id}`, body),
   changeProductStatus: (id: string, body: ChangeProductStatusRequest) =>
     send<ProductDto>('POST', `/admin/products/${id}/status`, body),
+  /** Soft delete: removed from the shop; order history keeps its own copy. */
+  deleteProduct: (id: string) => send<ProductDeletionResultDto>('DELETE', `/admin/products/${id}`),
   setProductVideo: (id: string, mediaAssetId: string) =>
     send<ProductDto>('PUT', `/admin/products/${id}/video`, { mediaAssetId }),
   setProductImages: (id: string, mediaAssetIds: string[]) =>

@@ -64,9 +64,14 @@ const SORT_COLUMNS = {
   updatedAt: 'p.updated_at',
 } as const;
 
+/**
+ * Every admin product query: soft-deleted products (migration 0014) are invisible here, so they
+ * are gone from lists, detail, pickers and inventory.
+ */
 function baseQuery(db: Database) {
   return db
     .selectFrom('products as p')
+    .where('p.deleted_at', 'is', null)
     .innerJoin('clothing_types as ct', 'ct.id', 'p.clothing_type_id')
     .leftJoin('measurement_profiles as mp', 'mp.id', 'p.measurement_profile_id')
     .leftJoin('clothing_type_translations as ctt', (join) =>
@@ -101,6 +106,18 @@ function toProductRow<T extends { status: string }>(row: T): T & { status: Produ
   return { ...row, status: row.status as ProductStatus };
 }
 
+/** Orders that are not paid yet: the product may still be bought through them. */
+const UNPAID_ORDER_STATUSES = ['pending_payment', 'payment_failed', 'payment_review'];
+const HELD = 'held';
+const ACTIVE_CART = 'active';
+
+export interface DeletionBlockers {
+  unpaidOrders: number;
+  activeReservations: number;
+  openReturns: number;
+  pendingMedia: number;
+}
+
 export interface ProductsRepository {
   list(
     db: Database,
@@ -115,6 +132,18 @@ export interface ProductsRepository {
   imageAssetIds(db: Database, id: string): Promise<string[]>;
   /** Replaces the image list; array order = display order. */
   setImages(db: Database, id: string, mediaAssetIds: string[]): Promise<void>;
+  /** What still prevents deleting the product (counts; all zero = deletable). */
+  deletionBlockers(db: Database, productId: string): Promise<DeletionBlockers>;
+  /** Locks the product's variant rows (sorted), so no checkout can reserve them meanwhile. */
+  lockVariants(db: Database, productId: string): Promise<void>;
+  /** Removes the product's lines from customers' ACTIVE carts; returns how many. */
+  removeFromActiveCarts(db: Database, productId: string): Promise<number>;
+  /** Detaches video and images (media stays in the library, unused); returns the asset ids. */
+  detachMedia(db: Database, productId: string): Promise<string[]>;
+  /** Deactivates every variant; returns how many were active. */
+  deactivateVariants(db: Database, productId: string): Promise<number>;
+  /** Soft delete: archived + deleted_at / deleted_by. */
+  markDeleted(db: Database, productId: string, adminId: string): Promise<Date>;
   /** Returns undefined if the slug is taken. */
   insert(db: Database, values: ProductValues): Promise<string | undefined>;
   /** Returns false if the new slug is taken. */
@@ -158,6 +187,100 @@ export function createProductsRepository(): ProductsRepository {
         query.select((eb) => eb.fn.countAll<string>().as('total')).executeTakeFirstOrThrow(),
       ]);
       return { rows: rows.map(toProductRow), total: Number(count.total) };
+    },
+
+    async deletionBlockers(db, productId) {
+      const result = await sql<DeletionBlockers>`
+        SELECT
+          (SELECT count(DISTINCT o.id)::int FROM orders o
+             JOIN order_items oi ON oi.order_id = o.id
+            WHERE oi.product_id = ${productId}
+              AND o.order_status = ANY(${UNPAID_ORDER_STATUSES}::text[])) AS "unpaidOrders",
+          (SELECT count(*)::int FROM stock_reservations r
+             JOIN product_variants v ON v.id = r.variant_id
+            WHERE v.product_id = ${productId} AND r.status = ${HELD}) AS "activeReservations",
+          (SELECT count(DISTINCT rr.id)::int FROM return_requests rr
+             JOIN return_statuses s ON s.code = rr.status AND NOT s.is_terminal
+             JOIN order_items oi ON oi.id = rr.order_item_id
+             LEFT JOIN product_variants rv ON rv.id = rr.replacement_variant_id
+            WHERE oi.product_id = ${productId} OR rv.product_id = ${productId}) AS "openReturns",
+          (SELECT count(*)::int FROM product_pending_media pm
+            WHERE pm.product_id = ${productId}) AS "pendingMedia"`.execute(db);
+      return (
+        result.rows[0] ?? {
+          unpaidOrders: 0,
+          activeReservations: 0,
+          openReturns: 0,
+          pendingMedia: 0,
+        }
+      );
+    },
+
+    async lockVariants(db, productId) {
+      await db
+        .selectFrom('product_variants')
+        .select('id')
+        .where('product_id', '=', productId)
+        .orderBy('id')
+        .forUpdate()
+        .execute();
+    },
+
+    async removeFromActiveCarts(db, productId) {
+      const rows = await db
+        .deleteFrom('cart_items')
+        .where('variant_id', 'in', (eb) =>
+          eb.selectFrom('product_variants').select('id').where('product_id', '=', productId),
+        )
+        .where('cart_id', 'in', (eb) =>
+          eb.selectFrom('carts').select('id').where('status', '=', ACTIVE_CART),
+        )
+        .returning('id')
+        .execute();
+      return rows.length;
+    },
+
+    async detachMedia(db, productId) {
+      const product = await db
+        .selectFrom('products')
+        .select('video_asset_id')
+        .where('id', '=', productId)
+        .executeTakeFirst();
+      const images = await db
+        .deleteFrom('product_images')
+        .where('product_id', '=', productId)
+        .returning('media_asset_id')
+        .execute();
+      await db
+        .updateTable('products')
+        .set({ video_asset_id: null })
+        .where('id', '=', productId)
+        .execute();
+      return [
+        ...(product?.video_asset_id ? [product.video_asset_id] : []),
+        ...images.map((row) => row.media_asset_id),
+      ];
+    },
+
+    async deactivateVariants(db, productId) {
+      const rows = await db
+        .updateTable('product_variants')
+        .set({ is_active: false })
+        .where('product_id', '=', productId)
+        .where('is_active', '=', true)
+        .returning('id')
+        .execute();
+      return rows.length;
+    },
+
+    async markDeleted(db, productId, adminId) {
+      const row = await db
+        .updateTable('products')
+        .set({ status: 'archived', deleted_at: sql`now()`, deleted_by: adminId })
+        .where('id', '=', productId)
+        .returning('deleted_at')
+        .executeTakeFirstOrThrow();
+      return row.deleted_at ?? new Date();
     },
 
     async findById(db, id, lock = false) {

@@ -271,6 +271,7 @@ export function createSizeChartsRepository(): SizeChartsRepository {
         .selectFrom('products')
         .select((eb) => ['measurement_profile_id as profileId', eb.fn.countAll<string>().as('n')])
         .where('measurement_profile_id', 'in', profileIds)
+        .where('deleted_at', 'is', null)
         .groupBy('measurement_profile_id')
         .execute();
       for (const row of rows) if (row.profileId !== null) counts.set(row.profileId, Number(row.n));
@@ -284,7 +285,7 @@ export function createSizeChartsRepository(): SizeChartsRepository {
           SELECT p.measurement_profile_id AS "profileId", p.id, p.name, p.slug, p.status,
                  row_number() OVER (PARTITION BY p.measurement_profile_id ORDER BY p.name, p.id) AS n
           FROM products p
-          WHERE p.measurement_profile_id = ANY(${profileIds}::uuid[])
+          WHERE p.measurement_profile_id = ANY(${profileIds}::uuid[]) AND p.deleted_at IS NULL
         ) ranked
         WHERE n <= ${limit}
         ORDER BY "profileId", n`.execute(db);
