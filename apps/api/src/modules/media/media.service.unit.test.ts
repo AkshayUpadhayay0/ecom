@@ -2,6 +2,7 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import type { Database } from '../../db/database.js';
 import type { SettingsService } from '../settings/settings.service.js';
+import type { MediaUsageRepository } from './media-usage.repository.js';
 import type { MediaAssetsRepository } from './media-assets.repository.js';
 import type { MediaRepository, MediaRow } from './media.repository.js';
 import { createMediaService } from './media.service.js';
@@ -56,6 +57,7 @@ function serviceFor(row: MediaRow) {
     db: {} as Database,
     repository,
     assets: {} as MediaAssetsRepository,
+    usage: {} as MediaUsageRepository,
     storage,
     settings,
     logger: pino({ level: 'silent' }),

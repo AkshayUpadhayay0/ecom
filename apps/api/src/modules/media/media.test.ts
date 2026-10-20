@@ -6,7 +6,9 @@ import type {
   ApiList,
   CreateUploadResultDto,
   MediaAssetDto,
+  MediaDeletionResultDto,
   MediaUrlDto,
+  MediaUsageDto,
   ProductDto,
   PurgeRetiredResultDto,
 } from '@urban-ibile/shared';
@@ -571,6 +573,149 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
       const res = await api.post(`/media/${rejected.id}/retry`);
       expect(res.status).toBe(409);
       expect(bodyOf<ApiErrorBody>(res).error.message).toMatch(/Upload the file again/);
+    });
+  });
+
+  describe('deleting uploaded media (tester fix 7, 20 Oct 2026)', () => {
+    async function readyImage(): Promise<string> {
+      const id = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'look.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      expect(await makeProcessor(ctx, stubFfmpeg()).processNext(['image'])).toBe(true);
+      return id;
+    }
+
+    async function newProduct(name: string): Promise<ProductDto> {
+      const res = await api.post('/products', {
+        name,
+        slug: `t-md-${Math.random().toString(36).slice(2, 8)}`,
+        clothingTypeId: await seededClothingTypeId(ctx),
+        description: 'Test.',
+        priceMinor: 100_000,
+      });
+      expect(res.status).toBe(201);
+      return bodyOf<ApiData<ProductDto>>(res).data;
+    }
+
+    it('deletes unused media: retired, gone from the picker, audited; purge still works', async () => {
+      const id = await readyImage();
+      const usage = bodyOf<ApiData<MediaUsageDto>>(await api.get(`/media/${id}/usage`)).data;
+      expect(usage).toMatchObject({ products: [], contentBlocks: [], deletable: true });
+      const res = await api.delete(`/media/${id}`);
+      expect(res.status).toBe(200);
+      expect(bodyOf<ApiData<MediaDeletionResultDto>>(res).data.retiredAt).toBeTruthy();
+      const picker = bodyOf<ApiList<MediaAssetDto>>(await api.get('/media/picker?kind=image'));
+      expect(picker.data.map((a) => a.id)).not.toContain(id);
+      expect(await auditCount(ctx, { action: 'media.delete', entityId: id })).toBe(1);
+      expect((await api.delete(`/media/${id}`)).status).toBe(409); // already deleted
+      // Files are only removed by a super admin purge, which still works afterwards.
+      const purged = await superApi.post(`/media/${id}/purge`);
+      expect(purged.status).toBe(200);
+      expect(bodyOf<ApiData<MediaAssetDto>>(purged).data.purgedAt).not.toBeNull();
+    });
+
+    it('lists and detaches every use (product video + images + hero) in one go', async () => {
+      const video = await readyVideo();
+      const image = await readyImage();
+      const product = await newProduct('Indigo Kaftan');
+      expect((await api.put(`/products/${product.id}/video`, { mediaAssetId: video })).status).toBe(
+        200,
+      );
+      expect(
+        (await api.put(`/products/${product.id}/images`, { mediaAssetIds: [image] })).status,
+      ).toBe(200);
+      expect(
+        (await api.put('/content-blocks/home.hero/media', { mediaAssetId: video })).status,
+      ).toBe(200);
+
+      const usage = bodyOf<ApiData<MediaUsageDto>>(await api.get(`/media/${video}/usage`)).data;
+      expect(usage.products).toEqual([{ id: product.id, name: 'Indigo Kaftan', as: 'video' }]);
+      expect(usage.contentBlocks).toEqual([{ key: 'home.hero' }]);
+
+      const res = await api.delete(`/media/${video}`);
+      expect(res.status).toBe(200);
+      expect(bodyOf<ApiData<MediaDeletionResultDto>>(res).data.detached.contentBlocks).toEqual([
+        { key: 'home.hero' },
+      ]);
+      const after = bodyOf<ApiData<ProductDto>>(await api.get(`/products/${product.id}`)).data;
+      expect(after.videoAssetId).toBeNull();
+      expect(after.imageAssetIds).toEqual([image]); // other media untouched
+      const hero = await ctx.db
+        .selectFrom('content_blocks')
+        .select('media_asset_id')
+        .where('block_key', '=', 'home.hero')
+        .executeTakeFirstOrThrow();
+      expect(hero.media_asset_id).toBeNull();
+      // The public site config no longer returns the deleted hero video.
+      const site = await request(ctx.app).get('/api/v1/site/config');
+      expect(JSON.stringify(bodyOf<unknown>(site))).not.toContain(video);
+
+      expect((await api.delete(`/media/${image}`)).status).toBe(200);
+      expect(
+        bodyOf<ApiData<ProductDto>>(await api.get(`/products/${product.id}`)).data.imageAssetIds,
+      ).toEqual([]);
+    });
+
+    it('cancels a pending product replacement that contains the media', async () => {
+      const image = await readyImage();
+      const product = await newProduct('Pending Kaftan');
+      const admin = await ctx.db.selectFrom('admin_users').select('id').executeTakeFirstOrThrow();
+      await ctx.db
+        .insertInto('product_pending_media')
+        .values({
+          product_id: product.id,
+          slot: 'images',
+          asset_ids: [image],
+          requested_by: admin.id,
+        })
+        .execute();
+      const usage = bodyOf<ApiData<MediaUsageDto>>(await api.get(`/media/${image}/usage`)).data;
+      expect(usage.pendingReplacements).toEqual([
+        { productId: product.id, productName: 'Pending Kaftan', slot: 'images' },
+      ]);
+      expect((await api.delete(`/media/${image}`)).status).toBe(200);
+      const pending = await ctx.db
+        .selectFrom('product_pending_media')
+        .select('product_id')
+        .where('product_id', '=', product.id)
+        .execute();
+      expect(pending).toEqual([]);
+    });
+
+    it('is blocked while the file is still being processed', async () => {
+      const queued = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'queued.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      const usage = bodyOf<ApiData<MediaUsageDto>>(await api.get(`/media/${queued}/usage`)).data;
+      expect(usage).toMatchObject({ deletable: false });
+      const res = await api.delete(`/media/${queued}`);
+      expect(res.status).toBe(409);
+      expect(errorCode(res)).toBe('MEDIA_DELETE_BLOCKED');
+      expect(bodyOf<ApiErrorBody>(res).error.message).toMatch(/still being processed/);
+    });
+
+    it('never deletes private / customer-owned media (return evidence)', async () => {
+      const privateId = await uploadAndComplete(ctx, superToken, {
+        fileName: 'evidence.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+        visibility: 'private',
+      });
+      expect((await api.delete(`/media/${privateId}`)).status).toBe(404);
+      expect((await api.get(`/media/${privateId}/usage`)).status).toBe(404);
+      const asSuper = await superApi.delete(`/media/${privateId}`);
+      expect(asSuper.status).toBe(409);
+      expect(bodyOf<ApiErrorBody>(asSuper).error.message).toMatch(/return evidence/);
+      const row = await ctx.db
+        .selectFrom('media_assets')
+        .select('retired_at')
+        .where('id', '=', privateId)
+        .executeTakeFirstOrThrow();
+      expect(row.retired_at).toBeNull();
     });
   });
 

@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 import type { Database } from '../../db/database.js';
 import { createSettingsRepository } from '../settings/settings.repository.js';
 import { createSettingsService } from '../settings/settings.service.js';
+import { createMediaUsageRepository } from './media-usage.repository.js';
 import { createMediaAssetsRepository } from './media-assets.repository.js';
 import { createMediaController, type MediaController } from './media.controller.js';
 import { createMediaRepository } from './media.repository.js';
@@ -21,6 +22,7 @@ export function buildMediaController({ db, storage, logger }: MediaModuleDeps): 
       db,
       repository: createMediaRepository(),
       assets: createMediaAssetsRepository(),
+      usage: createMediaUsageRepository(),
       storage,
       settings: createSettingsService({ db, repository: createSettingsRepository() }),
       logger,

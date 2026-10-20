@@ -33,6 +33,7 @@ import { errorMessage } from '@/lib/notify';
 import { humanise, mediaStatusDisplay } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 import { useUrlFilters } from '@/lib/use-url-filters';
+import { DeleteMediaDialog } from './DeleteMediaDialog';
 import { MediaThumb } from './MediaThumb';
 
 const FILTERS = ['kind', 'status', 'visibility', 'retired'] as const;
@@ -178,6 +179,7 @@ function AssetDialog({ asset, onClose }: { asset: MediaAssetDto | null; onClose:
     staleTime: 0,
   });
   const [purging, setPurging] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const purge = useAdminMutation(() => catalogApi.purge(asset?.id ?? ''), {
     success: 'Stored files deleted.',
     invalidate: [catalogKeys.all],
@@ -253,6 +255,22 @@ function AssetDialog({ asset, onClose }: { asset: MediaAssetDto | null; onClose:
                 </div>
               ) : null}
             </dl>
+            {asset.visibility === 'public' && asset.retiredAt === null ? (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleting(true)}>
+                  <Trash2 aria-hidden="true" /> Delete
+                </Button>
+              </DialogFooter>
+            ) : null}
+            <DeleteMediaDialog
+              media={
+                deleting
+                  ? { id: asset.id, kind: asset.kind, name: asset.originalFilename ?? asset.id }
+                  : null
+              }
+              onClose={() => setDeleting(false)}
+              onDeleted={() => onClose()}
+            />
             {asset.retiredAt && !asset.purgedAt ? (
               <DialogFooter>
                 <SuperAdminOnly>

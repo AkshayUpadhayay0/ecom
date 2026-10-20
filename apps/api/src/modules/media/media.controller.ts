@@ -19,6 +19,8 @@ export interface MediaController {
   picker: RequestHandler;
   get: RequestHandler;
   retry: RequestHandler;
+  usage: RequestHandler;
+  remove: RequestHandler;
   getUrl: RequestHandler;
   purge: RequestHandler;
   purgeRetired: RequestHandler;
@@ -58,6 +60,16 @@ export function createMediaController(service: MediaService): MediaController {
     },
     get: async (req, res) => {
       sendData(res, HTTP_STATUS.OK, await service.get(uuidParam(req), scopeOf(req)));
+    },
+    usage: async (req, res) => {
+      sendData(res, HTTP_STATUS.OK, await service.usage(uuidParam(req), scopeOf(req)));
+    },
+    remove: async (req, res) => {
+      sendData(
+        res,
+        HTTP_STATUS.OK,
+        await service.delete(auditActorOf(req), uuidParam(req), scopeOf(req)),
+      );
     },
     retry: async (req, res) => {
       sendData(

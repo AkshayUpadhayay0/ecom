@@ -7,7 +7,9 @@ import {
   type CreateUploadResultDto,
   type ListMediaQuery,
   type MediaAssetDto,
+  type MediaDeletionResultDto,
   type MediaMimeType,
+  type MediaUsageDto,
   type MediaPickerQuery,
   type MediaUrlDto,
   type PurgeRetiredResultDto,
@@ -30,6 +32,7 @@ import {
   sanitizeFileName,
 } from './media-files.js';
 import type { MediaFilters, MediaRepository, MediaRow } from './media.repository.js';
+import type { MediaUsageRepository, MediaUsageRows } from './media-usage.repository.js';
 import type { StorageProvider } from './storage/storage-provider.js';
 
 const ENTITY = 'media_asset';
@@ -65,6 +68,14 @@ export interface MediaService {
    * were rejected at verification have no stored file: they need a new upload (409).
    */
   retry(actor: AuditActor, id: string, scope: MediaScope): Promise<MediaAssetDto>;
+  /** Where a PUBLIC, non-customer asset is used (products, content blocks, pending, hidden pages). */
+  usage(id: string, scope: MediaScope): Promise<MediaUsageDto>;
+  /**
+   * Delete (20 Oct 2026): detach from every product / content block / pending replacement and
+   * retire, in one transaction; files stay in storage until a super admin purges them. Refused
+   * for private or customer-owned media, while processing, or while a hidden page uses it.
+   */
+  delete(actor: AuditActor, id: string, scope: MediaScope): Promise<MediaDeletionResultDto>;
   /** Public: the CDN URL. Private: a short-lived signed URL. */
   getUrlForAdmin(id: string): Promise<MediaUrlDto>;
   /**
@@ -89,6 +100,7 @@ export interface MediaServiceDeps {
   db: Database;
   repository: MediaRepository;
   assets: MediaAssetsRepository;
+  usage: MediaUsageRepository;
   storage: StorageProvider;
   settings: SettingsService;
   logger: Logger;
@@ -123,6 +135,39 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
   /** Public media no customer owns: what a normal admin (product scope) may reach. */
   function isProductMedia(row: MediaRow): boolean {
     return row.visibility === 'public' && row.ownerCustomerId === null;
+  }
+
+  /** Deletion only applies to public catalogue media, never to private files / evidence. */
+  function assertDeletableKind(row: MediaRow, scope: MediaScope): void {
+    assertInScope(row, scope);
+    if (!isProductMedia(row)) {
+      throw new AppError(
+        'MEDIA_DELETE_BLOCKED',
+        HTTP_STATUS.CONFLICT,
+        'Private media (such as return evidence) cannot be deleted here. It is kept with its return request.',
+      );
+    }
+  }
+
+  function blockedReasonOf(row: MediaRow, usage: MediaUsageRows): string | null {
+    if (row.status === 'uploaded' || row.status === 'processing') {
+      return 'This file is still being processed. Wait until it is ready (or failed), then delete it.';
+    }
+    if (usage.hiddenPages.length > 0) {
+      return `This file is used by hidden page(s) ${usage.hiddenPages.map((p) => p.slotNumber).join(', ')}, which developers manage.`;
+    }
+    return null;
+  }
+
+  function usageDto(row: MediaRow, usage: MediaUsageRows): MediaUsageDto {
+    const blockedReason = blockedReasonOf(row, usage);
+    return {
+      assetId: row.id,
+      kind: row.kind,
+      ...usage,
+      deletable: blockedReason === null,
+      blockedReason,
+    };
   }
 
   function assertInScope(row: MediaRow, scope: MediaScope): void {
@@ -474,6 +519,47 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
       const row = await loadRow(db, id);
       assertInScope(row, scope);
       return toDto(db, row);
+    },
+
+    async usage(id, scope) {
+      const row = await loadRow(db, id);
+      assertDeletableKind(row, scope);
+      return usageDto(row, await deps.usage.usage(db, id));
+    },
+
+    async delete(actor, id, scope) {
+      return db.transaction().execute(async (trx) => {
+        const row = await loadRow(trx, id, true);
+        assertDeletableKind(row, scope);
+        if (row.retiredAt !== null) {
+          throw new AppError(
+            'INVALID_STATE',
+            HTTP_STATUS.CONFLICT,
+            'This media was already deleted.',
+          );
+        }
+        const usage = await deps.usage.usage(trx, id);
+        const blockedReason = blockedReasonOf(row, usage);
+        if (blockedReason !== null) {
+          throw new AppError('MEDIA_DELETE_BLOCKED', HTTP_STATUS.CONFLICT, blockedReason, {
+            status: row.status,
+            hiddenPages: usage.hiddenPages,
+          });
+        }
+        await deps.usage.detachEverywhere(trx, id);
+        const retiredAt = await deps.usage.retire(trx, id);
+        const detached = { assetId: id, kind: row.kind, ...usage };
+        await writeAuditLog(trx, {
+          adminId: actor.adminId,
+          action: 'media.delete',
+          entityType: ENTITY,
+          entityId: id,
+          before: { retired: false, usage },
+          after: { retired: true, retiredAt: retiredAt.toISOString() },
+          ipAddress: actor.ipAddress,
+        });
+        return { assetId: id, retiredAt: retiredAt.toISOString(), detached };
+      });
     },
 
     async retry(actor, id, scope) {

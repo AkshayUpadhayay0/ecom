@@ -17,6 +17,7 @@ import { catalogApi } from '@/lib/api/catalog';
 import { errorMessage } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { catalogKeys } from '@/features/products/products.queries';
+import { DeleteMediaDialog, type MediaToDelete } from './DeleteMediaDialog';
 import { MediaThumb } from './MediaThumb';
 
 const PICKER_PAGE_SIZE = 24;
@@ -53,6 +54,7 @@ function MediaPickerDialog({
   const [selected, setSelected] = useState<string[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<MediaToDelete | null>(null);
   const params = { kind, page, pageSize: PICKER_PAGE_SIZE };
   const media = useQuery({
     queryKey: [...catalogKeys.media(params), 'picker'],
@@ -130,6 +132,20 @@ function MediaPickerDialog({
                           </span>
                         ) : null}
                       </button>
+                      <button
+                        type="button"
+                        className="mt-1 w-full rounded text-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+                        onClick={() =>
+                          setDeleting({
+                            id: asset.id,
+                            kind: asset.kind,
+                            name: asset.originalFilename ?? `${asset.kind} ${asset.id.slice(0, 8)}`,
+                          })
+                        }
+                        aria-label={`Delete ${asset.originalFilename ?? asset.id}`}
+                      >
+                        Delete
+                      </button>
                     </li>
                   );
                 })}
@@ -146,6 +162,11 @@ function MediaPickerDialog({
             {error}
           </p>
         ) : null}
+        <DeleteMediaDialog
+          media={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={(id) => setSelected((current) => current.filter((s) => s !== id))}
+        />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

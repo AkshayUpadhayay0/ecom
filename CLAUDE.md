@@ -99,7 +99,7 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
     | Area | `admin` | `super_admin` |
     |---|---|---|
     | Dashboard, Orders (status, notes), Returns (all actions incl. responsibility / cause / payer, note required), Payment review (read + resolve, note required), Customers (read), Products, Inventory, Content (hero video; plain-text English footer/policy blocks; publish), Delivery | yes | yes |
-    | Product-form media: create PUBLIC upload, complete, status, retry failed processing, picker (`GET /admin/media/picker`: public, ready, non-retired, not customer-owned) | yes (public product media only; private / evidence = 404) | yes |
+    | Product-form media: create PUBLIC upload, complete, status, retry failed processing, picker (`GET /admin/media/picker`: public, ready, non-retired, not customer-owned), usage (`GET /admin/media/:id/usage`) and delete (`DELETE /admin/media/:id`: detach everywhere + retire; files kept until a super_admin purge; never private/evidence; blocked while processing or used by a hidden page) | yes (public product media only; private / evidence = 404) | yes |
     | `GET /admin/sizes`, `GET /admin/measurement-profiles` (product form) | yes | yes |
     | Settings: `GET` all; `PATCH` only `ADMIN_EDITABLE_SETTING_KEYS` (support.email/phone/whatsapp, social.links, returns.return_address/instructions) | yes | every key |
     | Customer suspend / enable | 403 | yes |

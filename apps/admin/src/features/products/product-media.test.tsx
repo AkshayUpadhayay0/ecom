@@ -229,7 +229,7 @@ describe('product form media (decision 19 Oct 2026)', () => {
     const dialog = await fillNewProduct(user);
     await user.click(within(dialog).getByRole('button', { name: 'Choose existing images' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose existing images' });
-    await user.click(await within(picker).findByRole('button', { name: /library\.jpg/ }));
+    await user.click(await within(picker).findByRole('button', { name: 'library.jpg' }));
     await user.click(within(picker).getByRole('button', { name: 'Use selection' }));
     expect(calls.find((c) => c.path.startsWith('picker'))?.path).toContain('kind=image');
     await user.click(within(dialog).getByRole('button', { name: 'Create product' }));

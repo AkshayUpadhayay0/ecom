@@ -10,7 +10,9 @@ import {
   type LowStockVariantDto,
   type MeasurementProfileDto,
   type MediaAssetDto,
+  type MediaDeletionResultDto,
   type MediaUrlDto,
+  type MediaUsageDto,
   type ProductDeletionResultDto,
   type ProductDto,
   type ProductSummaryDto,
@@ -86,6 +88,10 @@ export const catalogApi = {
   media: (params: ListParams) => getList<MediaAssetDto>('/admin/media', params),
   /** "Choose existing" (every admin): public, ready, non-retired media no customer owns. */
   mediaPicker: (params: ListParams) => getList<MediaAssetDto>('/admin/media/picker', params),
+  /** Where a public asset is used (what a delete would change). */
+  mediaUsage: (id: string) => getData<MediaUsageDto>(`/admin/media/${id}/usage`),
+  /** Detach everywhere + retire; files stay until a super admin purges them. */
+  deleteMedia: (id: string) => send<MediaDeletionResultDto>('DELETE', `/admin/media/${id}`),
   /** Requeue failed processing of public product media. */
   retryMedia: (id: string) => send<MediaAssetDto>('POST', `/admin/media/${id}/retry`),
   mediaAsset: (id: string) => getData<MediaAssetDto>(`/admin/media/${id}`),

@@ -11,8 +11,9 @@ export interface MediaRouteDeps {
 
 /**
  * Admin media routes, mounted under /admin behind requireAdmin.
- * - Every admin (product form): create upload, complete, status, retry failed processing, and
- *   the picker. A normal admin only reaches public media no customer owns (service scope).
+ * - Every admin (product form): create upload, complete, status, retry failed processing, the
+ *   picker, usage and delete (detach + retire). A normal admin only reaches public media no
+ *   customer owns (service scope); private media / evidence is never deletable here.
  * - super_admin (Media Library): browse everything, signed URLs (private files), purge.
  */
 export function createMediaRouter({
@@ -31,6 +32,9 @@ export function createMediaRouter({
   router.get('/media/:id/url', requireSuperAdmin, controller.getUrl);
   router.post('/media/:id/complete', controller.completeUpload);
   router.post('/media/:id/retry', controller.retry);
+  // Delete = detach everywhere + retire (files kept until a super admin purges them).
+  router.get('/media/:id/usage', controller.usage);
+  router.delete('/media/:id', controller.remove);
   router.post('/media/:id/purge', requireSuperAdmin, controller.purge);
   return router;
 }

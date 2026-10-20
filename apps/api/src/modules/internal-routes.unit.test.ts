@@ -101,7 +101,9 @@ describe('internal section routes are super_admin only', () => {
     // Product form (every admin; the service restricts them to public product media).
     expect(open).toEqual(
       [
+        'DELETE /media/:id',
         'GET /media/:id',
+        'GET /media/:id/usage',
         'GET /media/picker',
         'POST /media/:id/complete',
         'POST /media/:id/retry',

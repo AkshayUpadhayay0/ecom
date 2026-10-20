@@ -127,3 +127,25 @@ export interface PurgeRetiredResultDto {
   /** Retired but still referenced somewhere: never purged. */
   skippedInUse: string[];
 }
+
+/** GET /admin/media/:id/usage: where a PUBLIC asset is used (what deleting it would change). */
+export interface MediaUsageDto {
+  assetId: string;
+  kind: MediaKind;
+  products: { id: string; name: string; as: 'video' | 'image' }[];
+  contentBlocks: { key: string }[];
+  /** Pending product replacements containing it (they are cancelled by a delete). */
+  pendingReplacements: { productId: string; productName: string; slot: 'video' | 'images' }[];
+  /** Deletion is refused while a hidden page uses it (developer-managed). */
+  hiddenPages: { slotNumber: number }[];
+  deletable: boolean;
+  /** Why it cannot be deleted now (processing, hidden page), else null. */
+  blockedReason: string | null;
+}
+
+/** DELETE /admin/media/:id: detached everywhere and retired; files stay until a purge. */
+export interface MediaDeletionResultDto {
+  assetId: string;
+  retiredAt: string;
+  detached: Omit<MediaUsageDto, 'deletable' | 'blockedReason'>;
+}
