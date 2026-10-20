@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { StockAdjustmentRequest, VariantDto } from '@urban-ibile/shared';
 import { History, PackagePlus, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { DeleteVariantDialog } from './DeleteVariantDialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Pagination } from '@/components/Pagination';
 import { QueryView } from '@/components/QueryStates';
@@ -257,6 +258,7 @@ export function VariantsPanel({ productId }: { productId: string }) {
   const [adjusting, setAdjusting] = useState<VariantDto | null>(null);
   const [ledger, setLedger] = useState<VariantDto | null>(null);
   const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState<VariantDto | null>(null);
   const toggle = useAdminMutation(
     (variant: VariantDto) => catalogApi.updateVariant(variant.id, { isActive: !variant.isActive }),
     {
@@ -346,6 +348,9 @@ export function VariantsPanel({ productId }: { productId: string }) {
                       >
                         {v.isActive ? 'Take off sale' : 'Put on sale'}
                       </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleting(v)}>
+                        Delete
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -356,6 +361,18 @@ export function VariantsPanel({ productId }: { productId: string }) {
       </QueryView>
       <AdjustStockDialog variant={adjusting} onClose={() => setAdjusting(null)} />
       <MovementsDialog variant={ledger} onClose={() => setLedger(null)} />
+      <DeleteVariantDialog
+        variant={
+          deleting && {
+            id: deleting.id,
+            productId,
+            sizeLabel: deleting.size.label,
+            sku: deleting.sku,
+            stockOnHand: deleting.stockOnHand,
+          }
+        }
+        onClose={() => setDeleting(null)}
+      />
       <AddVariantDialog
         productId={productId}
         open={adding}

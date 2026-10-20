@@ -134,3 +134,22 @@ export interface StockAdjustmentResultDto {
 
 export const listStockMovementsQuerySchema = paginationQuerySchema;
 export const listLowStockQuerySchema = paginationQuerySchema;
+
+/** DELETE /admin/variants/:id: optional note for the write-off ledger row. */
+export const archiveVariantSchema = z
+  .object({ note: z.string().trim().min(1).max(500).optional() })
+  .strict();
+export type ArchiveVariantRequest = z.infer<typeof archiveVariantSchema>;
+
+/** Result of deleting (archiving) a size. History keeps the variant row. */
+export interface VariantArchiveResultDto {
+  variantId: string;
+  archivedAt: string;
+  /** Units written off through a ledger row before archiving (0 = none). */
+  writtenOff: number;
+  /** The write-off ledger row, when stock was written off. */
+  movementId: string | null;
+  removedCartLines: number;
+  /** False when this was the product's last active size: the shop no longer lists it. */
+  productStillSellable: boolean;
+}

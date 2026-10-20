@@ -1,4 +1,5 @@
 import type {
+  ArchiveVariantRequest,
   CreateVariantRequest,
   ListVariantsQuery,
   LowStockVariantDto,
@@ -7,6 +8,7 @@ import type {
   StockAdjustmentResultDto,
   StockMovementDto,
   UpdateVariantRequest,
+  VariantArchiveResultDto,
   VariantDto,
 } from '@urban-ibile/shared';
 import type { Database } from '../../db/database.js';
@@ -45,6 +47,16 @@ export interface InventoryService {
     input: StockAdjustmentRequest,
   ): Promise<StockAdjustmentResultDto>;
   listMovements(variantId: string, query: PaginationQuery): Promise<Page<StockMovementDto>>;
+  /**
+   * Delete a size = archive it (20 Oct 2026): blocked while units are reserved or a return /
+   * exchange is open on it; remaining stock is written off with a ledger row first; its lines
+   * leave active carts; the row is kept (inactive, hidden) for history. One transaction.
+   */
+  archiveVariant(
+    actor: AuditActor,
+    variantId: string,
+    input: ArchiveVariantRequest,
+  ): Promise<VariantArchiveResultDto>;
   listLowStock(query: PaginationQuery): Promise<Page<LowStockVariantDto>>;
 }
 
@@ -209,6 +221,67 @@ export function createInventoryService(deps: InventoryServiceDeps): InventorySer
         });
         const variant = await assertVariantExists(trx, variantId);
         return { variant: toVariantDto(variant), movement: toStockMovementDto(movement) };
+      });
+    },
+
+    async archiveVariant(actor, variantId, input) {
+      return db.transaction().execute(async (trx) => {
+        const before = await repository.findById(trx, variantId, true);
+        if (!before) throw notFoundError('Variant');
+        const blockers = await repository.archiveBlockers(trx, variantId);
+        const reasons = [
+          (before.stockReserved > 0 || blockers.heldReservations > 0) &&
+            'units of this size are reserved by an open checkout or exchange',
+          blockers.openReturns > 0 &&
+            `${blockers.openReturns} return or exchange request(s) are still open for this size`,
+        ].filter((reason): reason is string => typeof reason === 'string');
+        if (reasons.length > 0) {
+          throw new AppError(
+            'VARIANT_DELETE_BLOCKED',
+            HTTP_STATUS.CONFLICT,
+            `This size cannot be deleted yet: ${reasons.join('; ')}. Finish or cancel those first.`,
+            { reasons, stockReserved: before.stockReserved, ...blockers },
+          );
+        }
+
+        let movementId: string | null = null;
+        let writtenOff = 0;
+        if (before.stockOnHand > 0) {
+          const change = await repository.changeStock(trx, variantId, { kind: 'set', onHand: 0 });
+          if (!change) throw notFoundError('Variant');
+          writtenOff = change.previousOnHand;
+          const movement = await repository.insertMovement(trx, {
+            variantId,
+            type: 'adjustment',
+            quantityDelta: -writtenOff,
+            referenceType: ADMIN_REFERENCE,
+            referenceId: null,
+            note: `Size deleted: remaining stock written off${input.note ? ` (${input.note})` : ''}`,
+            adminId: actor.adminId,
+          });
+          movementId = movement.id;
+        }
+        const removedCartLines = await repository.removeFromActiveCarts(trx, variantId);
+        const archivedAt = await repository.archive(trx, variantId, actor.adminId);
+        const remaining = await repository.countActiveForProduct(trx, before.productId);
+        const result: VariantArchiveResultDto = {
+          variantId,
+          archivedAt: archivedAt.toISOString(),
+          writtenOff,
+          movementId,
+          removedCartLines,
+          productStillSellable: remaining > 0,
+        };
+        await writeAuditLog(trx, {
+          adminId: actor.adminId,
+          action: 'variant.archive',
+          entityType: ENTITY,
+          entityId: variantId,
+          before: toVariantDto(before),
+          after: { ...result, isActive: false, stockOnHand: 0 },
+          ipAddress: actor.ipAddress,
+        });
+        return result;
       });
     },
 

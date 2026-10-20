@@ -1,5 +1,6 @@
 import {
   MAX_PAGE_SIZE,
+  type ArchiveVariantRequest,
   type ChangeProductStatusRequest,
   type ClothingTypeDto,
   type CreateClothingTypeRequest,
@@ -22,6 +23,7 @@ import {
   type UpdateClothingTypeRequest,
   type UpdateProductRequest,
   type UpdateVariantRequest,
+  type VariantArchiveResultDto,
   type VariantDto,
 } from '@urban-ibile/shared';
 import { apiRequest } from './client';
@@ -69,6 +71,9 @@ export const catalogApi = {
     send<VariantDto>('POST', `/admin/products/${productId}/variants`, body),
   updateVariant: (id: string, body: UpdateVariantRequest) =>
     send<VariantDto>('PATCH', `/admin/variants/${id}`, body),
+  /** Delete a size = archive it (stock written off via the ledger first). */
+  archiveVariant: (id: string, body: ArchiveVariantRequest) =>
+    send<VariantArchiveResultDto>('DELETE', `/admin/variants/${id}`, body),
   adjustStock: (id: string, body: StockAdjustmentRequest) =>
     send<StockAdjustmentResultDto>('POST', `/admin/variants/${id}/stock-adjustments`, body),
   movements: (id: string, params: ListParams) =>

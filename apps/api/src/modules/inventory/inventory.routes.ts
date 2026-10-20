@@ -7,6 +7,8 @@ export function createInventoryRouter(controller: InventoryController): Router {
   router.get('/products/:productId/variants', controller.listVariants);
   router.post('/products/:productId/variants', controller.createVariant);
   router.patch('/variants/:id', controller.updateVariant);
+  // Delete a size = archive it (stock written off via the ledger first); the row stays for history.
+  router.delete('/variants/:id', controller.archiveVariant);
   router.post('/variants/:id/stock-adjustments', controller.adjustStock);
   router.get('/variants/:id/stock-movements', controller.listMovements);
   router.get('/inventory/low-stock', controller.listLowStock);

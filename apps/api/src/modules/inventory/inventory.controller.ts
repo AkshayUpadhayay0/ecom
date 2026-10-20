@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import {
+  archiveVariantSchema,
   createVariantSchema,
   listLowStockQuerySchema,
   listStockMovementsQuerySchema,
@@ -20,10 +21,16 @@ export interface InventoryController {
   adjustStock: RequestHandler;
   listMovements: RequestHandler;
   listLowStock: RequestHandler;
+  archiveVariant: RequestHandler;
 }
 
 export function createInventoryController(service: InventoryService): InventoryController {
   return {
+    archiveVariant: async (req, res) => {
+      const id = uuidParam(req);
+      const input = archiveVariantSchema.parse(bodyOf(req));
+      sendData(res, HTTP_STATUS.OK, await service.archiveVariant(auditActorOf(req), id, input));
+    },
     listVariants: async (req, res) => {
       const productId = uuidParam(req, 'productId');
       sendPage(

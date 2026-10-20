@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { PackageCheck } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '@/components/PageHeader';
 import { Pagination } from '@/components/Pagination';
@@ -13,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { DeleteVariantDialog, type VariantToDelete } from '@/features/products/DeleteVariantDialog';
 import { catalogKeys } from '@/features/products/products.queries';
 import { catalogApi } from '@/lib/api/catalog';
 import { useUrlFilters } from '@/lib/use-url-filters';
@@ -26,6 +29,7 @@ export function InventoryPage() {
     queryKey: catalogKeys.lowStock(page),
     queryFn: () => catalogApi.lowStock({ page }),
   });
+  const [deleting, setDeleting] = useState<VariantToDelete | null>(null);
 
   return (
     <div className="space-y-6">
@@ -63,6 +67,9 @@ export function InventoryPage() {
                   <TableHead scope="col" className="text-right">
                     Alert at
                   </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -89,6 +96,28 @@ export function InventoryPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{v.lowStockThreshold}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to={`/products/${v.product.id}#stock`}>Open</Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setDeleting({
+                              id: v.id,
+                              productId: v.product.id,
+                              sizeLabel: v.size.label,
+                              sku: v.sku,
+                              stockOnHand: v.stockOnHand,
+                            })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -97,6 +126,7 @@ export function InventoryPage() {
         </QueryView>
       </ListCard>
       {lowStock.data ? <Pagination meta={lowStock.data.meta} onPage={setPage} /> : null}
+      <DeleteVariantDialog variant={deleting} onClose={() => setDeleting(null)} />
     </div>
   );
 }

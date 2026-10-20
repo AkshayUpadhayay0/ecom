@@ -4,8 +4,10 @@ import type { Database } from '../../db/database.js';
 import { PG_ERROR, isPgErrorCode, pgConstraintOf } from '../../lib/db-errors.js';
 import type { PageRequest } from '../../lib/pagination.js';
 
-/** Unique constraint on SKU (Postgres default name for `sku text UNIQUE`). */
-const SKU_UNIQUE_CONSTRAINT = 'product_variants_sku_key';
+/** Unique index on SKU among live (not archived) variants (migration 0015). */
+const SKU_UNIQUE_CONSTRAINT = 'ux_variants_sku_live';
+const HELD = 'held';
+const ACTIVE_CART = 'active';
 
 export interface VariantRow {
   id: string;
@@ -77,8 +79,12 @@ export interface StockMovementRow {
 export type InsertVariantResult =
   { ok: true; row: VariantRow } | { ok: false; conflict: 'sku' | 'size' };
 
+/** Admin variant queries: archived (deleted) sizes are invisible (migration 0015). */
 function variantQuery(db: Database) {
-  return db.selectFrom('product_variants as v').innerJoin('sizes as s', 's.id', 'v.size_id');
+  return db
+    .selectFrom('product_variants as v')
+    .innerJoin('sizes as s', 's.id', 'v.size_id')
+    .where('v.archived_at', 'is', null);
 }
 
 const VARIANT_COLUMNS = [
@@ -124,6 +130,17 @@ export interface VariantsRepository {
     change: StockChange,
   ): Promise<StockChangeResult | undefined>;
   hasMovements(db: Database, variantId: string): Promise<boolean>;
+  /** What still prevents deleting the size (counts; all zero = deletable). */
+  archiveBlockers(
+    db: Database,
+    variantId: string,
+  ): Promise<{ heldReservations: number; openReturns: number }>;
+  /** Removes the variant's lines from customers' ACTIVE carts; returns how many. */
+  removeFromActiveCarts(db: Database, variantId: string): Promise<number>;
+  /** Inactive + archived_at / archived_by (stock must already be zero). */
+  archive(db: Database, variantId: string, adminId: string): Promise<Date>;
+  /** Active, not archived sizes left on the product. */
+  countActiveForProduct(db: Database, productId: string): Promise<number>;
   insertMovement(db: Database, movement: NewStockMovement): Promise<StockMovementRow>;
   listMovements(
     db: Database,
@@ -263,6 +280,52 @@ export function createVariantsRepository(): VariantsRepository {
                   v.stock_on_hand AS "stockOnHand",
                   v.stock_reserved AS "stockReserved"`.execute(db);
       return result.rows[0];
+    },
+
+    async archiveBlockers(db, variantId) {
+      const result = await sql<{ heldReservations: number; openReturns: number }>`
+        SELECT
+          (SELECT count(*)::int FROM stock_reservations
+            WHERE variant_id = ${variantId} AND status = ${HELD}) AS "heldReservations",
+          (SELECT count(DISTINCT rr.id)::int FROM return_requests rr
+             JOIN return_statuses st ON st.code = rr.status AND NOT st.is_terminal
+             JOIN order_items oi ON oi.id = rr.order_item_id
+            WHERE oi.variant_id = ${variantId}
+               OR rr.replacement_variant_id = ${variantId}) AS "openReturns"`.execute(db);
+      return result.rows[0] ?? { heldReservations: 0, openReturns: 0 };
+    },
+
+    async removeFromActiveCarts(db, variantId) {
+      const rows = await db
+        .deleteFrom('cart_items')
+        .where('variant_id', '=', variantId)
+        .where('cart_id', 'in', (eb) =>
+          eb.selectFrom('carts').select('id').where('status', '=', ACTIVE_CART),
+        )
+        .returning('id')
+        .execute();
+      return rows.length;
+    },
+
+    async archive(db, variantId, adminId) {
+      const row = await db
+        .updateTable('product_variants')
+        .set({ is_active: false, archived_at: sql`now()`, archived_by: adminId })
+        .where('id', '=', variantId)
+        .returning('archived_at')
+        .executeTakeFirstOrThrow();
+      return row.archived_at ?? new Date();
+    },
+
+    async countActiveForProduct(db, productId) {
+      const row = await db
+        .selectFrom('product_variants')
+        .select((eb) => eb.fn.countAll<string>().as('n'))
+        .where('product_id', '=', productId)
+        .where('is_active', '=', true)
+        .where('archived_at', 'is', null)
+        .executeTakeFirstOrThrow();
+      return Number(row.n);
     },
 
     async hasMovements(db, variantId) {

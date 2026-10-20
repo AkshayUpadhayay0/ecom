@@ -553,6 +553,11 @@ export interface ProductTranslations {
 }
 
 export interface ProductVariants {
+  /**
+   * Deleted (archived) size: inactive, zero stock, hidden; ledger/orders/returns keep the row.
+   */
+  archived_at: Timestamp | null;
+  archived_by: string | null;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
   is_active: Generated<boolean>;

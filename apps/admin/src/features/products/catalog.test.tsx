@@ -305,3 +305,73 @@ describe('product deletion (soft delete)', () => {
     expect(router.state.location.pathname).toBe('/products/p-1');
   });
 });
+
+describe('size (variant) deletion = archive', () => {
+  function archiveHandler(calls: unknown[]) {
+    return http.delete(`${API}/admin/variants/v-1`, async ({ request }) => {
+      calls.push(await request.json());
+      return HttpResponse.json({
+        data: {
+          variantId: 'v-1',
+          archivedAt: '2026-10-20T10:00:00.000Z',
+          writtenOff: 4,
+          movementId: '91',
+          removedCartLines: 0,
+          productStillSellable: false,
+        },
+      });
+    });
+  }
+
+  it('product page: warns about the write-off and the last size, then deletes', async () => {
+    apiState.hasSession = true;
+    const calls: unknown[] = [];
+    server.use(...catalogHandlers(), archiveHandler(calls));
+    const { user } = renderApp('/products/p-1');
+    const row = (await screen.findByText('FIT-KAFTAN-L')).closest('tr');
+    await user.click(within(row ?? document.body).getByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog', { name: /Delete size Large/ });
+    expect(dialog).toHaveTextContent(/remaining 4 unit\(s\) will be written off/);
+    expect(await within(dialog).findByText(/last size on sale/)).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(/Order history, returns and the stock ledger keep it/);
+    await user.type(within(dialog).getByRole('textbox', { name: /Reason/ }), 'Damaged batch');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete size' }));
+    await waitFor(() => expect(calls).toEqual([{ note: 'Damaged batch' }]));
+    expect(await screen.findByText(/4 unit\(s\) written off/)).toBeInTheDocument();
+  });
+
+  it('inventory: opens and deletes a low-stock size; a blocked delete shows why', async () => {
+    apiState.hasSession = true;
+    const low: LowStockVariantDto = {
+      ...VARIANT,
+      stockOnHand: 0,
+      stockReserved: 0,
+      stockAvailable: 0,
+      product: { id: 'p-1', name: 'Fit Kaftan', slug: 'fit-kaftan', status: 'active' },
+    };
+    server.use(
+      ...catalogHandlers(),
+      http.get(`${API}/admin/inventory/low-stock`, () => HttpResponse.json(listOf([low]))),
+      http.delete(`${API}/admin/variants/v-1`, () =>
+        errorResponse(
+          409,
+          'VARIANT_DELETE_BLOCKED',
+          'This size cannot be deleted yet: units of this size are reserved by an open checkout or exchange. Finish or cancel those first.',
+        ),
+      ),
+    );
+    const { user } = renderApp('/inventory');
+    const row = (await screen.findByText('FIT-KAFTAN-L')).closest('tr');
+    expect(within(row ?? document.body).getByRole('link', { name: 'Open' })).toHaveAttribute(
+      'href',
+      '/products/p-1#stock',
+    );
+    await user.click(within(row ?? document.body).getByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog', { name: /Delete size Large/ });
+    // No stock left: no write-off warning and no reason field.
+    expect(dialog).not.toHaveTextContent(/written off/);
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete size' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/reserved/);
+  });
+});

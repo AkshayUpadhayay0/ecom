@@ -172,6 +172,7 @@ deactivated (`isActive: false`), products are archived.
   `note` (the reason). One conditional UPDATE per call; it can never go below reserved units
   (`STOCK_BELOW_RESERVED`); each call writes a `stock_movements` ledger row.
 - **Deleting a product** (`DELETE /products/:id`, every admin) is a soft delete: hidden from the shop, catalogue, search, admin lists and pickers; order items, payments, returns, the stock ledger and Blueprint decisions are untouched. Blocked (`409 PRODUCT_DELETE_BLOCKED`, reasons listed) while it has unpaid orders, held stock, open returns/exchanges or a pending media replacement. Its lines are removed from active carts, its media is detached (kept, unused) and its variants are deactivated. The slug can be reused.
+- **Deleting a size** (`DELETE /variants/:id`, optional `{ note }`) archives the variant: blocked (`409 VARIANT_DELETE_BLOCKED`) while units are reserved or a return/exchange is open on it; remaining stock is written off with an `adjustment` ledger row in the same transaction; its active-cart lines are removed; it disappears from the shop and admin lists. The response says whether the product still has a size on sale.
 - **No product cap**: `catalog.max_active_products` is NULL. It is enforced
   (`ACTIVE_PRODUCT_LIMIT_REACHED`) only if a number is set.
 - **Product media** (19 Oct 2026): uploaded inside the product form (public) or chosen with
