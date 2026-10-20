@@ -135,13 +135,48 @@ describe('settings', () => {
     expect(calls[0]?.url).toContain('/admin/settings/catalog.page_size');
   });
 
-  it('a plain admin can edit contact settings only; sensitive ones are greyed out', async () => {
+  it('a plain admin can edit contact settings only; technical ones are read-only with a note', async () => {
     apiState.role = 'admin';
+    server.use(
+      http.get(`${API}/admin/settings`, () =>
+        HttpResponse.json({
+          data: [
+            ...SETTINGS,
+            {
+              key: 'media.max_video_bytes',
+              value: 524_288_000,
+              defaultValue: 524_288_000,
+              description: 'Largest video upload',
+              updatedAt: null,
+              updatedBy: null,
+            },
+          ],
+        }),
+      ),
+    );
+    renderApp('/settings');
+    await screen.findByText('media.max_video_bytes');
+    // Only support.email is editable: one Edit button, and no Clear for the technical value.
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Read-only: technical setting/)).toHaveLength(2);
+    const supportRow = screen.getByText('support.email').closest('li');
+    expect(within(supportRow ?? document.body).getByRole('button', { name: 'Edit' })).toBeEnabled();
+  });
+
+  it('a super admin can edit and clear technical settings', async () => {
+    server.use(
+      http.get(`${API}/admin/settings`, () =>
+        HttpResponse.json({
+          data: [{ ...SETTINGS[0], value: 24 }, SETTINGS[1]],
+        }),
+      ),
+    );
     renderApp('/settings');
     await screen.findByText('catalog.page_size');
-    const [pageSize, supportEmail] = screen.getAllByRole('button', { name: 'Edit' });
-    expect(pageSize).toHaveAttribute('aria-disabled', 'true');
-    expect(supportEmail).not.toHaveAttribute('aria-disabled');
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+    expect(screen.queryByText(/Read-only: technical setting/)).not.toBeInTheDocument();
   });
 });
 

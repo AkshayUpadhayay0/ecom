@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { QueryView } from '@/components/QueryStates';
-import { SuperAdminOnly } from '@/components/SuperAdminOnly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,13 +12,14 @@ import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { useIsSuperAdmin } from '@/features/auth/roles';
 import { configApi } from '@/lib/api/config-api';
 import { formatDateTime } from '@/lib/format';
 import { humanise } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 
 const settingsKey = ['config', 'settings'] as const;
-const SENSITIVE_SETTING = 'Sensitive setting: only a super admin can change it.';
+const SENSITIVE_SETTING = 'Read-only: technical setting, changed by developers (super admin).';
 
 type Kind = 'number' | 'boolean' | 'string' | 'json';
 
@@ -129,6 +129,9 @@ export function SettingsPage() {
   const settings = useQuery({ queryKey: settingsKey, queryFn: configApi.settings });
   const [editing, setEditing] = useState<SettingDto | null>(null);
   const [clearing, setClearing] = useState<SettingDto | null>(null);
+  const isSuper = useIsSuperAdmin();
+  // One shared list (packages/shared ADMIN_EDITABLE_SETTING_KEYS) used by the API and the UI.
+  const canEdit = (key: string) => isSuper || isAdminEditableSetting(key);
   const clear = useAdminMutation((key: string) => configApi.updateSetting(key, null), {
     success: 'Setting cleared (not provided).',
     invalidate: [settingsKey],
@@ -193,20 +196,12 @@ export function SettingsPage() {
                             </p>
                           ) : null}
                         </div>
-                        <div className="flex shrink-0 gap-2">
-                          <SuperAdminOnly
-                            restricted={!isAdminEditableSetting(setting.key)}
-                            reason={SENSITIVE_SETTING}
-                          >
+                        {canEdit(setting.key) ? (
+                          <div className="flex shrink-0 gap-2">
                             <Button variant="outline" size="sm" onClick={() => setEditing(setting)}>
                               Edit
                             </Button>
-                          </SuperAdminOnly>
-                          {setting.value !== null ? (
-                            <SuperAdminOnly
-                              restricted={!isAdminEditableSetting(setting.key)}
-                              reason={SENSITIVE_SETTING}
-                            >
+                            {setting.value !== null ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -214,9 +209,14 @@ export function SettingsPage() {
                               >
                                 Clear
                               </Button>
-                            </SuperAdminOnly>
-                          ) : null}
-                        </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          // Read-only for the client's staff; the API refuses changes (403).
+                          <p className="shrink-0 text-xs text-muted-foreground sm:max-w-48 sm:text-right">
+                            {SENSITIVE_SETTING}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>

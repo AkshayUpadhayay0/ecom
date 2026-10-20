@@ -1,4 +1,10 @@
-import type { ApiData, SettingDto } from '@urban-ibile/shared';
+import {
+  ADMIN_EDITABLE_SETTING_KEYS,
+  SETTING_KEYS,
+  isAdminEditableSetting,
+  type ApiData,
+  type SettingDto,
+} from '@urban-ibile/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   adminClient,
@@ -112,5 +118,60 @@ describe.skipIf(!hasTestDatabase)('admin settings API', () => {
       .executeTakeFirstOrThrow();
     expect(audit.before_data).toEqual({ value: null });
     expect(audit.ip_address).not.toBeNull();
+  });
+
+  describe('who may change which setting (decision 19 Oct 2026)', () => {
+    const restricted = SETTING_KEYS.filter((key) => !isAdminEditableSetting(key));
+
+    it('a normal admin gets 403 on every restricted key, for edit and for clear', async () => {
+      const admin = adminClient(ctx, (await signInAdmin(ctx, 'admin')).token);
+      expect(restricted).toContain('media.max_video_bytes');
+      expect(restricted.length).toBeGreaterThan(ADMIN_EDITABLE_SETTING_KEYS.length);
+      const before = await ctx.db
+        .selectFrom('app_settings')
+        .select(['setting_key', 'value'])
+        .execute();
+      for (const key of restricted) {
+        const current = before.find((row) => row.setting_key === key)?.value ?? null;
+        const edit = await admin.patch(`/settings/${key}`, { value: current });
+        expect(edit.status, `edit ${key}`).toBe(403);
+        const clear = await admin.patch(`/settings/${key}`, { value: null });
+        expect(clear.status, `clear ${key}`).toBe(403);
+      }
+      // Nothing changed and nothing was audited for the refused calls.
+      const after = await ctx.db
+        .selectFrom('app_settings')
+        .select(['setting_key', 'value'])
+        .execute();
+      expect(after).toEqual(before);
+      expect(await auditCount(ctx, { action: 'setting.update' })).toBe(0);
+    });
+
+    it('a normal admin can save and clear the allowed keys (audited)', async () => {
+      const admin = adminClient(ctx, (await signInAdmin(ctx, 'admin')).token);
+      const values: Record<(typeof ADMIN_EDITABLE_SETTING_KEYS)[number], unknown> = {
+        'support.email': 'help@example.com',
+        'support.phone': '+2348000000000',
+        'support.whatsapp': '+2348000000000',
+        'social.links': [{ platform: 'instagram', url: 'https://instagram.com/example' }],
+        'returns.return_address': 'PLACEHOLDER address for the test',
+        'returns.return_instructions': 'PLACEHOLDER instructions for the test',
+      };
+      for (const key of ADMIN_EDITABLE_SETTING_KEYS) {
+        const saved = await admin.patch(`/settings/${key}`, { value: values[key] });
+        expect(saved.status, `save ${key}`).toBe(200);
+        expect((await admin.patch(`/settings/${key}`, { value: null })).status).toBe(200);
+        expect(await auditCount(ctx, { action: 'setting.update', entityId: key })).toBe(2);
+      }
+    });
+
+    it('a super admin can change every key (audited)', async () => {
+      const current = bodyOf<ApiData<SettingDto[]>>(await api.get('/settings')).data;
+      for (const setting of current) {
+        const res = await api.patch(`/settings/${setting.key}`, { value: setting.value });
+        expect(res.status, setting.key).toBe(200);
+      }
+      expect(await auditCount(ctx, { action: 'setting.update' })).toBe(current.length);
+    });
   });
 });
