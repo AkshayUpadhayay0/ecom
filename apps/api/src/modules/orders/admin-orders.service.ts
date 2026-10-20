@@ -12,6 +12,7 @@ import { int8ToNumber } from '../../lib/db-errors.js';
 import { AppError, notFoundError } from '../../lib/errors.js';
 import { HTTP_STATUS } from '../../lib/http-status.js';
 import { type Page, toPageMeta, toPageRequest } from '../../lib/pagination.js';
+import { storeDateRange } from '../../lib/store-dates.js';
 import type { AuditActor } from '../audit/audit-actor.js';
 import { writeAuditLog } from '../audit/audit-log.repository.js';
 import { releaseOrderHolds } from '../inventory/order-holds.js';
@@ -43,14 +44,6 @@ const STATUS_EMAILS: Partial<Record<string, EmailTemplate>> = {
   [SENT_OUT]: 'order_sent_out',
   [DELIVERED]: 'order_delivered',
 };
-/**
- * Assumption: business dates (date-only filters, "today" in stats) use West Africa Time
- * (Lagos, UTC+1, no daylight saving). Change here if the client operates elsewhere.
- */
-export const STORE_UTC_OFFSET = '+01:00';
-export const STORE_UTC_OFFSET_MINUTES = 60;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** order_items.fit_snapshot: `charts` holds the decision's chart snapshot (with its charts). */
 const fitSnapshotSchema = z.object({
@@ -88,17 +81,6 @@ export interface AdminOrdersServiceDeps {
   reviews: PaymentReviewsRepository;
   outbox: EmailOutboxRepository;
   settings: SettingsService;
-}
-
-function startOf(value: string): Date {
-  return new Date(DATE_ONLY.test(value) ? `${value}T00:00:00${STORE_UTC_OFFSET}` : value);
-}
-
-/** `to` is inclusive: a date-only value covers that whole (store) day. */
-function endExclusive(value: string): Date {
-  return DATE_ONLY.test(value)
-    ? new Date(startOf(value).getTime() + DAY_MS)
-    : new Date(new Date(value).getTime() + 1);
 }
 
 function toSummaryDto(row: AdminOrderSummaryRow): AdminOrderSummaryDto {
@@ -282,11 +264,17 @@ export function createAdminOrdersService(deps: AdminOrdersServiceDeps): AdminOrd
   return {
     async list(query) {
       const page = toPageRequest(query, await settings.getLimit(db, 'catalog.page_size'));
+      // `to` is inclusive: a date-only value covers that whole day in the store time zone.
+      const range = storeDateRange(
+        query.from,
+        query.to,
+        await settings.getSetting(db, 'store.timezone'),
+      );
       const filters: AdminOrderFilters = {
         orderStatus: query.orderStatus,
         paymentStatus: query.paymentStatus,
-        from: query.from === undefined ? undefined : startOf(query.from),
-        toExclusive: query.to === undefined ? undefined : endExclusive(query.to),
+        from: range.from,
+        toExclusive: range.toExclusive,
         deliveryZoneId: query.deliveryZoneId,
         needsAttention: query.needsAttention,
         q: query.q,

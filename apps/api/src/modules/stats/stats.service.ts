@@ -1,13 +1,10 @@
-import type { StatsOverviewDto } from '@urban-ibile/shared';
+import { startOfZonedDay, zonedDaysBefore, type StatsOverviewDto } from '@urban-ibile/shared';
 import type { Database } from '../../db/database.js';
 import { int8ToNumber } from '../../lib/db-errors.js';
-import { STORE_UTC_OFFSET_MINUTES } from '../orders/admin-orders.service.js';
 import type { PaymentReviewsRepository } from '../payments/payment-reviews.repository.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import type { StatsRepository } from './stats.repository.js';
 
-const MS_PER_MINUTE = 60_000;
-const DAY_MS = 24 * 60 * MS_PER_MINUTE;
 const WEEK_DAYS = 7;
 const MONTH_DAYS = 30;
 const PAYMENT_REVIEW = 'payment_review';
@@ -17,15 +14,6 @@ export interface StatsService {
   overview(): Promise<StatsOverviewDto>;
   /** Drops the cache (tests). */
   clearCache(): void;
-}
-
-/** Start of the current store day (Assumption: WAT, see STORE_UTC_OFFSET_MINUTES). */
-function startOfStoreDay(now: Date): Date {
-  const offsetMs = STORE_UTC_OFFSET_MINUTES * MS_PER_MINUTE;
-  const local = new Date(now.getTime() + offsetMs);
-  return new Date(
-    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - offsetMs,
-  );
 }
 
 export function createStatsService(deps: {
@@ -40,13 +28,15 @@ export function createStatsService(deps: {
 
   async function compute(): Promise<StatsOverviewDto> {
     const now = new Date();
-    const today = startOfStoreDay(now);
+    // Windows are calendar days in the store time zone (default Africa/Lagos); data stays UTC.
+    const timeZone = await settings.getSetting(db, 'store.timezone');
+    const today = startOfZonedDay(now, timeZone);
     const [byStatus, paid, stock, failedMedia, returns, openReviews, currency] = await Promise.all([
       repository.ordersByStatus(db),
       repository.paidWindows(db, {
         today,
-        week: new Date(today.getTime() - (WEEK_DAYS - 1) * DAY_MS),
-        month: new Date(today.getTime() - (MONTH_DAYS - 1) * DAY_MS),
+        week: zonedDaysBefore(today, WEEK_DAYS - 1, timeZone),
+        month: zonedDaysBefore(today, MONTH_DAYS - 1, timeZone),
       }),
       repository.stockCounts(db),
       repository.failedMediaJobs(db),

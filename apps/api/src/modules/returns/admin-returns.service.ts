@@ -18,7 +18,7 @@ import type { AuditActor } from '../audit/audit-actor.js';
 import { writeAuditLog } from '../audit/audit-log.repository.js';
 import type { StorageProvider } from '../media/storage/storage-provider.js';
 import type { AdminOrdersRepository } from '../orders/admin-orders.repository.js';
-import { STORE_UTC_OFFSET } from '../orders/admin-orders.service.js';
+import { storeDateRange } from '../../lib/store-dates.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import { DEFAULT_PAYER, checkResponsibilityChange, type SelectionMode } from './responsibility.js';
 import {
@@ -35,8 +35,6 @@ import { REFUND_INFO, toAdminSummary } from './returns.dto.js';
 import type { ReturnRow } from './returns.repository.js';
 
 const MS_PER_SECOND = 1000;
-const DAY_MS = 24 * 60 * 60 * MS_PER_SECOND;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const RETURN_RECEIVED = 'RETURN_RECEIVED';
 const EXCHANGE_SENT = 'EXCHANGE_SENT';
 const STORED = new Set(['uploaded', 'processing', 'ready']);
@@ -102,10 +100,6 @@ export interface AdminReturnsDeps extends WorkflowDeps {
   settings: SettingsService;
   storage: StorageProvider;
   orderReads: Pick<AdminOrdersRepository, 'measurements'>;
-}
-
-function startOf(value: string): Date {
-  return new Date(DATE_ONLY.test(value) ? `${value}T00:00:00${STORE_UTC_OFFSET}` : value);
 }
 
 export function createAdminReturnsService(deps: AdminReturnsDeps): AdminReturnsService {
@@ -265,13 +259,7 @@ export function createAdminReturnsService(deps: AdminReturnsDeps): AdminReturnsS
           requestType: query.requestType,
           responsibility: query.responsibility,
           reasonCode: query.reasonCode,
-          from: query.from === undefined ? undefined : startOf(query.from),
-          toExclusive:
-            query.to === undefined
-              ? undefined
-              : DATE_ONLY.test(query.to)
-                ? new Date(startOf(query.to).getTime() + DAY_MS)
-                : new Date(new Date(query.to).getTime() + 1),
+          ...storeDateRange(query.from, query.to, await settings.getSetting(db, 'store.timezone')),
           q: query.q,
           open: query.open,
           order: query.order ?? 'desc',

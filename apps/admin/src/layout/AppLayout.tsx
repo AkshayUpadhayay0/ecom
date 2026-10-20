@@ -10,6 +10,7 @@ import { useSidebarCollapsed, useTheme } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
 import { SidebarNav } from './SidebarNav';
 import { Topbar } from './Topbar';
+import { useStoreTimeZone } from './use-store-time-zone';
 
 function PasswordChangeBanner() {
   return (
@@ -27,6 +28,7 @@ function PasswordChangeBanner() {
 }
 
 export function AppLayout() {
+  const timeZone = useStoreTimeZone();
   const { admin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
@@ -106,7 +108,7 @@ export function AppLayout() {
             className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-10 lg:py-8"
           >
             <div className="mx-auto w-full max-w-7xl">
-              <Outlet />
+              <Outlet key={timeZone} />
             </div>
           </main>
         </div>

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_STORE_TIME_ZONE, isValidTimeZone } from './time-zone.js';
 import { MAX_PAGE_SIZE } from './admin-common.js';
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -100,6 +101,15 @@ export const SETTING_DEFINITIONS = {
   'store.currency': {
     schema: z.string().regex(/^[A-Z]{3}$/, 'must be an ISO 4217 code'),
     default: 'NGN',
+  },
+  // [Technical Recommendation 20 Oct 2026: the client is Nigeria-based] IANA name used for
+  // "today" in the dashboard, date-only filters and every date shown in the admin app.
+  'store.timezone': {
+    schema: z
+      .string()
+      .trim()
+      .refine(isValidTimeZone, 'must be an IANA time zone, e.g. Africa/Lagos'),
+    default: DEFAULT_STORE_TIME_ZONE,
   },
   'checkout.reservation_max_total_minutes': {
     schema: z.number().int().min(1).max(MINUTES_PER_DAY),

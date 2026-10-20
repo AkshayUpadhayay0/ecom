@@ -14,11 +14,12 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { useIsSuperAdmin } from '@/features/auth/roles';
 import { configApi } from '@/lib/api/config-api';
+import { SETTINGS_QUERY_KEY } from '@/layout/use-store-time-zone';
 import { formatDateTime } from '@/lib/format';
 import { humanise } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 
-const settingsKey = ['config', 'settings'] as const;
+const settingsKey = SETTINGS_QUERY_KEY;
 const SENSITIVE_SETTING = 'Read-only: technical setting, changed by developers (super admin).';
 
 type Kind = 'number' | 'boolean' | 'string' | 'json';

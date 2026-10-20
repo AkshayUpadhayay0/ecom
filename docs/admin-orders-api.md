@@ -30,7 +30,7 @@ Query parameters (all optional):
 | `order` | `desc` (default) or `asc`. |
 | `orderStatus` | For example `being_prepared`. |
 | `paymentStatus` | `unpaid`, `paid`, `failed`, `refunded`, … |
-| `from`, `to` | ISO date or datetime. `to` is inclusive. A date-only value is a whole store day (Assumption: West Africa Time, UTC+1). |
+| `from`, `to` | ISO date or datetime. `to` is inclusive. A date-only value is a whole day in the store time zone (setting `store.timezone`, default `Africa/Lagos`, Technical Recommendation). |
 | `deliveryZoneId` | A zone id. |
 | `needsAttention` | `true` = orders in `payment_review`. |
 | `q` | Order number, customer name, email or phone (2–100 characters, indexed with trigrams). |
@@ -173,7 +173,7 @@ A `note` is always required.
 }
 ```
 
-- **Revenue** is the sum of `total_minor` of paid orders by `paid_at`. "Today" starts at midnight store time (Assumption: WAT); 7 and 30 days include today.
+- **Revenue** is the sum of `total_minor` of paid orders by `paid_at`. "Today" starts at midnight in the store time zone (`store.timezone`, default `Africa/Lagos`); 7 and 30 days are calendar days in that zone and include today. Stored timestamps stay UTC.
 - **Low stock:** active variants of non-archived products with 0 < available ≤ `low_stock_threshold`. **Out of stock:** available ≤ 0.
 - **Caching:** results are cached in memory for `ADMIN_STATS_CACHE_SECONDS` (default 30).
 

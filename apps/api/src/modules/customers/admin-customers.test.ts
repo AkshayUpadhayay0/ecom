@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  AdminCustomerDetailDto,
-  AdminCustomerSummaryDto,
-  ApiData,
-  ApiList,
-  StatsOverviewDto,
+import {
+  startOfZonedDay,
+  type AdminCustomerDetailDto,
+  type AdminCustomerSummaryDto,
+  type ApiData,
+  type ApiList,
+  type StatsOverviewDto,
 } from '@urban-ibile/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -165,6 +166,35 @@ describe.skipIf(!hasTestDatabase)('Admin customers + dashboard stats (Phase 7a)'
   });
 
   describe('stats overview', () => {
+    it('counts "today" from midnight in the store time zone (Africa/Lagos), not UTC', async () => {
+      const ada = await registerCustomer(ctx);
+      const before = await placeOrder(ctx, fixture, ada.token, {
+        fitQuantity: 0,
+        plainQuantity: 1,
+      });
+      await payOrder(ctx, fixture, ada.token, before.id);
+      const after = await placeOrder(ctx, fixture, ada.token, { fitQuantity: 0, plainQuantity: 1 });
+      await payOrder(ctx, fixture, ada.token, after.id);
+      const lagosMidnight = startOfZonedDay(new Date(), 'Africa/Lagos');
+      // Lagos is UTC+1: its midnight is 23:00 UTC the previous evening.
+      expect(lagosMidnight.getUTCHours()).toBe(23);
+      const minute = 60_000;
+      await ctx.db
+        .updateTable('orders')
+        .set({ paid_at: new Date(lagosMidnight.getTime() - minute) }) // 23:59 Lagos yesterday
+        .where('id', '=', before.id)
+        .execute();
+      await ctx.db
+        .updateTable('orders')
+        .set({ paid_at: new Date(lagosMidnight.getTime() + minute) }) // 00:01 Lagos today
+        .where('id', '=', after.id)
+        .execute();
+      const stats = dataOf<StatsOverviewDto>(await superAdmin.get('/stats/overview'));
+      expect(stats.paid.today.orders).toBe(1);
+      expect(stats.paid.last7Days.orders).toBe(2);
+      expect(stats.paid.last30Days.orders).toBe(2);
+    });
+
     it('returns counts and revenue that match the data', async () => {
       const ada = await registerCustomer(ctx);
       const paid = await placeOrder(ctx, fixture, ada.token, { fitQuantity: 1, plainQuantity: 1 });
