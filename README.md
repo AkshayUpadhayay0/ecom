@@ -45,6 +45,7 @@ pnpm db:seed          # apply db/seeds/*.sql sample data (re-runnable)
 pnpm db:codegen       # generate Kysely types from the live `ecom` database -> apps/api/src/db/types.ts
 pnpm db:test:setup    # create `ecom_test` and apply schema + seed + migrations (refuses to touch `ecom`)
 pnpm admin:create     # create an admin account (prompts; password input is hidden)
+pnpm admin:list       # list admin accounts and their role (admin = client staff, super_admin = developer)
 ```
 
 ## Running
@@ -67,6 +68,7 @@ pnpm admin:create     # create an admin account (prompts; password input is hidd
 | `pnpm worker:media`                 | Same worker (old name, kept)                               |
 | `pnpm db:seed`                      | Apply re-runnable sample data from `db/seeds/` to `ecom`   |
 | `pnpm admin:create`                 | Create an admin account interactively                      |
+| `pnpm admin:list`                   | List admin accounts and their role (no secrets)            |
 
 Check it is running:
 

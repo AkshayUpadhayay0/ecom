@@ -26,6 +26,7 @@
     "worker": "pnpm --filter @urban-ibile/api worker",
     "worker:media": "pnpm --filter @urban-ibile/api worker:media",
     "admin:create": "pnpm --filter @urban-ibile/api admin:create",
+    "admin:list": "pnpm --filter @urban-ibile/api admin:list",
     "payments:simulate-webhook": "pnpm --filter @urban-ibile/api payments:simulate-webhook"
   },
   "devDependencies": {
