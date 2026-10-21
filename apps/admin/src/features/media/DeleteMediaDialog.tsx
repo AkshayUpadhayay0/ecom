@@ -13,24 +13,51 @@ export interface MediaToDelete {
   name: string;
 }
 
-/** Plain-language impact of deleting a file, built from its usage. */
+const HERO_BLOCK_KEY = 'home.hero';
+
+/** "a", "a and b", "a, b and c". */
+function joinPlaces(places: readonly string[]): string {
+  if (places.length <= 1) return places.join('');
+  return `${places.slice(0, -1).join(', ')} and ${places.at(-1) ?? ''}`;
+}
+
+/** Where the file is shown, in words the client uses. */
+function placesOf(usage: MediaUsageDto): string[] {
+  return [
+    ...usage.products.map((p) => `${p.name} (product ${p.as === 'video' ? 'video' : 'image'})`),
+    ...usage.contentBlocks.map((b) =>
+      b.key === HERO_BLOCK_KEY ? 'the homepage hero' : `the ${b.key} content block`,
+    ),
+  ];
+}
+
+/**
+ * Plain-language impact of deleting a file, built from GET /admin/media/:id/usage. Lists exactly
+ * what is detached, e.g. "This video is used by: Indigo Kaftan (product video) and the homepage
+ * hero. Deleting it removes it from both. They will have no video until you choose another."
+ */
 export function impactLines(usage: MediaUsageDto): string[] {
   const noun = usage.kind === 'video' ? 'video' : 'image';
-  const users = [
-    ...usage.products
-      .filter((p) => (usage.kind === 'video' ? p.as === 'video' : p.as === 'image'))
-      .map((p) => p.name),
-    ...usage.contentBlocks.map((b) => b.key),
-  ];
+  const places = placesOf(usage);
   const lines: string[] = [];
-  if (users.length === 0 && usage.pendingReplacements.length === 0) {
-    lines.push(`This ${noun} is not used anywhere.`);
-  } else if (users.length > 0) {
-    lines.push(`This ${noun} is used by: ${users.join(', ')}.`);
+  if (places.length === 0 && usage.pendingReplacements.length === 0) {
+    lines.push(`This ${noun} is not used anywhere. Deleting it does not change the shop.`);
+    return lines;
+  }
+  if (places.length > 0) {
+    lines.push(`This ${noun} is used by: ${joinPlaces(places)}.`);
+    lines.push(
+      places.length === 1
+        ? 'Deleting it removes it from there.'
+        : places.length === 2
+          ? 'Deleting it removes it from both.'
+          : `Deleting it removes it from all ${places.length} places.`,
+    );
+    const subject = places.length === 1 ? 'It' : 'They';
     lines.push(
       usage.kind === 'video'
-        ? `${users.length === 1 ? 'It' : 'They'} will have no video until you choose another.`
-        : `It will be removed from ${users.length === 1 ? 'that page' : 'those pages'}.`,
+        ? `${subject} will have no video until you choose another.`
+        : `${subject} will no longer show this image.`,
     );
   }
   for (const pending of usage.pendingReplacements) {

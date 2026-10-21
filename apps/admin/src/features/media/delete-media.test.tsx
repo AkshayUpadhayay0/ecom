@@ -56,28 +56,56 @@ function usage(overrides: Partial<MediaUsageDto> = {}): MediaUsageDto {
   };
 }
 
-describe('impactLines', () => {
-  it('says exactly who loses the media', () => {
+describe('impactLines (exact confirmation text)', () => {
+  it('unused media', () => {
+    expect(impactLines(usage({ products: [], contentBlocks: [] }))).toEqual([
+      'This video is not used anywhere. Deleting it does not change the shop.',
+    ]);
+  });
+
+  it('used by one product', () => {
+    expect(impactLines(usage({ contentBlocks: [] }))).toEqual([
+      'This video is used by: Indigo Kaftan (product video).',
+      'Deleting it removes it from there.',
+      'It will have no video until you choose another.',
+    ]);
+  });
+
+  it('used by the homepage hero only', () => {
+    expect(impactLines(usage({ products: [] }))).toEqual([
+      'This video is used by: the homepage hero.',
+      'Deleting it removes it from there.',
+      'It will have no video until you choose another.',
+    ]);
+  });
+
+  it('used by a product and the hero (the example wording)', () => {
     expect(impactLines(usage())).toEqual([
-      'This video is used by: Indigo Kaftan, home.hero.',
+      'This video is used by: Indigo Kaftan (product video) and the homepage hero.',
+      'Deleting it removes it from both.',
       'They will have no video until you choose another.',
     ]);
-    expect(impactLines(usage({ products: [], contentBlocks: [] }))).toEqual([
-      'This video is not used anywhere.',
-    ]);
+  });
+
+  it('an image used by several places, with a pending replacement', () => {
     expect(
       impactLines(
         usage({
           kind: 'image',
-          products: [{ id: 'p-1', name: 'Indigo Kaftan', as: 'image' }],
+          products: [
+            { id: 'p-1', name: 'Indigo Kaftan', as: 'image' },
+            { id: 'p-2', name: 'Ankara Set', as: 'image' },
+            { id: 'p-3', name: 'Fila Cap', as: 'image' },
+          ],
           contentBlocks: [],
-          pendingReplacements: [{ productId: 'p-2', productName: 'Ankara Set', slot: 'images' }],
+          pendingReplacements: [{ productId: 'p-4', productName: 'Agbada', slot: 'images' }],
         }),
       ),
     ).toEqual([
-      'This image is used by: Indigo Kaftan.',
-      'It will be removed from that page.',
-      "The new images waiting to replace Ankara Set's media will be cancelled.",
+      'This image is used by: Indigo Kaftan (product image), Ankara Set (product image) and Fila Cap (product image).',
+      'Deleting it removes it from all 3 places.',
+      'They will no longer show this image.',
+      "The new images waiting to replace Agbada's media will be cancelled.",
     ]);
   });
 });
@@ -118,8 +146,11 @@ describe('delete media from the picker (20 Oct 2026)', () => {
     await user.click(await within(picker).findByRole('button', { name: 'Delete indigo.mp4' }));
     const confirm = await screen.findByRole('dialog', { name: 'Delete indigo.mp4?' });
     expect(
-      await within(confirm).findByText('This video is used by: Indigo Kaftan, home.hero.'),
+      await within(confirm).findByText(
+        'This video is used by: Indigo Kaftan (product video) and the homepage hero.',
+      ),
     ).toBeInTheDocument();
+    expect(confirm).toHaveTextContent(/Deleting it removes it from both/);
     expect(confirm).toHaveTextContent(/They will have no video until you choose another/);
     expect(confirm).toHaveTextContent(/file itself is kept until a developer purges it/);
     await user.click(within(confirm).getByRole('button', { name: 'Delete video' }));
@@ -138,5 +169,76 @@ describe('delete media from the picker (20 Oct 2026)', () => {
     const confirm = await screen.findByRole('dialog', { name: 'Delete indigo.mp4?' });
     expect(await within(confirm).findByText(/still being processed/)).toBeInTheDocument();
     expect(within(confirm).getByRole('button', { name: 'Delete video' })).toBeDisabled();
+  });
+});
+
+describe('the same impact text in every Delete place', () => {
+  beforeEach(() => {
+    apiState.hasSession = true;
+    server.use(
+      http.get(`${API}/admin/media/picker`, () =>
+        HttpResponse.json(
+          listOf([{ ...VIDEO, id: 'vid-1', kind: 'image', originalFilename: 'front.jpg' }]),
+        ),
+      ),
+      http.get(`${API}/admin/media`, () => HttpResponse.json(listOf([VIDEO]))),
+      http.get(`${API}/admin/media/vid-1`, () => HttpResponse.json({ data: VIDEO })),
+      http.get(`${API}/admin/media/vid-1/url`, () =>
+        HttpResponse.json({ data: { url: 'http://cdn.test/indigo.mp4', expiresAt: null } }),
+      ),
+      http.get(`${API}/admin/media/vid-1/usage`, () =>
+        HttpResponse.json({
+          data: usage({
+            kind: 'image',
+            products: [{ id: 'p-1', name: 'Indigo Kaftan', as: 'image' }],
+            contentBlocks: [],
+          }),
+        }),
+      ),
+      http.get(`${API}/admin/clothing-types`, () =>
+        HttpResponse.json(
+          listOf([
+            {
+              id: 'ct-1',
+              slug: 'kaftan',
+              name: 'Kaftan',
+              searchKeywords: '',
+              sortOrder: 0,
+              isActive: true,
+            },
+          ]),
+        ),
+      ),
+      http.get(`${API}/admin/measurement-profiles`, () => HttpResponse.json(listOf([]))),
+      http.get(`${API}/admin/products`, () => HttpResponse.json(listOf([]))),
+    );
+  });
+
+  it('product form: Choose existing -> Delete shows what will be detached', async () => {
+    apiState.role = 'admin';
+    const { user } = renderApp('/products');
+    await user.click(await screen.findByRole('button', { name: 'New product' }));
+    const form = await screen.findByRole('dialog', { name: 'New product' });
+    await user.click(within(form).getByRole('button', { name: 'Choose existing images' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose existing images' });
+    await user.click(await within(picker).findByRole('button', { name: 'Delete front.jpg' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Delete front.jpg?' });
+    expect(
+      await within(confirm).findByText('This image is used by: Indigo Kaftan (product image).'),
+    ).toBeInTheDocument();
+    expect(confirm).toHaveTextContent('It will no longer show this image.');
+  });
+
+  it('Media Library (super admin): Delete shows the same impact text', async () => {
+    apiState.role = 'super_admin';
+    const { user } = renderApp('/media');
+    await user.click(await screen.findByRole('button', { name: /indigo\.mp4/ }));
+    const asset = await screen.findByRole('dialog', { name: 'indigo.mp4' });
+    await user.click(within(asset).getByRole('button', { name: 'Delete' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Delete indigo.mp4?' });
+    expect(
+      await within(confirm).findByText('This image is used by: Indigo Kaftan (product image).'),
+    ).toBeInTheDocument();
+    expect(confirm).toHaveTextContent('Deleting it removes it from there.');
   });
 });
