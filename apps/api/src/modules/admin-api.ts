@@ -161,6 +161,7 @@ export function createAdminApiRouter({
           settings,
         }),
       ),
+      requireSuperAdmin,
     ),
   );
   router.use(

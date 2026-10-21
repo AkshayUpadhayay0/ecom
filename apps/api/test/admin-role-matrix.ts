@@ -86,6 +86,8 @@ export const ADMIN_ROLE_MATRIX: Record<string, RoleRule> = {
   'POST /admin/content-blocks/:key/unpublish': 'any_admin',
   'PUT /admin/content-blocks/:key/media': 'any_admin',
   'PUT /admin/content-blocks/:key/text': 'any_admin',
+  // Reset a text block to its seeded default (developer recovery).
+  'POST /admin/content-blocks/:key/reset': 'super_admin',
   'GET /admin/delivery-zones': 'any_admin',
   'POST /admin/delivery-zones': 'any_admin',
   'GET /admin/delivery-zones/:id': 'any_admin',

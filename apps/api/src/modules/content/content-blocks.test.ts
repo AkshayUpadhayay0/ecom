@@ -235,4 +235,46 @@ describe.skipIf(!hasTestDatabase)('admin content blocks API', () => {
       ).toBe(401);
     });
   });
+
+  describe('reset a text block to its seeded default (follow-up 3, 21 Oct 2026)', () => {
+    const FOOTER = 'footer.about';
+
+    it('restores "Pending client content" and the default published state, audited', async () => {
+      const superApi = adminClient(ctx, (await signInAdmin(ctx, 'super_admin')).token);
+      // A tester edited and unpublished the footer.
+      expect(
+        (await api.put(`/content-blocks/${FOOTER}/text`, { title: 'Edited', body: 'Edited text' }))
+          .status,
+      ).toBe(200);
+      expect((await api.post(`/content-blocks/${FOOTER}/unpublish`)).status).toBe(200);
+
+      // Not for the client's staff (developer recovery).
+      expect((await api.post(`/content-blocks/${FOOTER}/reset`)).status).toBe(403);
+
+      const res = await superApi.post(`/content-blocks/${FOOTER}/reset`);
+      expect(res.status).toBe(200);
+      expect(bodyOf<ApiData<ContentBlockDto>>(res).data).toMatchObject({
+        key: FOOTER,
+        kind: 'text',
+        pending: true,
+        isPublished: true,
+        translations: { en: { title: null, body: null, ctaLabel: null } },
+      });
+      expect(await auditCount(ctx, { action: 'content_block.text_reset', entityId: FOOTER })).toBe(
+        1,
+      );
+      const site = await request(ctx.app).get(`/api/v1/site/content/${FOOTER}`);
+      expect(bodyOf<{ data: PublicContentBlockDto }>(site).data).toMatchObject({
+        status: 'pending',
+        title: null,
+        parts: [],
+      });
+    });
+
+    it('does not reset the hero (it holds the video and seeded hero copy)', async () => {
+      const superApi = adminClient(ctx, (await signInAdmin(ctx, 'super_admin')).token);
+      const res = await superApi.post(`/content-blocks/${HERO}/reset`);
+      expect(res.status).toBe(409);
+    });
+  });
 });

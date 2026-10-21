@@ -204,6 +204,15 @@ deactivated (`isActive: false`), products are archived.
   public catalogue only shows ready media; cards carry `image` (first ready image) as the fallback
   while no video is ready.
 - **Hero video** (Content): ready, public videos only.
+- **Resetting a content block to its default** (footer.about, policy.privacy, policy.terms,
+  policy.returns): the default is the seeded placeholder, i.e. an empty English title and body,
+  shown as "Pending client content" (migration 0013), and published (the column default). No copy
+  is written. Two equivalent ways, both through the content service (audit row
+  `content_block.text_reset`; super_admin only):
+  - `pnpm content:reset footer.about --as <super admin email>` (CLI, on the server)
+  - `POST /api/v1/admin/content-blocks/footer.about/reset` with a super_admin token
+    The hero (`home.hero`, video block) is not reset this way; its seeded copy is "Urban Ibile" /
+    "Temporary hero message." / "Shop now" (db/seed_v2.sql).
 - **Sizes**: reordering changes Blueprint results (it compares `sizes.sort_order`).
 - **Size charts** are read-only here (developers load them; editing comes with the Blueprint
   phase). Matching uses only `max_inches` (smallest size whose max covers the value), so each chart

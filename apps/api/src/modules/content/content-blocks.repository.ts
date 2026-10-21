@@ -44,6 +44,8 @@ export interface ContentBlocksRepository {
     languageCode: string,
     text: { title: string; body: string },
   ): Promise<void>;
+  /** Back to the seeded default: title, body and CTA of one language become NULL (pending). */
+  clearText(db: Database, blockId: string, languageCode: string): Promise<void>;
   /** Sets the given columns plus updated_by / updated_at. */
   touch(
     db: Database,
@@ -78,6 +80,15 @@ export function createContentBlocksRepository(): ContentBlocksRepository {
       const row = await query.executeTakeFirst();
       // content_kind is CHECK-constrained to these values.
       return row && { ...row, kind: row.kind as ContentBlockRow['kind'] };
+    },
+
+    async clearText(db, blockId, languageCode) {
+      await db
+        .updateTable('content_block_translations')
+        .set({ title: null, body: null, cta_label: null })
+        .where('content_block_id', '=', blockId)
+        .where('language_code', '=', languageCode)
+        .execute();
     },
 
     async upsertText(db, blockId, languageCode, text) {

@@ -17,6 +17,8 @@ import { toContentBlockDto, toContentBlockSummaryDto } from './content-blocks.dt
 import type { ContentBlocksRepository } from './content-blocks.repository.js';
 
 const ENTITY = 'content_block';
+/** content_blocks.is_published column default (schema_v2.sql): what "reset to default" restores. */
+const DEFAULT_PUBLISHED = true;
 
 /** The editor must match the block: video for the hero, text for footer and policies. */
 function assertKind(block: ContentBlockDto, kind: ContentBlockDto['kind']): void {
@@ -46,6 +48,11 @@ export interface ContentBlocksService {
   setMedia(actor: AuditActor, key: string, mediaAssetId: string | null): Promise<ContentBlockDto>;
   /** English plain-text title and body. Text blocks only. */
   setText(actor: AuditActor, key: string, text: UpdateContentTextRequest): Promise<ContentBlockDto>;
+  /**
+   * Back to the seeded default (text blocks only): English title / body empty, i.e. "Pending
+   * client content" (migration 0013), and published (the column default). Audited.
+   */
+  resetText(actor: AuditActor, key: string): Promise<ContentBlockDto>;
 }
 
 export interface ContentBlocksServiceDeps {
@@ -123,6 +130,14 @@ export function createContentBlocksService(deps: ContentBlocksServiceDeps): Cont
         if (block.mediaAssetId !== null && block.mediaAssetId !== mediaAssetId) {
           await deps.media.retireUnreferenced(trx, actor, [block.mediaAssetId]);
         }
+      });
+    },
+
+    async resetText(actor, key) {
+      return mutate(actor, key, 'content_block.text_reset', async (trx, block) => {
+        assertKind(block, 'text');
+        await repository.clearText(trx, block.id, CONTENT_TEXT_LANGUAGE);
+        await repository.touch(trx, block.id, actor.adminId, { isPublished: DEFAULT_PUBLISHED });
       });
     },
 

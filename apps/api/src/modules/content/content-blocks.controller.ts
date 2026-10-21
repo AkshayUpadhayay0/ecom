@@ -18,6 +18,7 @@ export interface ContentBlocksController {
   unpublish: RequestHandler;
   setMedia: RequestHandler;
   setText: RequestHandler;
+  resetText: RequestHandler;
 }
 
 export function createContentBlocksController(
@@ -51,6 +52,9 @@ export function createContentBlocksController(
       const key = keyOf(req);
       const { mediaAssetId } = setContentMediaSchema.parse(bodyOf(req));
       sendData(res, HTTP_STATUS.OK, await service.setMedia(auditActorOf(req), key, mediaAssetId));
+    },
+    resetText: async (req, res) => {
+      sendData(res, HTTP_STATUS.OK, await service.resetText(auditActorOf(req), keyOf(req)));
     },
     setText: async (req, res) => {
       const key = keyOf(req);
