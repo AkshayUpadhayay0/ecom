@@ -106,6 +106,8 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
     | Internal: Media Library (`GET /admin/media`, `/media/:id/url`, purge), Sizes & Charts (`PUT /sizes/order`, chart groups / versions / grids), QR Pages (`/admin/hidden-pages*` incl. content edit), serial import / batches / deactivate, Audit Log | 403 | yes |
     | Stats: `failedMediaJobs` | omitted | included |
 
+    Every route registered under `/admin` MUST be listed with its rule in `apps/api/test/admin-role-matrix.ts`; `admin-role-matrix.test.ts` fails otherwise and proves each rule over HTTP (role admin 403 on super_admin routes, customer token 401 everywhere). `scripts/role-check.ps1` runs the same checks against a live API with real accounts.
+
 ## 5. Information status labels
 
 When you document or discuss a decision, label it: Confirmed Requirement / Technical Recommendation / Assumption / Pending Client Decision.

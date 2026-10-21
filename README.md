@@ -39,14 +39,32 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 `.env` is git-ignored; never commit it.
 
-```sh
+````sh
 pnpm db:migrate       # apply db/migrations/*.sql to `ecom` (tracked in schema_migrations)
 pnpm db:seed          # apply db/seeds/*.sql sample data (re-runnable)
 pnpm db:codegen       # generate Kysely types from the live `ecom` database -> apps/api/src/db/types.ts
 pnpm db:test:setup    # create `ecom_test` and apply schema + seed + migrations (refuses to touch `ecom`)
 pnpm admin:create     # create an admin account (prompts; password input is hidden)
 pnpm admin:list       # list admin accounts and their role (admin = client staff, super_admin = developer)
-```
+
+### Proving the admin role restrictions
+
+- Automated (permanent regression): `apps/api/src/modules/admin-role-matrix.test.ts`. It lists every
+  registered `/admin` route and fails if one has no rule in `apps/api/test/admin-role-matrix.ts`;
+  then, over HTTP, role admin must get 403 on every super_admin route and on PATCH/Clear of every
+  restricted setting, super_admin must pass, and a customer token must get 401 on every route.
+- Against a running API with real accounts (Windows PowerShell):
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts
+ole-check.ps1 -AdminEmail staff@example.com -SuperEmail akshay@dev.com -CustomerEmail buyer@example.com
+````
+
+Passwords are prompted (never echoed). Safe on real data: super_admin writes use invalid bodies or
+unknown ids, restricted settings are re-saved with their current value (never cleared), and
+`purge-retired` runs only with `-IncludeDestructive`. Exit code 1 = a check failed.
+
+````
 
 ## Running
 
@@ -74,7 +92,7 @@ Check it is running:
 
 ```sh
 curl http://localhost:4000/api/v1/health
-```
+````
 
 ```json
 {
