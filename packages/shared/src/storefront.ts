@@ -113,6 +113,8 @@ export interface PublicImageDto {
 export type SizeAvailability = 'in_stock' | 'low_stock' | 'out_of_stock';
 
 export interface PublicSizeOptionDto {
+  /** Size id: what add-to-cart sends (sizeId) for products without a measurement profile. */
+  id: string;
   sizeCode: string;
   label: string;
   availability: SizeAvailability;

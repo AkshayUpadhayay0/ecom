@@ -29,6 +29,7 @@ export interface DetailRow extends CardRow {
 }
 
 export interface SizeRow {
+  sizeId: string;
   sizeCode: string;
   label: string;
   available: number;
@@ -185,6 +186,7 @@ export function createPublicCatalogRepository(): PublicCatalogRepository {
         .selectFrom('product_variants as v')
         .innerJoin('sizes as s', 's.id', 'v.size_id')
         .select([
+          's.id as sizeId',
           's.code as sizeCode',
           's.label',
           sql<number>`v.stock_on_hand - v.stock_reserved`.as('available'),

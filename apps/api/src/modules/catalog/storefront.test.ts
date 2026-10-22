@@ -430,9 +430,9 @@ describe.skipIf(!hasTestDatabase)('public storefront API', () => {
       expect(res.status).toBe(200);
       const detail = bodyOf<{ data: PublicProductDetailDto }>(res).data;
       expect(detail.sizes).toEqual([
-        { sizeCode: 'M', label: 'Medium', availability: 'out_of_stock' },
-        { sizeCode: 'L', label: 'Large', availability: 'low_stock' },
-        { sizeCode: 'XL', label: 'Extra Large', availability: 'in_stock' },
+        { id: expect.any(String) as string, sizeCode: 'M', label: 'Medium', availability: 'out_of_stock' },
+        { id: expect.any(String) as string, sizeCode: 'L', label: 'Large', availability: 'low_stock' },
+        { id: expect.any(String) as string, sizeCode: 'XL', label: 'Extra Large', availability: 'in_stock' },
       ]);
       expect(detail.blueprint.required).toBe(true);
       expect(detail.blueprint.profile?.measurements.map((m) => m.code)).toEqual([

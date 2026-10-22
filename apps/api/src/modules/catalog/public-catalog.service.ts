@@ -133,6 +133,7 @@ export function createPublicCatalogService(deps: PublicCatalogServiceDeps): Publ
         videos: video?.kind === 'video' ? [toVideo(storage, video)] : [],
         images: images.map((image) => toImage(storage, image)),
         sizes: sizes.map((size) => ({
+          id: size.sizeId,
           sizeCode: size.sizeCode,
           label: size.label,
           availability: availabilityOf(size),

@@ -108,9 +108,9 @@ The UI shows "No outfits found. Try another word." for `code: "NO_RESULTS"`.
         "variants": [ { "width": 320, "height": 400, "url": "…/w320.webp" }, … ] }
     ],
     "sizes": [
-      { "sizeCode": "M", "label": "Medium", "availability": "out_of_stock" },
-      { "sizeCode": "L", "label": "Large", "availability": "low_stock" },
-      { "sizeCode": "XL", "label": "Extra Large", "availability": "in_stock" }
+      { "id": "…", "sizeCode": "M", "label": "Medium", "availability": "out_of_stock" },
+      { "id": "…", "sizeCode": "L", "label": "Large", "availability": "low_stock" },
+      { "id": "…", "sizeCode": "XL", "label": "Extra Large", "availability": "in_stock" }
     ],
     "blueprint": {
       "required": true,
@@ -127,6 +127,7 @@ The UI shows "No outfits found. Try another word." for `code: "NO_RESULTS"`.
 }
 ```
 
+- `sizes[].id` is the size id that add-to-cart sends as `sizeId` (products without a measurement profile).
 - `availability`: `out_of_stock` when nothing can be bought, `low_stock` when what is left is at
   or below the size's low-stock threshold (set by admins), else `in_stock`.
 - `blueprint.required` is `true` when the product uses Blueprint; the customer then enters the
