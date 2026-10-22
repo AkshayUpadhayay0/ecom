@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "pnpm --filter @urban-ibile/api dev",
     "dev:api": "pnpm --filter @urban-ibile/api dev",
-    "dev:admin": "pnpm --filter @urban-ibile/admin dev",
-    "dev:all": "pnpm --parallel --filter @urban-ibile/api --filter @urban-ibile/admin dev",
+    "dev:admin": "pnpm --filter @urban-ibile/admin --filter @urban-ibile/web dev",
+    "dev:web": "pnpm --filter @urban-ibile/web dev",
+    "dev:all": "pnpm --parallel --filter @urban-ibile/api --filter @urban-ibile/admin --filter @urban-ibile/web dev",
     "build": "pnpm -r build",
     "start": "pnpm --filter @urban-ibile/api start",
     "typecheck": "pnpm -r typecheck",

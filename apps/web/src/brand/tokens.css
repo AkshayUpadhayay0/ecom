@@ -1,0 +1,37 @@
+/*
+ * Urban Ibile design tokens: the single source of colour for the storefront.
+ * Mirror of tokens.ts (a test keeps both in step). Brand colours are CONFIRMED by the client
+ * (brand/colors palette PDF). Derived tokens are marked below.
+ */
+:root {
+  /* --- Brand palette (Confirmed Requirement) --- */
+  --ui-red: #f5262d; /* primary: large areas, large bold text, buttons, graphics */
+  --ui-emerald: #174c3c; /* Emerald Forest */
+  --ui-marigold: #f2b544; /* African Marigold: NEVER as text on light backgrounds (1.8:1) */
+  --ui-terracotta: #c95d43; /* Burnt Terracotta: large areas and graphics */
+  --ui-white: #ffffff;
+  --ui-ivory: #fffceb; /* Warm Ivory: default page background */
+  --ui-ink: #171717; /* Ink Black: body text */
+
+  /* --- DERIVED, PENDING CLIENT APPROVAL (Technical Recommendation) ---
+   * Red and Terracotta are only ~4:1 on white/ivory. These slightly darker variants pass 4.5:1
+   * and are for SMALL text only (links, errors, badges).
+   */
+  --ui-red-text: #e12329;
+  --ui-terracotta-text: #bb563e;
+  /* Secondary text (captions, hints): Ink softened, 6.6:1 on Ivory. Derived, pending approval. */
+  --ui-ink-muted: #5c5b57;
+  /* Hairlines and card borders: Ink at low opacity (decorative, no text). */
+  --ui-line: rgb(23 23 23 / 0.14);
+
+  /* --- Type tokens ---
+   * Drafting Mono has no glyph for the Naira sign, dotted Yoruba letters or arrows, so Inter
+   * (OFL) follows it in every stack and supplies them per glyph.
+   */
+  --font-display: var(--font-drafting), var(--font-inter), ui-monospace, monospace;
+  /*
+   * BODY FONT: PENDING CLIENT DECISION. Long copy (descriptions, policies) uses the readable
+   * companion font. To go all-mono, change this ONE line to: var(--font-display)
+   */
+  --font-body: var(--font-inter), system-ui, sans-serif;
+}

@@ -2,6 +2,7 @@
   "name": "@urban-ibile/shared",
   "version": "0.0.0",
   "private": true,
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
@@ -19,3 +20,4 @@
     "zod": "^4.6.5"
   }
 }
+

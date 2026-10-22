@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+@import '../brand/tokens.css';
+
+/* Tailwind theme = the brand tokens only (no default palette to reach for by accident). */
+@theme {
+  --color-*: initial;
+  --color-red: var(--ui-red);
+  --color-emerald: var(--ui-emerald);
+  --color-marigold: var(--ui-marigold);
+  --color-terracotta: var(--ui-terracotta);
+  --color-white: var(--ui-white);
+  --color-ivory: var(--ui-ivory);
+  --color-ink: var(--ui-ink);
+  --color-red-text: var(--ui-red-text);
+  --color-terracotta-text: var(--ui-terracotta-text);
+  --color-ink-muted: var(--ui-ink-muted);
+  --color-line: var(--ui-line);
+  --color-transparent: transparent;
+
+  --font-display: var(--font-drafting), var(--font-inter), ui-monospace, monospace;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background: var(--ui-ivory);
+    color: var(--ui-ink);
+    font-family: var(--font-display);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+  /* Visible keyboard focus everywhere; emerald on ivory is 9.5:1, white halo covers dark areas. */
+  :focus-visible {
+    outline: 3px solid var(--ui-emerald);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px var(--ui-white);
+    border-radius: 2px;
+  }
+  .on-dark :focus-visible {
+    outline-color: var(--ui-ivory);
+    box-shadow: 0 0 0 6px var(--ui-ink);
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  img,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+/* Long reading text (descriptions, policies): one class, one font token. */
+.prose-body {
+  font-family: var(--font-body);
+  line-height: 1.7;
+  max-width: 65ch;
+}
+
+/* Prices always render the Naira sign: the fallback font is in the display stack. */
+.price {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--ui-ink);
+  color: var(--ui-ivory);
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
