@@ -29,7 +29,8 @@ pnpm install
 copy .env.example .env        # Git Bash: cp .env.example .env
 ```
 
-Edit `.env` and set `DATABASE_URL`, `TEST_DATABASE_URL` (a separate database, e.g. `ecom_test`),
+Edit `.env` and set `DATABASE_URL` (your Postgres password goes here; `TEST_DATABASE_URL` is optional,
+see [Running the tests](#running-the-tests)),
 `JWT_ACCESS_SECRET` and `JWT_ADMIN_ACCESS_SECRET` (32+ random characters each, different from each
 other; the API refuses to start otherwise). Generate a secret (any shell):
 
@@ -39,13 +40,14 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 `.env` is git-ignored; never commit it.
 
-````sh
+```sh
 pnpm db:migrate       # apply db/migrations/*.sql to `ecom` (tracked in schema_migrations)
 pnpm db:seed          # apply db/seeds/*.sql sample data (re-runnable)
 pnpm db:codegen       # generate Kysely types from the live `ecom` database -> apps/api/src/db/types.ts
-pnpm db:test:setup    # create `ecom_test` and apply schema + seed + migrations (refuses to touch `ecom`)
+pnpm db:test:setup    # create `ecom_test` if missing and apply schema + seed + all migrations
 pnpm admin:create     # create an admin account (prompts; password input is hidden)
 pnpm admin:list       # list admin accounts and their role (admin = client staff, super_admin = developer)
+```
 
 ### Proving the admin role restrictions
 
@@ -56,15 +58,62 @@ pnpm admin:list       # list admin accounts and their role (admin = client staff
 - Against a running API with real accounts (Windows PowerShell):
 
   ```powershell
-  powershell -ExecutionPolicy Bypass -File scripts
-ole-check.ps1 -AdminEmail staff@example.com -SuperEmail akshay@dev.com -CustomerEmail buyer@example.com
-````
+  powershell -ExecutionPolicy Bypass -File scripts\role-check.ps1 -AdminEmail staff@example.com -SuperEmail akshay@dev.com -CustomerEmail buyer@example.com
+  ```
 
-Passwords are prompted (never echoed). Safe on real data: super_admin writes use invalid bodies or
-unknown ids, restricted settings are re-saved with their current value (never cleared), and
-`purge-retired` runs only with `-IncludeDestructive`. Exit code 1 = a check failed.
+  Passwords are prompted (never echoed). Safe on real data: super_admin writes use invalid bodies or
+  unknown ids, restricted settings are re-saved with their current value (never cleared), and
+  `purge-retired` runs only with `-IncludeDestructive`. Exit code 1 = a check failed.
 
-````
+## Running the tests
+
+The API integration tests use a separate database, `ecom_test`, on the same PostgreSQL server as
+`ecom`. They never touch `ecom`: any database whose name does not end in `_test` is refused.
+
+Windows steps (PowerShell, from the repo root `D:\...\ecom`):
+
+1. **Password in `.env`.** Open the repo-root `.env` and put your Postgres password in `DATABASE_URL`
+   (the password you chose when installing PostgreSQL, the same one pgAdmin asks for):
+
+   ```
+   DATABASE_URL=postgres://postgres:<your postgres password>@localhost:5432/ecom
+   ```
+
+   `TEST_DATABASE_URL` is optional. If the line is missing or empty, the tests use `DATABASE_URL`
+   with the database name changed to `ecom_test` (same user and password). If you do set it, it must
+   use the **same user and password** as `DATABASE_URL`; only the database name differs:
+
+   ```
+   TEST_DATABASE_URL=postgres://postgres:<your postgres password>@localhost:5432/ecom_test
+   ```
+
+   "password authentication failed for user postgres" means the password in the URL does not match
+   the Postgres user's password: fix it in `.env` (or delete the `TEST_DATABASE_URL` line).
+
+2. **Create and prepare `ecom_test`** (one command, safe to re-run; creates the database if it does
+   not exist, then applies the schema, seed and all migrations):
+
+   ```powershell
+   pnpm db:test:setup
+   ```
+
+   It prints the database it uses with the password hidden. To create the database by hand instead:
+   pgAdmin > Servers > PostgreSQL 16 > right-click Databases > Create > Database..., Database
+   `ecom_test`, Owner `postgres`, Save; then run `pnpm db:test:setup` anyway (it applies the schema).
+
+3. **Run the tests:**
+
+   ```powershell
+   pnpm test                                  # every package (API + admin panel + shared)
+   pnpm --filter @urban-ibile/api test        # API only
+   pnpm --filter @urban-ibile/admin test      # admin panel only (no database needed)
+   ```
+
+   If the test database cannot be reached, the API run stops at once with the URL (password hidden),
+   the reason and the steps to fix it. Run `pnpm db:test:setup` again after pulling new migrations.
+
+Unit and HTTP tests run without a database; database integration tests are skipped when neither
+`DATABASE_URL` nor `TEST_DATABASE_URL` is set.
 
 ## Running
 
@@ -78,9 +127,9 @@ unknown ids, restricted settings are re-saved with their current value (never cl
 | `pnpm typecheck`                    | TypeScript strict check for every package                  |
 | `pnpm lint` / `pnpm lint:fix`       | ESLint (type-aware)                                        |
 | `pnpm format` / `pnpm format:check` | Prettier                                                   |
-| `pnpm test`                         | Vitest + Supertest                                         |
+| `pnpm test`                         | Vitest + Supertest (see "Running the tests")               |
 | `pnpm db:codegen`                   | Regenerate Kysely DB types (run after every migration)     |
-| `pnpm db:test:setup`                | Create and prepare the integration-test database           |
+| `pnpm db:test:setup`                | Create `ecom_test` if missing and apply all migrations     |
 | `pnpm db:migrate`                   | Apply pending SQL migrations to `ecom`                     |
 | `pnpm worker`                       | Background worker: media + reservation expiry              |
 | `pnpm worker:media`                 | Same worker (old name, kept)                               |
@@ -92,7 +141,7 @@ Check it is running:
 
 ```sh
 curl http://localhost:4000/api/v1/health
-````
+```
 
 ```json
 {
@@ -334,9 +383,11 @@ inspect / advance, exchange stock held at approval, RESELLABLE restock through t
 
 ## Tests
 
+See [Running the tests](#running-the-tests) for the Windows setup steps.
+
 - Unit and HTTP tests run without a database.
-- Integration tests use `TEST_DATABASE_URL` and are **skipped** when it is not set. They refuse to
-  run against a database named `ecom`.
+- Integration tests use `TEST_DATABASE_URL`, or `DATABASE_URL` with the database name changed to
+  `<name>_test`. They refuse any database whose name does not end in `_test`.
 
 ## Database changes
 

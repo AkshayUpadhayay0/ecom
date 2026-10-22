@@ -11,6 +11,8 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
+    // Once per run: clear message (no password) if the test database is unreachable / not set up.
+    globalSetup: ['./test/global-setup.ts'],
     // Integration tests share one Postgres test database; run files sequentially.
     fileParallelism: false,
     server: { deps: { inline: [/@urban-ibile\//] } },

@@ -1,14 +1,22 @@
 /**
- * Prepares the integration-test database (TEST_DATABASE_URL, e.g. `ecom_test`):
- * creates it if missing, applies db/schema_v2.sql + db/seed_v2.sql once, then any pending
- * db/migrations, then db/seeds (re-runnable). Safe to re-run. Refuses to run against the main `ecom` database.
+ * Prepares the integration-test database: creates it if missing, applies db/schema_v2.sql +
+ * db/seed_v2.sql once, then any pending db/migrations, then db/seeds (re-runnable). Safe to re-run.
+ * Uses TEST_DATABASE_URL, or DATABASE_URL with the database name changed to "<name>_test".
+ * Refuses any database whose name does not end in "_test". Never prints passwords.
  *
  *   pnpm db:test:setup
  */
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
-import { assertSafeTestDatabase } from '../test/safe-database.js';
-import { DB_DIR, applyPendingMigrations, applySeeds, loadDatabaseUrl } from './lib/db-scripts.js';
+import { config as loadDotenv } from 'dotenv';
+import {
+  assertSafeTestDatabase,
+  describeDatabaseError,
+  redactUrl,
+  resolveTestDatabaseUrl,
+  type ResolvedTestDatabase,
+} from '../test/safe-database.js';
+import { DB_DIR, REPO_ROOT, applyPendingMigrations, applySeeds } from './lib/db-scripts.js';
 
 const MAINTENANCE_DATABASE = 'postgres';
 // Any table from the baseline schema: if present, the baseline was already applied.
@@ -56,9 +64,17 @@ async function prepareSchema(testUrl: string): Promise<void> {
   }
 }
 
+let resolved: ResolvedTestDatabase | undefined;
+
 async function main(): Promise<void> {
-  const testUrl = loadDatabaseUrl('TEST_DATABASE_URL');
+  loadDotenv({ path: `${REPO_ROOT}.env`, quiet: true });
+  resolved = resolveTestDatabaseUrl(process.env);
+  if (!resolved) throw new Error('DATABASE_URL is not set (see .env.example and the README).');
+  const testUrl = resolved.url;
   assertSafeTestDatabase(testUrl);
+  console.log(
+    `Test database: ${redactUrl(testUrl)}${resolved.derived ? ' (derived from DATABASE_URL)' : ''}`,
+  );
 
   const url = new URL(testUrl);
   const name = decodeURIComponent(url.pathname.slice(1));
@@ -70,6 +86,14 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.message : err);
+  const code = (err as { code?: string } | null)?.code;
+  // Connection / authentication problems get the step-by-step explanation (no password shown).
+  console.error(
+    resolved && code
+      ? describeDatabaseError(err, resolved)
+      : err instanceof Error
+        ? err.message
+        : err,
+  );
   process.exit(1);
 });

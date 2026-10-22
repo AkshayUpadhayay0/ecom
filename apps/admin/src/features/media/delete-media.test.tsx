@@ -134,10 +134,12 @@ describe('delete media from the picker (20 Oct 2026)', () => {
   });
 
   async function openPicker(user: ReturnType<typeof renderApp>['user']) {
-    await user.click(await screen.findByRole('button', { name: 'Open' }));
-    const block = await screen.findByRole('dialog');
+    // Generous waits: the full Content page renders slowly under parallel test load.
+    const slow = { timeout: 5000 };
+    await user.click(await screen.findByRole('button', { name: 'Open' }, slow));
+    const block = await screen.findByRole('dialog', {}, slow);
     await user.click(within(block).getByRole('button', { name: 'Choose existing video' }));
-    return screen.findByRole('dialog', { name: /Choose a video/ });
+    return screen.findByRole('dialog', { name: /Choose a video/ }, slow);
   }
 
   it('lists the impact, then deletes (detached everywhere, retired)', async () => {
