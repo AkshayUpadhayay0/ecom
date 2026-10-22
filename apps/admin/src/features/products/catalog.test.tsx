@@ -202,7 +202,11 @@ describe('inventory and media', () => {
     server.use(
       http.get(`${API}/admin/media`, ({ request }) => {
         calls.push(`list${new URL(request.url).search}`);
-        return HttpResponse.json(listOf([asset]));
+        return HttpResponse.json(
+          listOf([
+            { ...asset, usedBy: { products: [], contentBlocks: [], pendingReplacements: 0 } },
+          ]),
+        );
       }),
       http.post(`${API}/admin/media/uploads`, async ({ request }) => {
         calls.push('create');

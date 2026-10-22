@@ -98,11 +98,14 @@ describe('internal section routes are super_admin only', () => {
       .filter((r) => !r.guarded)
       .map((r) => `${r.method} ${r.path}`)
       .sort();
-    // Product form (every admin; the service restricts them to public product media).
+    // Media Library + product form (every admin; the service restricts BOTH roles to public
+    // media no customer owns). Only the physical purge routes are super_admin.
     expect(open).toEqual(
       [
         'DELETE /media/:id',
+        'GET /media',
         'GET /media/:id',
+        'GET /media/:id/url',
         'GET /media/:id/usage',
         'GET /media/picker',
         'POST /media/:id/complete',

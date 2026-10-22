@@ -5,16 +5,17 @@ export interface MediaRouteDeps {
   controller: MediaController;
   /** Per-IP limit on creating upload URLs. */
   uploadLimit: RequestHandler;
-  /** Media Library (browse all, private links, purge): super admins only. */
+  /** Physical purge of stored files: super admins only. */
   requireSuperAdmin: RequestHandler;
 }
 
 /**
- * Admin media routes, mounted under /admin behind requireAdmin.
- * - Every admin (product form): create upload, complete, status, retry failed processing, the
- *   picker, usage and delete (detach + retire). A normal admin only reaches public media no
- *   customer owns (service scope); private media / evidence is never deletable here.
- * - super_admin (Media Library): browse everything, signed URLs (private files), purge.
+ * Admin media routes, mounted under /admin behind requireAdmin (decision 22 Oct 2026).
+ * - Every admin (Media Library + product form): browse, detail, preview URL, usage, upload,
+ *   complete, retry, picker and delete (detach + retire). For BOTH roles these only reach public
+ *   media that no customer owns: private files / return evidence are never listed and are 404 by
+ *   id (evidence is reachable only through the return request routes).
+ * - super_admin: physical purge of retired files (purge, purge-retired).
  */
 export function createMediaRouter({
   controller,
@@ -25,11 +26,11 @@ export function createMediaRouter({
   router.post('/media/uploads', uploadLimit, controller.createUpload);
   // Before /media/:id routes so "purge-retired" is not read as an id.
   router.post('/media/purge-retired', requireSuperAdmin, controller.purgeRetired);
-  router.get('/media', requireSuperAdmin, controller.list);
+  router.get('/media', controller.list);
   // Before /media/:id so "picker" is not read as an id.
   router.get('/media/picker', controller.picker);
   router.get('/media/:id', controller.get);
-  router.get('/media/:id/url', requireSuperAdmin, controller.getUrl);
+  router.get('/media/:id/url', controller.getUrl);
   router.post('/media/:id/complete', controller.completeUpload);
   router.post('/media/:id/retry', controller.retry);
   // Delete = detach everywhere + retire (files kept until a super admin purges them).

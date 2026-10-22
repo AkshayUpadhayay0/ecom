@@ -7,6 +7,7 @@ import type {
   CreateUploadResultDto,
   MediaAssetDto,
   MediaDeletionResultDto,
+  MediaLibraryItemDto,
   MediaUrlDto,
   MediaUsageDto,
   ProductDto,
@@ -45,6 +46,8 @@ import {
   uploadAndComplete,
   type MediaTestContext,
 } from '../../../test/media-fixtures.js';
+import { registerCustomer } from '../../../test/commerce-fixtures.js';
+import { uploadEvidence } from '../../../test/returns-fixtures.js';
 import { createMediaRepository } from './media.repository.js';
 
 describe.skipIf(!hasTestDatabase)('media pipeline', () => {
@@ -86,6 +89,16 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
     const res = await api.get(`/media/${id}`);
     expect(res.status).toBe(200);
     return bodyOf<ApiData<MediaAssetDto>>(res).data;
+  }
+
+  async function readyVideoAs(token: string): Promise<string> {
+    const id = await uploadAndComplete(ctx, token, {
+      fileName: 'used.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    expect(await makeProcessor(ctx, stubFfmpeg()).processNext(['video'])).toBe(true);
+    return id;
   }
 
   async function readyVideo(fileName = 'look.mp4'): Promise<string> {
@@ -465,24 +478,78 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
       expect(await auditCount(ctx, { action: 'media.upload_complete', entityId: id })).toBe(1);
     });
 
-    it('cannot list, read, link, purge or retry private media (evidence stays in returns)', async () => {
-      const privateId = await uploadAndComplete(ctx, superToken, {
-        fileName: 'evidence.jpg',
+    it('neither role can list, read, link, retry or delete private media / evidence here', async () => {
+      const buyer = await registerCustomer(ctx);
+      const evidenceId = await uploadEvidence(ctx, buyer.token);
+      const publicId = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'public.jpg',
         mimeType: 'image/jpeg',
         bytes: await tinyJpeg(),
-        visibility: 'private',
       });
-      expect((await api.get('/media?visibility=private')).status).toBe(403);
-      expect((await api.get(`/media/${privateId}`)).status).toBe(404);
-      expect((await api.get(`/media/${privateId}/url`)).status).toBe(403);
-      expect((await api.post(`/media/${privateId}/complete`)).status).toBe(404);
-      expect((await api.post(`/media/${privateId}/retry`)).status).toBe(404);
-      expect((await api.post(`/media/${privateId}/purge`)).status).toBe(403);
+      for (const client of [api, superApi]) {
+        const list = bodyOf<ApiList<MediaLibraryItemDto>>(await client.get('/media?pageSize=50'));
+        expect(list.data.map((a) => a.id)).toContain(publicId);
+        expect(list.data.map((a) => a.id)).not.toContain(evidenceId);
+        expect(list.data.every((a) => a.visibility === 'public')).toBe(true);
+        // The old visibility filter is gone: asking for private changes nothing.
+        const asked = bodyOf<ApiList<MediaAssetDto>>(await client.get('/media?visibility=private'));
+        expect(asked.data.map((a) => a.id)).not.toContain(evidenceId);
+        expect((await client.get(`/media/${evidenceId}`)).status).toBe(404);
+        expect((await client.get(`/media/${evidenceId}/url`)).status).toBe(404);
+        expect((await client.get(`/media/${evidenceId}/usage`)).status).toBe(404);
+        expect((await client.post(`/media/${evidenceId}/retry`)).status).toBe(404);
+        expect((await client.delete(`/media/${evidenceId}`)).status).toBe(404);
+        const picker = await client.get('/media/picker');
+        expect(JSON.stringify(bodyOf<ApiList<MediaAssetDto>>(picker).data)).not.toContain(
+          evidenceId,
+        );
+      }
+      // No private uploads through the library for either role.
+      for (const client of [api, superApi]) {
+        const res = await client.post('/media/uploads', {
+          fileName: 'x.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 10,
+          visibility: 'private',
+        });
+        expect(res.status).toBe(403);
+      }
+      // Physical purge stays super_admin only.
+      expect((await api.post(`/media/${publicId}/purge`)).status).toBe(403);
       expect((await api.post('/media/purge-retired')).status).toBe(403);
-      const picker = await api.get('/media/picker');
-      expect(JSON.stringify(bodyOf<ApiList<MediaAssetDto>>(picker).data)).not.toContain(privateId);
-      // The library still works for super admins.
-      expect((await superApi.get(`/media/${privateId}`)).status).toBe(200);
+    });
+
+    it('the library shows "Used by" and filters unused media', async () => {
+      const used = await readyVideoAs(adminToken);
+      const unused = await uploadAndComplete(ctx, adminToken, {
+        fileName: 'spare.jpg',
+        mimeType: 'image/jpeg',
+        bytes: await tinyJpeg(),
+      });
+      const product = bodyOf<ApiData<ProductDto>>(
+        await api.post('/products', {
+          name: 'Indigo Kaftan',
+          slug: 't-used-by',
+          clothingTypeId: await seededClothingTypeId(ctx),
+          description: 'Test.',
+          priceMinor: 100_000,
+          videoAssetId: used,
+        }),
+      ).data;
+      const all = bodyOf<ApiList<MediaLibraryItemDto>>(await api.get('/media?pageSize=50')).data;
+      expect(all.find((a) => a.id === used)?.usedBy.products).toEqual([
+        { id: product.id, name: 'Indigo Kaftan', as: 'video' },
+      ]);
+      expect(all.find((a) => a.id === unused)?.usedBy).toEqual({
+        products: [],
+        contentBlocks: [],
+        pendingReplacements: 0,
+      });
+      const onlyUnused = bodyOf<ApiList<MediaLibraryItemDto>>(
+        await api.get('/media?unused=true&pageSize=50'),
+      ).data.map((a) => a.id);
+      expect(onlyUnused).toContain(unused);
+      expect(onlyUnused).not.toContain(used);
     });
 
     it('the picker lists only public, ready, non-retired media', async () => {
@@ -699,17 +766,12 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
     });
 
     it('never deletes private / customer-owned media (return evidence)', async () => {
-      const privateId = await uploadAndComplete(ctx, superToken, {
-        fileName: 'evidence.jpg',
-        mimeType: 'image/jpeg',
-        bytes: await tinyJpeg(),
-        visibility: 'private',
-      });
+      const buyer = await registerCustomer(ctx);
+      const privateId = await uploadEvidence(ctx, buyer.token);
       expect((await api.delete(`/media/${privateId}`)).status).toBe(404);
       expect((await api.get(`/media/${privateId}/usage`)).status).toBe(404);
-      const asSuper = await superApi.delete(`/media/${privateId}`);
-      expect(asSuper.status).toBe(409);
-      expect(bodyOf<ApiErrorBody>(asSuper).error.message).toMatch(/return evidence/);
+      // Super admins do not see evidence in the general library either (22 Oct 2026).
+      expect((await superApi.delete(`/media/${privateId}`)).status).toBe(404);
       const row = await ctx.db
         .selectFrom('media_assets')
         .select('retired_at')
@@ -720,25 +782,17 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
   });
 
   describe('private media', () => {
-    it('never gets a public URL; super admins get a short-lived signed URL', async () => {
-      // Private uploads and signed URLs are Media Library (super_admin) features.
-      const id = await uploadAndComplete(ctx, superToken, {
-        fileName: 'evidence.jpg',
-        mimeType: 'image/jpeg',
-        bytes: await tinyJpeg(400, 300),
-        visibility: 'private',
-      });
+    it('never gets a public URL; its owner gets a short-lived signed URL', async () => {
+      // Private files (return evidence) come only from the customer evidence upload.
+      const buyer = await registerCustomer(ctx);
+      const id = await uploadEvidence(ctx, buyer.token);
       await makeProcessor(ctx, stubFfmpeg()).processNext(['image']);
-      const asset = bodyOf<ApiData<MediaAssetDto>>(await superApi.get(`/media/${id}`)).data;
-      expect(asset).toMatchObject({ visibility: 'private', status: 'ready', publicUrl: null });
-      expect(asset.renditions.length).toBeGreaterThan(0);
-      expect(asset.renditions.every((r) => r.url === null)).toBe(true);
-      const list = bodyOf<ApiList<MediaAssetDto>>(
-        await superApi.get('/media?visibility=private'),
-      ).data;
-      expect(JSON.stringify(list)).not.toContain('/public/');
+      const stored = await repo.findById(ctx.db, id);
+      expect(stored).toMatchObject({ visibility: 'private', status: 'ready' });
 
-      const signed = await superApi.get(`/media/${id}/url`);
+      const signed = await request(ctx.app)
+        .get(`/api/v1/me/media/${id}/url`)
+        .set('Authorization', `Bearer ${buyer.token}`);
       const url = bodyOf<ApiData<MediaUrlDto>>(signed).data;
       expect(url.url).toContain('/media-local/private/');
       expect(url.expiresAt).not.toBeNull();
@@ -755,12 +809,8 @@ describe.skipIf(!hasTestDatabase)('media pipeline', () => {
     });
 
     it('serves private media to customers only for their own return evidence', async () => {
-      const id = await uploadAndComplete(ctx, superToken, {
-        fileName: 'evidence.jpg',
-        mimeType: 'image/jpeg',
-        bytes: await tinyJpeg(),
-        visibility: 'private',
-      });
+      const buyer = await registerCustomer(ctx);
+      const id = await uploadEvidence(ctx, buyer.token);
       const token = await customerToken(ctx);
       const res = await request(ctx.app)
         .get(`/api/v1/me/media/${id}/url`)

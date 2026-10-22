@@ -19,6 +19,7 @@ import {
   type SettingsSnapshot,
 } from '../../test/admin-fixtures.js';
 import { ADMIN_ROLE_MATRIX, type RoleRule } from '../../test/admin-role-matrix.js';
+import { registerCustomer } from '../../test/commerce-fixtures.js';
 import {
   assertSafeTestDatabase,
   bodyOf,
@@ -242,6 +243,40 @@ describe.skipIf(!hasTestDatabase)('admin role matrix (every /admin route)', () =
         expect((await patch(tokens.admin, key, null)).status, key).toBe(OK);
       }
     });
+  });
+
+  it('the general Media Library never exposes private files or return evidence (both roles)', async () => {
+    const buyer = await registerCustomer(ctx);
+    const insert = (values: { visibility: string; owner_customer_id: string | null }) =>
+      ctx.db
+        .insertInto('media_assets')
+        .values({
+          kind: 'image',
+          original_key: `test/${randomUUID()}`,
+          mime_type: 'image/jpeg',
+          size_bytes: 10,
+          processing_status: 'ready',
+          ...values,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+    const evidence = await insert({ visibility: 'private', owner_customer_id: buyer.id });
+    const privateFile = await insert({ visibility: 'private', owner_customer_id: null });
+    for (const token of [tokens.admin, tokens.superAdmin]) {
+      const as = (path: string) =>
+        request(ctx.app).get(`${API}${path}`).set('Authorization', `Bearer ${token}`);
+      const listed = bodyOf<ApiList<{ id: string }>>(await as('/admin/media?pageSize=50')).data;
+      for (const hidden of [evidence.id, privateFile.id]) {
+        expect(listed.map((a) => a.id)).not.toContain(hidden);
+        expect((await as(`/admin/media/${hidden}`)).status).toBe(404);
+        expect((await as(`/admin/media/${hidden}/url`)).status).toBe(404);
+      }
+    }
+    // Physical purge: super_admin only.
+    const purge = await request(ctx.app)
+      .post(`${API}/admin/media/purge-retired`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(purge.status).toBe(FORBIDDEN);
   });
 
   it('role admin keeps what the product form needs', async () => {

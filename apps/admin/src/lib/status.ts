@@ -65,8 +65,8 @@ const PRODUCT_STATUS: Table = {
 };
 
 const MEDIA_STATUS: Table = {
-  pending: { label: 'Waiting for upload', tone: 'neutral' },
-  uploaded: { label: 'Queued', tone: 'info' },
+  pending: { label: 'Pending', tone: 'neutral' },
+  uploaded: { label: 'Pending (queued)', tone: 'neutral' },
   processing: { label: 'Processing', tone: 'warning' },
   ready: { label: 'Ready', tone: 'success' },
   failed: { label: 'Failed', tone: 'danger' },

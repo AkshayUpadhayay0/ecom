@@ -12,11 +12,12 @@ const MAIN = [
   'Customers',
   'Products',
   'Inventory',
+  'Media',
   'Content',
   'Delivery',
   'Settings',
 ];
-const INTERNAL = ['Media Library', 'Sizes & Charts', 'QR Pages', 'Audit Log'];
+const INTERNAL = ['Sizes & Charts', 'QR Pages', 'Audit Log'];
 
 async function navLinks(): Promise<string[]> {
   const nav = await screen.findByRole('navigation', { name: 'Main' });
@@ -30,14 +31,14 @@ beforeEach(() => {
 });
 
 describe('sidebar per role (decision 19 Oct 2026)', () => {
-  it('a normal admin sees exactly the 10 client pages and no Internal group', async () => {
+  it('a normal admin sees exactly the 11 client pages (incl. Media) and no Internal group', async () => {
     apiState.role = 'admin';
     renderApp('/dashboard');
     expect(await navLinks()).toEqual(MAIN);
     expect(screen.queryByRole('heading', { name: 'Internal' })).not.toBeInTheDocument();
   });
 
-  it('a super admin sees the 10 pages plus the Internal group below them', async () => {
+  it('a super admin sees the 11 pages plus the 3 Internal pages below them', async () => {
     apiState.role = 'super_admin';
     renderApp('/dashboard');
     expect(await navLinks()).toEqual([...MAIN, ...INTERNAL]);
@@ -50,16 +51,12 @@ describe('sidebar per role (decision 19 Oct 2026)', () => {
     ).toEqual(INTERNAL);
   });
 
-  it.each(['/media', '/sizes/charts', '/qr-pages', '/audit-log'])(
+  it.each(['/sizes/charts', '/qr-pages', '/audit-log'])(
     'a normal admin opening %s directly sees the role message and no internal data is requested',
     async (path) => {
       apiState.role = 'admin';
       let internalRequests = 0;
       server.use(
-        http.get(`${API}/admin/media`, () => {
-          internalRequests += 1;
-          return HttpResponse.json(emptyList());
-        }),
         http.get(`${API}/admin/size-chart-groups`, () => {
           internalRequests += 1;
           return HttpResponse.json({ data: [] });
@@ -78,4 +75,12 @@ describe('sidebar per role (decision 19 Oct 2026)', () => {
       expect(internalRequests).toBe(0);
     },
   );
+
+  it('a normal admin can open the Media Library (decision 22 Oct 2026)', async () => {
+    apiState.role = 'admin';
+    server.use(http.get(`${API}/admin/media`, () => HttpResponse.json(emptyList())));
+    renderApp('/media');
+    expect(await screen.findByRole('heading', { name: 'Media' })).toBeInTheDocument();
+    expect(screen.queryByText('Not available for your role')).not.toBeInTheDocument();
+  });
 });

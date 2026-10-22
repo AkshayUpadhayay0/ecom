@@ -34,7 +34,7 @@ function placesOf(usage: MediaUsageDto): string[] {
 /**
  * Plain-language impact of deleting a file, built from GET /admin/media/:id/usage. Lists exactly
  * what is detached, e.g. "This video is used by: Indigo Kaftan (product video) and the homepage
- * hero. Deleting it removes it from both. They will have no video until you choose another."
+ * hero. Deleting it will remove it from both. They will have no video until you choose another."
  */
 export function impactLines(usage: MediaUsageDto): string[] {
   const noun = usage.kind === 'video' ? 'video' : 'image';
@@ -46,12 +46,13 @@ export function impactLines(usage: MediaUsageDto): string[] {
   }
   if (places.length > 0) {
     lines.push(`This ${noun} is used by: ${joinPlaces(places)}.`);
+    const single = usage.products.length === 1 ? 'that product' : (places[0] ?? 'there');
     lines.push(
       places.length === 1
-        ? 'Deleting it removes it from there.'
+        ? `Deleting it will remove it from ${single}.`
         : places.length === 2
-          ? 'Deleting it removes it from both.'
-          : `Deleting it removes it from all ${places.length} places.`,
+          ? 'Deleting it will remove it from both.'
+          : `Deleting it will remove it from all ${places.length} places.`,
     );
     const subject = places.length === 1 ? 'It' : 'They';
     lines.push(

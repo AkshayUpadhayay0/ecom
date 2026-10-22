@@ -14,6 +14,8 @@ export interface MediaUsageRows {
  */
 export interface MediaUsageRepository {
   usage(db: Database, assetId: string): Promise<MediaUsageRows>;
+  /** "Used by" for a page of the Media Library (batched, no N+1). */
+  usageMany(db: Database, assetIds: string[]): Promise<Map<string, MediaUsedBy>>;
   /**
    * Detaches the asset from product videos, product images and content blocks, and cancels
    * pending product replacements that contain it. Returns nothing; call usage() before.
@@ -23,8 +25,63 @@ export interface MediaUsageRepository {
   retire(db: Database, assetId: string): Promise<Date>;
 }
 
+export interface MediaUsedBy {
+  products: { id: string; name: string; as: 'video' | 'image' }[];
+  contentBlocks: { key: string }[];
+  pendingReplacements: number;
+}
+
 export function createMediaUsageRepository(): MediaUsageRepository {
   return {
+    async usageMany(db, assetIds) {
+      const result = new Map<string, MediaUsedBy>(
+        assetIds.map((id) => [id, { products: [], contentBlocks: [], pendingReplacements: 0 }]),
+      );
+      if (assetIds.length === 0) return result;
+      const [videos, images, blocks, pending] = await Promise.all([
+        db
+          .selectFrom('products')
+          .select(['id', 'name', 'video_asset_id as assetId'])
+          .where('video_asset_id', 'in', assetIds)
+          .where('deleted_at', 'is', null)
+          .orderBy('name')
+          .execute(),
+        db
+          .selectFrom('product_images as pi')
+          .innerJoin('products as p', 'p.id', 'pi.product_id')
+          .select(['p.id', 'p.name', 'pi.media_asset_id as assetId'])
+          .distinct()
+          .where('pi.media_asset_id', 'in', assetIds)
+          .where('p.deleted_at', 'is', null)
+          .orderBy('p.name')
+          .execute(),
+        db
+          .selectFrom('content_blocks')
+          .select(['block_key as key', 'media_asset_id as assetId'])
+          .where('media_asset_id', 'in', assetIds)
+          .execute(),
+        sql<{ assetId: string; n: number }>`
+          SELECT a.id AS "assetId", count(*)::int AS n
+          FROM unnest(${assetIds}::uuid[]) AS a(id)
+          JOIN product_pending_media pm ON a.id = ANY(pm.asset_ids)
+          GROUP BY a.id`.execute(db),
+      ]);
+      for (const v of videos) {
+        if (v.assetId)
+          result.get(v.assetId)?.products.push({ id: v.id, name: v.name, as: 'video' });
+      }
+      for (const i of images)
+        result.get(i.assetId)?.products.push({ id: i.id, name: i.name, as: 'image' });
+      for (const b of blocks) {
+        if (b.assetId) result.get(b.assetId)?.contentBlocks.push({ key: b.key });
+      }
+      for (const p of pending.rows) {
+        const entry = result.get(p.assetId);
+        if (entry) entry.pendingReplacements = p.n;
+      }
+      return result;
+    },
+
     async usage(db, assetId) {
       const [videoOf, imageOf, blocks, pending, pages] = await Promise.all([
         db

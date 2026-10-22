@@ -8,12 +8,15 @@
     - role admin   -> must get 403 on every Internal / super_admin route and on PATCH/Clear of every
                       restricted setting (incl. media.max_video_bytes and store.timezone)
     - super_admin  -> must pass the role check (GET 200; writes any status except 401/403)
-  It also checks that role admin keeps what the product form needs, and (with -CustomerEmail) that a
-  customer token gets 401 on every /admin route.
+  It also checks that role admin keeps what the product form needs, that the Media Library (open to
+  every admin since 22 Oct 2026) lists public media only for BOTH roles, and (with -CustomerEmail)
+  that a customer token gets 401 on every /admin route and that one evidence photo uploaded as that
+  customer is never listed or readable through the Media Library by either role.
 
   SAFE ON REAL DATA: super_admin write calls use invalid bodies or unknown ids (400/404 after the role
   check), restricted settings are re-saved with their CURRENT value (never cleared as super_admin),
   and POST /admin/media/purge-retired is only called as super_admin with -IncludeDestructive.
+  With -CustomerEmail one tiny private evidence upload is created for that customer (unused).
   Role-admin calls are refused before any handler runs. One pending upload record is created for the
   product-form check (it expires unused).
 
@@ -109,16 +112,12 @@ $pageId = (Invoke-Api -Method Get -Path '/admin/hidden-pages' -Token $superToken
 $groupId = (Invoke-Api -Method Get -Path '/admin/size-chart-groups' -Token $superToken).Json.data[0].id
 $chartId = (Invoke-Api -Method Get -Path "/admin/size-chart-groups/$groupId/charts" -Token $superToken).Json.data[0].id
 $sizeIds = @((Invoke-Api -Method Get -Path '/admin/sizes?pageSize=50' -Token $adminToken).Json.data | ForEach-Object { $_.id })
-$publicAsset = (Invoke-Api -Method Get -Path '/admin/media?visibility=public&status=ready&pageSize=1' -Token $superToken).Json.data
-$assetId = if ($publicAsset) { $publicAsset[0].id } else { [guid]::NewGuid().ToString() }
 $unknown = [guid]::NewGuid().ToString()
 
 # Every Internal / super_admin route (same list as apps/api/test/admin-role-matrix.ts).
 $restricted = @(
-  @{ Name = 'Media Library: browse all';            Method = 'Get';    Path = '/admin/media' },
-  @{ Name = 'Media Library: signed URL';            Method = 'Get';    Path = "/admin/media/$assetId/url"; NoSample = (-not $publicAsset) },
-  @{ Name = 'Media Library: purge one';             Method = 'Post';   Path = "/admin/media/$unknown/purge"; Body = @{} },
-  @{ Name = 'Media Library: purge retired';         Method = 'Post';   Path = '/admin/media/purge-retired'; Body = @{}; Destructive = $true },
+  @{ Name = 'Media: physical purge (one)';          Method = 'Post';   Path = "/admin/media/$unknown/purge"; Body = @{} },
+  @{ Name = 'Media: physical purge (retired)';      Method = 'Post';   Path = '/admin/media/purge-retired'; Body = @{}; Destructive = $true },
   @{ Name = 'Sizes & Charts: chart groups';         Method = 'Get';    Path = '/admin/size-chart-groups' },
   @{ Name = 'Sizes & Charts: chart versions';       Method = 'Get';    Path = "/admin/size-chart-groups/$groupId/charts" },
   @{ Name = 'Sizes & Charts: chart grid';           Method = 'Get';    Path = "/admin/size-charts/$chartId" },
@@ -142,10 +141,6 @@ foreach ($r in $restricted) {
   $ct = if ($r.ContentType) { $r.ContentType } else { 'application/json' }
   $asAdmin = Invoke-Api -Method $r.Method -Path $r.Path -Token $adminToken -Body $r.Body -ContentType $ct
   Add-Result $r.Name 'admin' $asAdmin.Status ($asAdmin.Status -eq 403)
-  if ($r.NoSample) {
-    $results.Add([pscustomobject]@{ Check = $r.Name; As = 'super_admin'; Status = 0; Result = 'SKIPPED (no stored public media to sign)' })
-    continue
-  }
   if ($r.Destructive -and -not $IncludeDestructive) {
     $results.Add([pscustomobject]@{ Check = $r.Name; As = 'super_admin'; Status = 0; Result = 'SKIPPED (use -IncludeDestructive)' })
     continue
@@ -167,6 +162,16 @@ foreach ($s in $settings) {
   Add-Result "Setting edit $($s.key) (same value)" 'super_admin' $superEdit.Status ($superEdit.Status -eq 200)
 }
 
+# Media Library (every admin since 22 Oct 2026): BOTH roles see public media only.
+foreach ($who in @(@{ As = 'admin'; Token = $adminToken }, @{ As = 'super_admin'; Token = $superToken })) {
+  $lib = Invoke-Api -Method Get -Path '/admin/media?pageSize=50' -Token $who.Token
+  $onlyPublic = $lib.Status -eq 200 -and (@($lib.Json.data | Where-Object { $_.visibility -ne 'public' }).Count -eq 0)
+  Add-Result 'Media Library: browse (public media only)' $who.As $lib.Status $onlyPublic
+  $asked = Invoke-Api -Method Get -Path '/admin/media?visibility=private&pageSize=50' -Token $who.Token
+  $stillPublic = $asked.Status -eq 200 -and (@($asked.Json.data | Where-Object { $_.visibility -ne 'public' }).Count -eq 0)
+  Add-Result 'Media Library: asking for private returns none' $who.As $asked.Status $stillPublic
+}
+
 # What the product form needs stays open to role admin.
 $upload = Invoke-Api -Method Post -Path '/admin/media/uploads' -Token $adminToken -Body @{ fileName = 'role-check.jpg'; mimeType = 'image/jpeg'; sizeBytes = 1000 }
 Add-Result 'Product form: upload public media' 'admin' $upload.Status ($upload.Status -eq 201)
@@ -178,6 +183,33 @@ foreach ($p in @('/admin/media/picker?kind=image', '/admin/sizes', '/admin/measu
 }
 $retry = Invoke-Api -Method Post -Path "/admin/media/$unknown/retry" -Token $adminToken -Body @{}
 Add-Result 'Product form: retry route reachable (404 = unknown id)' 'admin' $retry.Status ($retry.Status -ne 401 -and $retry.Status -ne 403)
+
+# Return evidence is never reachable through the general Media Library, for either role.
+if ($customerToken) {
+  # One tiny JPEG (magic bytes FF D8 FF) uploaded as the customer's private evidence.
+  [byte[]]$jpeg = @(0xFF, 0xD8, 0xFF, 0xE0) + (New-Object byte[] 124)
+  $created = Invoke-Api -Method Post -Path '/me/media/uploads' -Token $customerToken -Body @{ fileName = 'role-check-evidence.jpg'; mimeType = 'image/jpeg'; sizeBytes = $jpeg.Length }
+  if ($created.Status -eq 201) {
+    $evidenceId = $created.Json.data.asset.id
+    $put = @{ Uri = $created.Json.data.upload.url; Method = 'Put'; Body = $jpeg; UseBasicParsing = $true; Headers = @{} }
+    foreach ($h in $created.Json.data.upload.headers.PSObject.Properties) {
+      if ($h.Name -eq 'Content-Type') { $put.ContentType = $h.Value }
+      elseif ($h.Name -ne 'Content-Length') { $put.Headers[$h.Name] = $h.Value }
+    }
+    Invoke-WebRequest @put | Out-Null
+    Invoke-Api -Method Post -Path "/me/media/$evidenceId/complete" -Token $customerToken | Out-Null
+    foreach ($who in @(@{ As = 'admin'; Token = $adminToken }, @{ As = 'super_admin'; Token = $superToken })) {
+      $listed = @((Invoke-Api -Method Get -Path '/admin/media?pageSize=50' -Token $who.Token).Json.data | Where-Object { $_.id -eq $evidenceId }).Count
+      Add-Result 'Evidence not listed in the Media Library' $who.As 200 ($listed -eq 0)
+      foreach ($p in @("/admin/media/$evidenceId", "/admin/media/$evidenceId/url", "/admin/media/$evidenceId/usage")) {
+        $res = Invoke-Api -Method Get -Path $p -Token $who.Token
+        Add-Result "Evidence hidden: GET $p" $who.As $res.Status ($res.Status -eq 404)
+      }
+    }
+  } else {
+    Add-Result 'Evidence check: customer evidence upload' 'customer' $created.Status $false
+  }
+}
 
 # Customer token on /admin routes.
 if ($customerToken) {

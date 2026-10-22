@@ -81,8 +81,6 @@ describe.skipIf(!hasTestDatabase)('admin role matrix', () => {
     const unknown = randomUUID();
 
     routes = [
-      { name: 'media library list', method: 'get', path: '/media', superStatus: 200 },
-      { name: 'media signed url', method: 'get', path: `/media/${asset}/url` },
       { name: 'media purge', method: 'post', path: `/media/${asset}/purge`, superStatus: 409 },
       {
         name: 'media purge retired',

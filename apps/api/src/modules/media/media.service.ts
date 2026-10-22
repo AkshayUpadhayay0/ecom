@@ -8,6 +8,7 @@ import {
   type ListMediaQuery,
   type MediaAssetDto,
   type MediaDeletionResultDto,
+  type MediaLibraryItemDto,
   type MediaMimeType,
   type MediaUsageDto,
   type MediaPickerQuery,
@@ -59,7 +60,11 @@ export interface MediaService {
    * 'uploaded' and queues processing. Calling it again after success returns the same asset.
    */
   completeUpload(actor: AuditActor, id: string, scope: MediaScope): Promise<MediaAssetDto>;
-  list(query: ListMediaQuery): Promise<Page<MediaAssetDto>>;
+  /**
+   * Media Library (every admin): public media no customer owns only, for BOTH roles, with
+   * "Used by" per file. Private files / return evidence are never listed here.
+   */
+  list(query: ListMediaQuery): Promise<Page<MediaLibraryItemDto>>;
   /** "Choose existing": public, ready, non-retired media no customer owns. */
   picker(query: MediaPickerQuery): Promise<Page<MediaAssetDto>>;
   get(id: string, scope: MediaScope): Promise<MediaAssetDto>;
@@ -76,7 +81,10 @@ export interface MediaService {
    * for private or customer-owned media, while processing, or while a hidden page uses it.
    */
   delete(actor: AuditActor, id: string, scope: MediaScope): Promise<MediaDeletionResultDto>;
-  /** Public: the CDN URL. Private: a short-lived signed URL. */
+  /**
+   * Library preview link: public media no customer owns only (its CDN URL). Private files and
+   * return evidence are 404 here; admins see evidence only through the return request.
+   */
   getUrlForAdmin(id: string): Promise<MediaUrlDto>;
   /**
    * Private media of this customer only: evidence attached to their return requests, or an
@@ -489,18 +497,37 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
 
     completeCustomerUpload: (customerId, id) => completeCore(id, undefined, customerId),
 
-    list: (query) =>
-      listWith(
+    async list(query) {
+      const page = await listWith(
         {
           kind: query.kind,
           status: query.status,
-          visibility: query.visibility,
+          // Both roles: never private files or customer-owned evidence (decision 22 Oct 2026).
+          visibility: 'public',
+          ownerless: true,
           mimeType: query.mimeType,
           retired: query.retired,
+          unused: query.unused,
           order: query.order ?? 'desc',
         },
         query,
-      ),
+      );
+      const usedBy = await deps.usage.usageMany(
+        db,
+        page.items.map((item) => item.id),
+      );
+      return {
+        items: page.items.map((item) => ({
+          ...item,
+          usedBy: usedBy.get(item.id) ?? {
+            products: [],
+            contentBlocks: [],
+            pendingReplacements: 0,
+          },
+        })),
+        meta: page.meta,
+      };
+    },
 
     picker: (query) =>
       listWith(
@@ -606,6 +633,7 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
 
     async getUrlForAdmin(id) {
       const row = await loadRow(db, id);
+      assertInScope(row, 'product');
       if (row.purgedAt !== null || !ALREADY_COMPLETED.has(row.status)) {
         throw new AppError('INVALID_STATE', HTTP_STATUS.CONFLICT, 'This media has no stored file.');
       }

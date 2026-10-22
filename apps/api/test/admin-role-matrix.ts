@@ -70,7 +70,10 @@ export const ADMIN_ROLE_MATRIX: Record<string, RoleRule> = {
   'GET /admin/variants/:id/stock-movements': 'any_admin',
   'GET /admin/inventory/low-stock': 'any_admin',
 
-  // Product-form media (public product media only for role admin; service scope)
+  // Media Library + product-form media (every admin since 22 Oct 2026). For BOTH roles these
+  // only reach public media no customer owns; private files / evidence are 404 here.
+  'GET /admin/media': 'any_admin',
+  'GET /admin/media/:id/url': 'any_admin',
   'POST /admin/media/uploads': 'any_admin',
   'POST /admin/media/:id/complete': 'any_admin',
   'GET /admin/media/:id': 'any_admin',
@@ -95,9 +98,7 @@ export const ADMIN_ROLE_MATRIX: Record<string, RoleRule> = {
   'GET /admin/settings': 'any_admin',
   'PATCH /admin/settings/:key': 'setting_key',
 
-  // Internal: Media Library
-  'GET /admin/media': 'super_admin',
-  'GET /admin/media/:id/url': 'super_admin',
+  // Physical purge of stored media files (super_admin only)
   'POST /admin/media/:id/purge': 'super_admin',
   'POST /admin/media/purge-retired': 'super_admin',
   // Internal: Sizes & Charts

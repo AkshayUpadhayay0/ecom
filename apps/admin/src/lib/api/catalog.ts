@@ -11,6 +11,7 @@ import {
   type MeasurementProfileDto,
   type MediaAssetDto,
   type MediaDeletionResultDto,
+  type MediaLibraryItemDto,
   type MediaUrlDto,
   type MediaUsageDto,
   type ProductDeletionResultDto,
@@ -84,8 +85,8 @@ export const catalogApi = {
     getList<LowStockVariantDto>('/admin/inventory/low-stock', params),
 
   // Media
-  /** Media Library (super_admin only). */
-  media: (params: ListParams) => getList<MediaAssetDto>('/admin/media', params),
+  /** Media Library (every admin; public media only, with Used by). */
+  media: (params: ListParams) => getList<MediaLibraryItemDto>('/admin/media', params),
   /** "Choose existing" (every admin): public, ready, non-retired media no customer owns. */
   mediaPicker: (params: ListParams) => getList<MediaAssetDto>('/admin/media/picker', params),
   /** Where a public asset is used (what a delete would change). */

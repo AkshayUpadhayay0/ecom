@@ -91,12 +91,9 @@ export const routes: RouteObject[] = [
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'inventory', element: <InventoryPage /> },
       {
+        // Every admin since 22 Oct 2026 (public media only; purge stays super_admin).
         path: 'media',
-        element: (
-          <RequireSuperAdmin>
-            <MediaPage />
-          </RequireSuperAdmin>
-        ),
+        element: <MediaPage />,
       },
       { path: 'delivery', element: <DeliveryPage /> },
       { path: 'settings', element: <SettingsPage /> },

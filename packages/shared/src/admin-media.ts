@@ -51,12 +51,17 @@ export const createEvidenceUploadSchema = z
   .strict();
 export type CreateEvidenceUploadRequest = z.infer<typeof createEvidenceUploadSchema>;
 
+/**
+ * GET /admin/media (Media Library, every admin since 22 Oct 2026). Lists PUBLIC media that no
+ * customer owns only, for both roles: private files and return evidence are never listed here.
+ */
 export const listMediaQuerySchema = paginationQuerySchema.extend({
   kind: z.enum(MEDIA_KINDS).optional(),
   status: z.enum(MEDIA_STATUSES).optional(),
-  visibility: z.enum(MEDIA_VISIBILITIES).optional(),
   mimeType: z.string().trim().toLowerCase().max(100).optional(),
   retired: booleanQuerySchema.optional(),
+  /** true = not used by any product, content block, pending replacement or hidden page. */
+  unused: booleanQuerySchema.optional(),
 });
 export type ListMediaQuery = z.infer<typeof listMediaQuerySchema>;
 
@@ -101,6 +106,16 @@ export interface MediaAssetDto {
   uploadedAt: string | null;
   retiredAt: string | null;
   purgedAt: string | null;
+}
+
+/** A Media Library row: the asset plus where it is used ("Used by"). */
+export interface MediaLibraryItemDto extends MediaAssetDto {
+  usedBy: {
+    products: { id: string; name: string; as: 'video' | 'image' }[];
+    contentBlocks: { key: string }[];
+    /** Pending product replacements containing it. */
+    pendingReplacements: number;
+  };
 }
 
 export interface PresignedUploadDto {

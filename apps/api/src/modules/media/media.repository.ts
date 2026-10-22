@@ -79,6 +79,8 @@ export interface MediaFilters {
   retired?: boolean | undefined;
   /** true = only media no customer owns and not purged (excludes return evidence uploads). */
   ownerless?: boolean | undefined;
+  /** true = not referenced by any product, content block, pending replacement or hidden page. */
+  unused?: boolean | undefined;
   order: 'asc' | 'desc';
 }
 
@@ -199,6 +201,17 @@ export function createMediaRepository(): MediaRepository {
       }
       if (filters.ownerless === true) {
         query = query.where('owner_customer_id', 'is', null).where('purged_at', 'is', null);
+      }
+      if (filters.unused === true) {
+        query = query.where(
+          sql<boolean>`NOT EXISTS (SELECT 1 FROM products p
+                                    WHERE p.video_asset_id = media_assets.id AND p.deleted_at IS NULL)
+            AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.media_asset_id = media_assets.id)
+            AND NOT EXISTS (SELECT 1 FROM content_blocks cb WHERE cb.media_asset_id = media_assets.id)
+            AND NOT EXISTS (SELECT 1 FROM qr_pages q WHERE q.media_asset_id = media_assets.id)
+            AND NOT EXISTS (SELECT 1 FROM product_pending_media pm
+                             WHERE media_assets.id = ANY(pm.asset_ids))`,
+        );
       }
       const [rows, count] = await Promise.all([
         query

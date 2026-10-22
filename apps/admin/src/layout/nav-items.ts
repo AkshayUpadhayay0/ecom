@@ -81,10 +81,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
     activePrefix: '/products',
   },
   { label: 'Inventory', path: '/inventory', icon: Boxes, group: 'main', comingSoon: false },
+  // Media Library: every admin since 22 Oct 2026 (public media only; purge is super_admin).
+  { label: 'Media', path: '/media', icon: Image, group: 'main', comingSoon: false },
   { label: 'Content', path: '/content', icon: FileText, group: 'main', comingSoon: false },
   { label: 'Delivery', path: '/delivery', icon: Truck, group: 'main', comingSoon: false },
   { label: 'Settings', path: '/settings', icon: Settings, group: 'main', comingSoon: false },
-  { label: 'Media Library', path: '/media', icon: Image, group: 'internal', comingSoon: false },
   {
     label: 'Sizes & Charts',
     path: '/sizes/charts',

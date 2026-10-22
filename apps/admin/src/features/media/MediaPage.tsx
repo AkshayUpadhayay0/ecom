@@ -3,9 +3,9 @@ import {
   MEDIA_KINDS,
   MEDIA_MIME_TYPES,
   MEDIA_STATUSES,
-  type MediaAssetDto,
+  type MediaLibraryItemDto,
 } from '@urban-ibile/shared';
-import { ImageIcon, Trash2, Upload } from 'lucide-react';
+import { ImageIcon, RotateCw, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FilterBar, FilterSelect } from '@/components/FilterBar';
@@ -25,18 +25,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
-import { NativeSelect } from '@/components/ui/native-select';
 import { catalogKeys } from '@/features/products/products.queries';
 import { catalogApi, putToStorage } from '@/lib/api/catalog';
 import { formatDateTime } from '@/lib/format';
-import { errorMessage } from '@/lib/notify';
+import { errorMessage, notify } from '@/lib/notify';
 import { humanise, mediaStatusDisplay } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 import { useUrlFilters } from '@/lib/use-url-filters';
-import { DeleteMediaDialog } from './DeleteMediaDialog';
+import { DeleteMediaDialog, type MediaToDelete } from './DeleteMediaDialog';
 import { MediaThumb } from './MediaThumb';
 
-const FILTERS = ['kind', 'status', 'visibility', 'retired'] as const;
+const FILTERS = ['kind', 'status', 'retired', 'unused'] as const;
 const BYTES_PER_MB = 1024 * 1024;
 const ACCEPT = Object.keys(MEDIA_MIME_TYPES).join(',');
 
@@ -56,18 +55,18 @@ function UploadDialog({
   onOpenChange: (o: boolean) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [temporary, setTemporary] = useState(false);
   const [step, setStep] = useState<UploadStep>('idle');
   const [error, setError] = useState<string | null>(null);
   const upload = useAdminMutation(
-    async (input: { file: File; visibility: 'public' | 'private'; temporary: boolean }) => {
+    async (input: { file: File; temporary: boolean }) => {
       setStep('preparing');
       const created = await catalogApi.createUpload({
         fileName: input.file.name,
         mimeType: input.file.type,
         sizeBytes: input.file.size,
-        visibility: input.visibility,
+        // Library uploads are public product / site media (private files never come from here).
+        visibility: 'public',
         isTemporary: input.temporary,
       });
       setStep('uploading');
@@ -85,7 +84,7 @@ function UploadDialog({
     if (!file) return;
     setError(null);
     try {
-      await upload.mutateAsync({ file, visibility, temporary });
+      await upload.mutateAsync({ file, temporary });
       setFile(null);
       onOpenChange(false);
     } catch (err) {
@@ -122,17 +121,8 @@ function UploadDialog({
             {file.name} · {(file.size / BYTES_PER_MB).toFixed(1)} MB · {file.type || 'unknown type'}
           </p>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Visibility" hint="Private files are never public (e.g. evidence).">
-            <NativeSelect
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}
-            >
-              <option value="public">Public (shop)</option>
-              <option value="private">Private</option>
-            </NativeSelect>
-          </Field>
-          <label className="mt-6 flex items-center gap-2 text-sm">
+        <div>
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={temporary}
@@ -166,12 +156,47 @@ function UploadDialog({
   );
 }
 
-function AssetDialog({ asset, onClose }: { asset: MediaAssetDto | null; onClose: () => void }) {
+/** "Indigo Kaftan (product video), the homepage hero" or null when unused. */
+export function usedByText(item: MediaLibraryItemDto): string | null {
+  const places = [
+    ...item.usedBy.products.map((p) => `${p.name} (product ${p.as})`),
+    ...item.usedBy.contentBlocks.map((b) =>
+      b.key === 'home.hero' ? 'the homepage hero' : `the ${b.key} content block`,
+    ),
+  ];
+  if (item.usedBy.pendingReplacements > 0) places.push('a pending product replacement');
+  return places.length > 0 ? places.join(', ') : null;
+}
+
+function RetryButton({ asset }: { asset: MediaLibraryItemDto }) {
+  const retry = useAdminMutation(() => catalogApi.retryMedia(asset.id), {
+    success: 'Processing restarted.',
+    invalidate: [catalogKeys.all],
+  });
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={retry.isPending}
+      onClick={() => retry.mutate(undefined, { onError: (err) => notify.error(err) })}
+    >
+      <RotateCw aria-hidden="true" /> Retry
+    </Button>
+  );
+}
+
+function AssetDialog({
+  asset,
+  onClose,
+}: {
+  asset: MediaLibraryItemDto | null;
+  onClose: () => void;
+}) {
   const stored =
     asset !== null &&
     asset.purgedAt === null &&
     ['uploaded', 'processing', 'ready'].includes(asset.status);
-  // Private files: a short-lived signed URL fetched on demand.
+  // Preview link (the library only holds public media, so this is its CDN URL).
   const url = useQuery({
     queryKey: ['catalog', 'media-url', asset?.id],
     queryFn: () => catalogApi.mediaUrl(asset?.id ?? ''),
@@ -224,11 +249,6 @@ function AssetDialog({ asset, onClose }: { asset: MediaAssetDto | null; onClose:
                 No stored file to preview ({mediaStatusDisplay(asset.status).label}).
               </p>
             )}
-            {url.data?.expiresAt ? (
-              <p className="text-xs text-muted-foreground">
-                Private link expires {formatDateTime(new Date(url.data.expiresAt))}.
-              </p>
-            ) : null}
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-xs text-muted-foreground">Status</dt>
@@ -248,6 +268,10 @@ function AssetDialog({ asset, onClose }: { asset: MediaAssetDto | null; onClose:
                 <dt className="text-xs text-muted-foreground">Renditions</dt>
                 <dd>{asset.renditions.map((r) => r.label).join(', ') || '—'}</dd>
               </div>
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-muted-foreground">Used by</dt>
+                <dd>{usedByText(asset) ?? 'Unused'}</dd>
+              </div>
               {asset.processingError ? (
                 <div className="sm:col-span-2">
                   <dt className="text-xs text-muted-foreground">Processing error</dt>
@@ -255,8 +279,9 @@ function AssetDialog({ asset, onClose }: { asset: MediaAssetDto | null; onClose:
                 </div>
               ) : null}
             </dl>
-            {asset.visibility === 'public' && asset.retiredAt === null ? (
+            {asset.retiredAt === null ? (
               <DialogFooter>
+                {asset.status === 'failed' ? <RetryButton asset={asset} /> : null}
                 <Button variant="outline" onClick={() => setDeleting(true)}>
                   <Trash2 aria-hidden="true" /> Delete
                 </Button>
@@ -307,7 +332,8 @@ export function MediaPage() {
     queryFn: () => catalogApi.media(params),
   });
   const [uploading, setUploading] = useState(false);
-  const [selected, setSelected] = useState<MediaAssetDto | null>(null);
+  const [selected, setSelected] = useState<MediaLibraryItemDto | null>(null);
+  const [deleting, setDeleting] = useState<MediaToDelete | null>(null);
   const [purgeAll, setPurgeAll] = useState(false);
   const purgeRetired = useAdminMutation(() => catalogApi.purgeRetired(), {
     success: (r) =>
@@ -319,7 +345,7 @@ export function MediaPage() {
     <div className="space-y-6">
       <PageHeader
         title="Media"
-        description="Videos and images for products and content. Uploads are processed by the background worker (renditions, posters)."
+        description="Product and site videos and images. Uploads are processed by the background worker (renditions, posters). Private files such as return evidence are never shown here; they stay with their return request."
         actions={
           <>
             <SuperAdminOnly>
@@ -352,13 +378,11 @@ export function MediaPage() {
           options={MEDIA_STATUSES.map((s) => ({ value: s, label: mediaStatusDisplay(s).label }))}
         />
         <FilterSelect
-          label="Visibility"
-          value={values.visibility}
-          onChange={(v) => setFilter('visibility', v)}
-          options={[
-            { value: 'public', label: 'Public' },
-            { value: 'private', label: 'Private' },
-          ]}
+          label="Usage"
+          value={values.unused}
+          onChange={(v) => setFilter('unused', v)}
+          options={[{ value: 'true', label: 'Unused' }]}
+          allLabel="All"
         />
         <FilterSelect
           label="Retired"
@@ -385,7 +409,7 @@ export function MediaPage() {
           {(data) => (
             <ul className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-3 lg:grid-cols-5">
               {data.data.map((asset) => (
-                <li key={asset.id}>
+                <li key={asset.id} className="space-y-1.5">
                   <button
                     type="button"
                     onClick={() => setSelected(asset)}
@@ -397,11 +421,33 @@ export function MediaPage() {
                     </span>
                     <span className="mt-1 flex flex-wrap gap-1">
                       <StatusBadge display={mediaStatusDisplay(asset.status)} />
-                      {asset.visibility === 'private' ? <Badge>Private</Badge> : null}
                       {asset.retiredAt ? <Badge>Retired</Badge> : null}
                       {asset.isTemporary ? <Badge tone="accent">Temporary</Badge> : null}
                     </span>
                   </button>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Used by: </span>
+                    {usedByText(asset) ?? 'Unused'}
+                  </p>
+                  {asset.retiredAt === null ? (
+                    <div className="flex flex-wrap gap-1">
+                      {asset.status === 'failed' ? <RetryButton asset={asset} /> : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Delete ${asset.originalFilename ?? asset.id}`}
+                        onClick={() =>
+                          setDeleting({
+                            id: asset.id,
+                            kind: asset.kind,
+                            name: asset.originalFilename ?? asset.id,
+                          })
+                        }
+                      >
+                        <Trash2 aria-hidden="true" /> Delete
+                      </Button>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -411,6 +457,7 @@ export function MediaPage() {
       {media.data ? <Pagination meta={media.data.meta} onPage={setPage} /> : null}
       <UploadDialog open={uploading} onOpenChange={setUploading} />
       <AssetDialog asset={selected} onClose={() => setSelected(null)} />
+      <DeleteMediaDialog media={deleting} onClose={() => setDeleting(null)} />
       <ConfirmDialog
         open={purgeAll}
         onOpenChange={setPurgeAll}

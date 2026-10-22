@@ -99,11 +99,12 @@ API layering (strict): `routes -> controllers -> services -> repositories`.
     | Area | `admin` | `super_admin` |
     |---|---|---|
     | Dashboard, Orders (status, notes), Returns (all actions incl. responsibility / cause / payer, note required), Payment review (read + resolve, note required), Customers (read), Products, Inventory, Content (hero video; plain-text English footer/policy blocks; publish), Delivery | yes | yes |
-    | Product-form media: create PUBLIC upload, complete, status, retry failed processing, picker (`GET /admin/media/picker`: public, ready, non-retired, not customer-owned), usage (`GET /admin/media/:id/usage`) and delete (`DELETE /admin/media/:id`: detach everywhere + retire; files kept until a super_admin purge; never private/evidence; blocked while processing or used by a hidden page) | yes (public product media only; private / evidence = 404) | yes |
+    | Media Library + product-form media (decision 22 Oct 2026): browse `GET /admin/media` (Used by, `unused` filter), detail, preview URL, PUBLIC upload, complete, retry, picker, usage and delete (`DELETE /admin/media/:id`: detach everywhere + retire; files kept until a super_admin purge; blocked while processing or used by a hidden page). For BOTH roles these reach public media no customer owns only: private files / return evidence are never listed and are 404 by id (evidence only through return requests) | yes | yes (same public-only scope) |
     | `GET /admin/sizes`, `GET /admin/measurement-profiles` (product form) | yes | yes |
     | Settings: `GET` all; `PATCH` only `ADMIN_EDITABLE_SETTING_KEYS` (support.email/phone/whatsapp, social.links, returns.return_address/instructions) | yes | every key |
     | Customer suspend / enable | 403 | yes |
-    | Internal: Media Library (`GET /admin/media`, `/media/:id/url`, purge), Sizes & Charts (`PUT /sizes/order`, chart groups / versions / grids), QR Pages (`/admin/hidden-pages*` incl. content edit), serial import / batches / deactivate, Audit Log | 403 | yes |
+    | Physical media purge (`POST /admin/media/:id/purge`, `/media/purge-retired`) | 403 | yes |
+    | Internal: Sizes & Charts (`PUT /sizes/order`, chart groups / versions / grids), QR Pages (`/admin/hidden-pages*` incl. content edit), serial import / batches / deactivate, Audit Log | 403 | yes |
     | Stats: `failedMediaJobs` | omitted | included |
 
     Every route registered under `/admin` MUST be listed with its rule in `apps/api/test/admin-role-matrix.ts`; `admin-role-matrix.test.ts` fails otherwise and proves each rule over HTTP (role admin 403 on super_admin routes, customer token 401 everywhere). `scripts/role-check.ps1` runs the same checks against a live API with real accounts.
