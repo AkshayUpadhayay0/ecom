@@ -47,6 +47,7 @@ pnpm db:codegen       # generate Kysely types from the live `ecom` database -> a
 pnpm db:test:setup    # create `ecom_test` if missing and apply schema + seed + all migrations
 pnpm admin:create     # create an admin account (prompts; password input is hidden)
 pnpm admin:list       # list admin accounts and their role (admin = client staff, super_admin = developer)
+pnpm admin:reset-password --email <email>   # new password (hidden prompt), signs out every session, audited
 ```
 
 ### Proving the admin role restrictions
@@ -117,25 +118,26 @@ Unit and HTTP tests run without a database; database integration tests are skipp
 
 ## Running
 
-| Command                             | What it does                                               |
-| ----------------------------------- | ---------------------------------------------------------- |
-| `pnpm dev` / `pnpm dev:api`         | API in watch mode at `http://localhost:4000` (pretty logs) |
-| `pnpm dev:admin`                    | Admin panel (Vite) at `http://localhost:5173`              |
-| `pnpm dev:all`                      | API and admin panel together in one terminal               |
-| `pnpm build`                        | Build `packages/shared`, `apps/api` and `apps/admin`       |
-| `pnpm start`                        | Run the compiled API (`pnpm build` first)                  |
-| `pnpm typecheck`                    | TypeScript strict check for every package                  |
-| `pnpm lint` / `pnpm lint:fix`       | ESLint (type-aware)                                        |
-| `pnpm format` / `pnpm format:check` | Prettier                                                   |
-| `pnpm test`                         | Vitest + Supertest (see "Running the tests")               |
-| `pnpm db:codegen`                   | Regenerate Kysely DB types (run after every migration)     |
-| `pnpm db:test:setup`                | Create `ecom_test` if missing and apply all migrations     |
-| `pnpm db:migrate`                   | Apply pending SQL migrations to `ecom`                     |
-| `pnpm worker`                       | Background worker: media + reservation expiry              |
-| `pnpm worker:media`                 | Same worker (old name, kept)                               |
-| `pnpm db:seed`                      | Apply re-runnable sample data from `db/seeds/` to `ecom`   |
-| `pnpm admin:create`                 | Create an admin account interactively                      |
-| `pnpm admin:list`                   | List admin accounts and their role (no secrets)            |
+| Command                                     | What it does                                                 |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `pnpm dev` / `pnpm dev:api`                 | API in watch mode at `http://localhost:4000` (pretty logs)   |
+| `pnpm dev:admin`                            | Admin panel (Vite) at `http://localhost:5173`                |
+| `pnpm dev:all`                              | API and admin panel together in one terminal                 |
+| `pnpm build`                                | Build `packages/shared`, `apps/api` and `apps/admin`         |
+| `pnpm start`                                | Run the compiled API (`pnpm build` first)                    |
+| `pnpm typecheck`                            | TypeScript strict check for every package                    |
+| `pnpm lint` / `pnpm lint:fix`               | ESLint (type-aware)                                          |
+| `pnpm format` / `pnpm format:check`         | Prettier                                                     |
+| `pnpm test`                                 | Vitest + Supertest (see "Running the tests")                 |
+| `pnpm db:codegen`                           | Regenerate Kysely DB types (run after every migration)       |
+| `pnpm db:test:setup`                        | Create `ecom_test` if missing and apply all migrations       |
+| `pnpm db:migrate`                           | Apply pending SQL migrations to `ecom`                       |
+| `pnpm worker`                               | Background worker: media + reservation expiry                |
+| `pnpm worker:media`                         | Same worker (old name, kept)                                 |
+| `pnpm db:seed`                              | Apply re-runnable sample data from `db/seeds/` to `ecom`     |
+| `pnpm admin:create`                         | Create an admin account interactively                        |
+| `pnpm admin:list`                           | List admin accounts and their role (no secrets)              |
+| `pnpm admin:reset-password --email <email>` | Reset an admin's password; revokes all its sessions; audited |
 
 Check it is running:
 
@@ -200,7 +202,9 @@ Zod. Current scope: login, authenticated layout, dashboard; other sections show 
 - Config: copy `apps/admin/.env.example` to `apps/admin/.env.local` (optional in development; the
   default is `http://localhost:4000/api/v1`). The API's `CORS_ORIGINS` must include
   `http://localhost:5173`.
-- Sign-in needs an admin account: `pnpm admin:create`.
+- Sign-in needs an admin account: `pnpm admin:create`. Forgotten or leaked password (any role):
+  `pnpm admin:reset-password --email <email>` (prompts twice, hidden; password rules apply; signs the
+  account out everywhere; writes an `admin.password_reset` audit entry).
 - **Tokens**: the access token is kept in memory only. The refresh token is the API's httpOnly
   `SameSite=Strict` cookie; on page load the panel calls `/admin/auth/refresh` to restore the
   session. Refreshes are single-flight per tab and serialised across tabs (Web Locks), because the

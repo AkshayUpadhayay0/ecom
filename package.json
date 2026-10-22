@@ -27,6 +27,7 @@
     "worker:media": "pnpm --filter @urban-ibile/api worker:media",
     "admin:create": "pnpm --filter @urban-ibile/api admin:create",
     "admin:list": "pnpm --filter @urban-ibile/api admin:list",
+    "admin:reset-password": "pnpm --filter @urban-ibile/api admin:reset-password",
     "content:reset": "pnpm --filter @urban-ibile/api content:reset",
     "payments:simulate-webhook": "pnpm --filter @urban-ibile/api payments:simulate-webhook"
   },

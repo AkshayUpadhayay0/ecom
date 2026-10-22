@@ -198,6 +198,62 @@ describe.skipIf(!hasTestDatabase)('admin auth (/api/v1/admin/auth)', () => {
     });
   });
 
+  describe('reset password (admin:reset-password CLI)', () => {
+    function service() {
+      return buildAdminAuthService(ctx.env, ctx.db, pino({ level: 'silent' }));
+    }
+
+    it('sets the new password, revokes every session and refresh token, clears lockout, audits', async () => {
+      const browser = request.agent(ctx.app);
+      expect((await login(PASSWORD, browser)).status).toBe(200);
+      const otherDevice = await accessToken();
+      await ctx.db
+        .updateTable('admin_users')
+        .set({ failed_login_count: 3, locked_until: new Date(Date.now() + 60_000) })
+        .execute();
+
+      const { admin, revokedSessions } = await service().resetPassword(EMAIL, NEW_PASSWORD);
+      expect(admin.email).toBe(EMAIL);
+      expect(revokedSessions).toBe(2);
+
+      const me = await request(ctx.app)
+        .get(`${ADMIN_AUTH}/me`)
+        .set('Authorization', `Bearer ${otherDevice}`);
+      expect(me.status).toBe(401);
+      expect((await browser.post(`${ADMIN_AUTH}/refresh`).send()).status).toBe(401);
+      expect((await login(PASSWORD)).status).toBe(401);
+      expect((await login(NEW_PASSWORD)).status).toBe(200);
+
+      const audit = await ctx.db
+        .selectFrom('admin_audit_logs')
+        .select(['action', 'entity_type', 'after_data'])
+        .execute();
+      expect(audit).toEqual([
+        {
+          action: 'admin.password_reset',
+          entity_type: 'admin_user',
+          after_data: { mustChangePassword: false, locked: false, revokedSessions: 2, via: 'cli' },
+        },
+      ]);
+      // The audit entry never contains the password or its hash.
+      expect(JSON.stringify(audit)).not.toContain(NEW_PASSWORD);
+    });
+
+    it('enforces the password rules and rejects the current password or an unknown email', async () => {
+      await expect(service().resetPassword(EMAIL, 'password')).rejects.toMatchObject({
+        code: 'WEAK_PASSWORD',
+      } satisfies Partial<AppError>);
+      await expect(service().resetPassword(EMAIL, PASSWORD)).rejects.toMatchObject({
+        code: 'WEAK_PASSWORD',
+      } satisfies Partial<AppError>);
+      await expect(
+        service().resetPassword('nobody@example.com', NEW_PASSWORD),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' } satisfies Partial<AppError>);
+      expect((await login(PASSWORD)).status).toBe(200);
+      expect(await ctx.db.selectFrom('admin_audit_logs').select('action').execute()).toEqual([]);
+    });
+  });
+
   it('requireAdmin blocks admins who must change their password, except where allowed', async () => {
     await ctx.db.updateTable('admin_users').set({ must_change_password: true }).execute();
     const token = await accessToken();

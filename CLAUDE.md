@@ -116,7 +116,7 @@ Do NOT invent pending items. Use configurable structures and clearly marked samp
 
 Pending from the client: ALL General serial numbers, ALL Exclusive/Limited serial numbers, final write-ups for the 8 hidden pages, approved Pidgin copy, Jumia Logistics / delivery arrangement details (do NOT build a Jumia integration from assumptions; keep delivery flexible), support email/phone/WhatsApp and social links (content, not a backend blocker). Also still open: brand colour palette, delivery fees/areas/timing, email provider, hosting provider, customer website framework.
 Team-side decisions (not client blockers): Body Scan provider/SDK, video upload limits/formats, return-policy values and refund procedure, hidden-page grant persistence/TTL (browser cookie vs account), where static English/Pidgin copy lives, when exchange replacement stock is reserved (proposal: at APPROVED), what a customer may do when measurements exceed the chart, serial input tolerance (exact match + trim only today).
-Security housekeeping: the repository previously contained `docs/super_admin_pass.png` (a credential image). Delete it, rotate any affected admin password, purge from git history where practical, and rotate any secret copied into example env files. Never commit credentials.
+Security housekeeping: never commit credentials, keys, `.env` files or screenshots of passwords (`.gitignore` blocks the common patterns; `docs/` images need `git add -f`). A credential that was ever committed must be rotated (admin accounts: `pnpm admin:reset-password --email <email>`, which revokes every session and is audited). Git history is never rewritten without the owner's decision.
 
 ## 6. Code quality
 

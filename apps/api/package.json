@@ -18,6 +18,7 @@
     "worker:media": "tsx --conditions=source src/worker.ts",
     "admin:create": "tsx --conditions=source scripts/admin-create.ts",
     "admin:list": "tsx --conditions=source scripts/admin-list.ts",
+    "admin:reset-password": "tsx --conditions=source scripts/admin-reset-password.ts",
     "content:reset": "tsx --conditions=source scripts/content-reset.ts",
     "payments:simulate-webhook": "tsx --conditions=source scripts/simulate-paystack-webhook.ts"
   },

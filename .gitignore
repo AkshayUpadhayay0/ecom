@@ -11,6 +11,33 @@ coverage/
 .env
 .env.*
 !.env.example
+*.local.env
+
+# credentials, keys and screenshots of them - never commit (use a password manager instead).
+# A legitimate file that matches needs `git add -f` (think twice).
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+*.kdbx
+.npmrc
+docs/**/*pass*
+docs/**/*secret*
+docs/**/*credential*
+docs/**/*token*
+docs/**/*.png
+docs/**/*.jpg
+docs/**/*.jpeg
+docs/**/*.heic
+docs/**/*.webp
+Screenshot*
+screenshot*
+Screen Shot*
 
 # logs
 *.log

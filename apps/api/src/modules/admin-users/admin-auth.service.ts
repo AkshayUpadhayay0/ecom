@@ -51,6 +51,15 @@ export interface AdminAuthService {
   ): Promise<void>;
   /** Used by the `pnpm admin:create` CLI. */
   createAdmin(input: NewAdminInput): Promise<AdminRow>;
+  /**
+   * Used by the `pnpm admin:reset-password` CLI (operator with server access; no HTTP route).
+   * Sets a new password, clears lockout / must-change, revokes EVERY session (all refresh tokens),
+   * and writes an `admin.password_reset` audit entry. Returns the number of revoked sessions.
+   */
+  resetPassword(
+    email: string,
+    newPassword: string,
+  ): Promise<{ admin: AdminRow; revokedSessions: number }>;
 }
 
 export interface AdminAuthServiceDeps {
@@ -166,6 +175,48 @@ export function createAdminAuthService(deps: AdminAuthServiceDeps): AdminAuthSer
           ipAddress,
         });
       });
+    },
+
+    async resetPassword(email, newPassword) {
+      const admin = await repository.findByEmail(db, email);
+      if (!admin) {
+        throw new AppError(
+          'NOT_FOUND',
+          HTTP_STATUS.NOT_FOUND,
+          `No admin account with email ${email}.`,
+        );
+      }
+      if (await verifyPassword(admin.passwordHash, newPassword)) {
+        throw new AppError('WEAK_PASSWORD', HTTP_STATUS.BAD_REQUEST, 'Choose a new password.', {
+          reasons: ['The new password must differ from the current one.'],
+        });
+      }
+      assertPasswordAllowed({
+        password: newPassword,
+        email: admin.email,
+        minLength: deps.passwordMinLength,
+      });
+      const passwordHash = await hashPassword(newPassword);
+
+      const revokedSessions = await db.transaction().execute(async (trx) => {
+        await repository.updatePassword(trx, admin.id, passwordHash);
+        // Sign out every device: all refresh tokens die, and access tokens fail the live-session check.
+        const revoked = await sessions.revokeAllForSubject(trx, admin.id, 'password_reset');
+        await writeAuditLog(trx, {
+          adminId: admin.id,
+          action: 'admin.password_reset',
+          entityType: 'admin_user',
+          entityId: admin.id,
+          before: {
+            mustChangePassword: admin.mustChangePassword,
+            locked: admin.lockedUntil !== null,
+          },
+          after: { mustChangePassword: false, locked: false, revokedSessions: revoked, via: 'cli' },
+          ipAddress: null,
+        });
+        return revoked;
+      });
+      return { admin, revokedSessions };
     },
 
     async createAdmin(input) {
