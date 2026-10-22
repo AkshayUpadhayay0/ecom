@@ -209,6 +209,8 @@ deactivated (`isActive: false`), products are archived.
   shown as "Pending client content" (migration 0013), and published (the column default). No copy
   is written. Two equivalent ways, both through the content service (audit row
   `content_block.text_reset`; super_admin only):
+  - Admin panel: Content -> open the block -> **Reset to default** (visible to super admins only;
+    a confirmation explains what is restored and removed)
   - `pnpm content:reset footer.about --as <super admin email>` (CLI, on the server)
   - `POST /api/v1/admin/content-blocks/footer.about/reset` with a super_admin token
     The hero (`home.hero`, video block) is not reset this way; its seeded copy is "Urban Ibile" /

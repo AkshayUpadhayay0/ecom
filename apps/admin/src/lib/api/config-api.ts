@@ -42,6 +42,9 @@ export const configApi = {
   /** Text blocks only (footer, policies): English plain-text title and body. */
   setBlockText: (key: string, text: UpdateContentTextRequest) =>
     send<ContentBlockDto>('PUT', `/admin/content-blocks/${encodeURIComponent(key)}/text`, text),
+  /** super_admin: text block back to its seeded default (Pending client content, published). */
+  resetBlockText: (key: string) =>
+    send<ContentBlockDto>('POST', `/admin/content-blocks/${encodeURIComponent(key)}/reset`),
   setBlockMedia: (key: string, mediaAssetId: string | null) =>
     send<ContentBlockDto>('PUT', `/admin/content-blocks/${encodeURIComponent(key)}/media`, {
       mediaAssetId,

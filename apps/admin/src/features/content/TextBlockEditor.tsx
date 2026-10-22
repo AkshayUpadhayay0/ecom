@@ -7,11 +7,13 @@ import {
   type ContentBlockDto,
 } from '@urban-ibile/shared';
 import { useState } from 'react';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useIsSuperAdmin } from '@/features/auth/roles';
 import { configApi } from '@/lib/api/config-api';
 import { errorMessage } from '@/lib/notify';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
@@ -38,6 +40,13 @@ export function TextBlockEditor({
     (text: { title: string; body: string }) => configApi.setBlockText(block.key, text),
     { success: 'Content saved.', invalidate: invalidate.map((key) => [...key]) },
   );
+
+  const isSuper = useIsSuperAdmin();
+  const [resetting, setResetting] = useState(false);
+  const reset = useAdminMutation(() => configApi.resetBlockText(block.key), {
+    success: 'Restored the default: Pending client content, published.',
+    invalidate: invalidate.map((key) => [...key]),
+  });
 
   const parsed = updateContentTextSchema.safeParse({ title, body });
   const problem = parsed.success ? null : (parsed.error.issues[0]?.message ?? 'Check the text.');
@@ -96,7 +105,13 @@ export function TextBlockEditor({
           {error}
         </p>
       ) : null}
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {isSuper ? (
+          // Developer recovery (super_admin only; the API refuses others with 403).
+          <Button variant="outline" onClick={() => setResetting(true)}>
+            Reset to default
+          </Button>
+        ) : null}
         <Button
           onClick={() => void submit()}
           disabled={!changed || problem !== null || save.isPending}
@@ -104,6 +119,15 @@ export function TextBlockEditor({
           {save.isPending ? 'Saving…' : block.pending ? 'Save' : 'Update'}
         </Button>
       </div>
+      <ConfirmDialog
+        open={resetting}
+        onOpenChange={setResetting}
+        title={`Reset ${block.key} to its default?`}
+        description="This restores the “Pending client content” placeholder and the published state, and removes the current text. No new text is added. The change is recorded in the audit log."
+        confirmLabel="Reset to default"
+        destructive
+        onConfirm={() => reset.mutateAsync(undefined)}
+      />
       {parts.length > 0 ? (
         <section aria-label="Preview" className="space-y-2 rounded-lg border bg-muted/30 p-4">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
