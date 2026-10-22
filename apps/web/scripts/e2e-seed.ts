@@ -11,6 +11,7 @@
  *
  * Prerequisite: `pnpm db:test:setup` (schema + migrations + reference data in ecom_test).
  */
+import { randomBytes } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -21,7 +22,7 @@ const KEY_PREFIX = 'media/e2e';
 const SLUG_PREFIX = 'e2e-';
 const BULK_PRODUCTS = 25;
 const VIDEO_PRODUCTS = 4;
-export const E2E_MEDIA_DIR = fileURLToPath(new URL('../.e2e-media/', import.meta.url));
+export const E2E_MEDIA_DIR = fileURLToPath(new URL('../e2e-media/', import.meta.url));
 
 interface MediaSet {
   assetId: string;
@@ -54,12 +55,15 @@ async function cleanup(client: pg.Client): Promise<void> {
   await rm(E2E_MEDIA_DIR, { recursive: true, force: true });
 }
 
-async function makeJpeg(color: string, width: number, height: number): Promise<Buffer> {
-  return sharp({ create: { width, height, channels: 3, background: color } })
-    .jpeg()
+async function makeJpeg(_color: string, width: number, height: number): Promise<Buffer> {
+  // Blurred random texture, photo-like in weight: a solid image would be ignored by LCP.
+  const raw = randomBytes(width * height * 3);
+  return sharp(raw, { raw: { width, height, channels: 3 } })
+    .blur(3)
+    .modulate({ brightness: 1.1 })
+    .jpeg({ quality: 70 })
     .toBuffer();
 }
-
 async function makeWebp(color: string, width: number, height: number): Promise<Buffer> {
   return sharp({ create: { width, height, channels: 3, background: color } })
     .webp()

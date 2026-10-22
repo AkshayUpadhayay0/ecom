@@ -13,7 +13,7 @@ const API_PORT = 4010;
 const WEB_PORT = 3100;
 const API_URL = `http://localhost:${API_PORT}`;
 const WEB_URL = `http://localhost:${WEB_PORT}`;
-const MEDIA_DIR = fileURLToPath(new URL('./.e2e-media/', import.meta.url));
+const MEDIA_DIR = fileURLToPath(new URL('./e2e-media/', import.meta.url));
 
 const testDatabaseUrl = resolveTestUrl();
 

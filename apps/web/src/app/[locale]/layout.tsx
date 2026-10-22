@@ -15,13 +15,20 @@ export function generateStaticParams() {
   return allLocales();
 }
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteOrigin()),
-  title: { default: BRAND_NAME, template: `%s | ${BRAND_NAME}` },
-  applicationName: BRAND_NAME,
-  openGraph: { siteName: BRAND_NAME, type: 'website', locale: 'en_NG' },
-};
-
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = getTranslator(toLocale((await params).locale));
+  return {
+    metadataBase: new URL(siteOrigin()),
+    title: { default: BRAND_NAME, template: `%s | ${BRAND_NAME}` },
+    description: t('meta.site_description', { brand: BRAND_NAME }),
+    applicationName: BRAND_NAME,
+    openGraph: { siteName: BRAND_NAME, type: 'website', locale: 'en_NG' },
+  };
+}
 export const viewport: Viewport = {
   themeColor: '#FFFCEB',
   width: 'device-width',

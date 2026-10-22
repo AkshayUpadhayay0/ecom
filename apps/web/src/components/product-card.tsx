@@ -15,11 +15,15 @@ export function ProductCard({
   product,
   locale,
   priority = false,
+  headingLevel = 'h3',
 }: {
   product: PublicProductCardDto;
   locale: Locale;
   priority?: boolean;
+  /** Heading level of the product name: h2 under a page h1, h3 under a section h2. */
+  headingLevel?: 'h2' | 'h3';
 }) {
+  const Heading = headingLevel;
   const t = getTranslator(locale);
   return (
     <article className="group relative flex flex-col" data-testid="product-card">
@@ -30,14 +34,14 @@ export function ProductCard({
         sizes={CARD_SIZES}
       />
       <div className="mt-3 flex flex-1 flex-col gap-1">
-        <h3 className="text-base font-medium leading-snug">
+        <Heading className="text-base font-medium leading-snug">
           <Link
             href={`/products/${product.slug}`}
             className="after:absolute after:inset-0 after:content-[''] hover:underline hover:underline-offset-4"
           >
             {product.name}
           </Link>
-        </h3>
+        </Heading>
         <p className="price text-base font-semibold">
           {formatPrice(product.priceMinor, product.currency)}
         </p>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BRAND_NAME } from '@/brand/brand';
 import { ListControls } from '@/components/list-controls';
 import { Pagination } from '@/components/pagination';
 import { ProductGrid } from '@/components/product-grid';
@@ -14,6 +15,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   // Filtered and paged variants canonicalise to their own URL; sort-only changes to the base.
   return {
     title: t('shop.title'),
+    description: t('meta.shop_description', { brand: BRAND_NAME }),
     alternates: { canonical: listHref(BASE_PATH, { page: state.page, type: state.type }) },
   };
 }

@@ -10,11 +10,13 @@ export function ProductGrid({
   locale,
   label,
   eagerPosters = true,
+  headingLevel = 'h2',
 }: {
   products: PublicProductCardDto[];
   locale: Locale;
   label: string;
   eagerPosters?: boolean;
+  headingLevel?: 'h2' | 'h3';
 }) {
   return (
     <ul
@@ -27,6 +29,7 @@ export function ProductGrid({
             product={product}
             locale={locale}
             priority={eagerPosters && index < EAGER_POSTERS}
+            headingLevel={headingLevel}
           />
         </li>
       ))}

@@ -28,6 +28,7 @@ export const inter = localFont({
   ],
   variable: '--font-inter',
   display: 'swap',
-  preload: true,
+  // Not preloaded: Inter only supplies glyphs Drafting Mono lacks and long text, so it must not compete with the brand font and CSS for the first paint.
+  preload: false,
   fallback: ['system-ui', 'sans-serif'],
 });

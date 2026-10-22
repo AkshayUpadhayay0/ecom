@@ -69,6 +69,9 @@ export const en = {
   'footer.rights': '© {year} {brand}',
   'footer.nav': 'Footer navigation',
 
+  'meta.site_description': 'Shop outfits from {brand}.',
+  'meta.shop_description': 'Browse every outfit from {brand}.',
+
   'language.label': 'Language',
   'language.en': 'English',
   'language.pcm': 'Pidgin',
