@@ -5,6 +5,7 @@ import { BRAND_NAME } from '@/brand/brand';
 import { PIDGIN_ENABLED } from '@/config/env';
 import { getTranslator } from '@/lib/i18n/server';
 import { BrandLogo } from './brand-logo';
+import { HeaderActions } from './header-actions';
 import { LanguageSwitcher } from './language-switcher';
 import { SearchBox } from './search-box';
 
@@ -30,6 +31,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
           </Link>
         </nav>
         {PIDGIN_ENABLED ? <LanguageSwitcher /> : null}
+        <HeaderActions />
         <div className="order-last w-full md:order-none md:ml-auto md:w-80">
           <Suspense fallback={<div className="h-11 border border-ink bg-white" />}>
             <SearchBox />

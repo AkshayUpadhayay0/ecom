@@ -15,12 +15,14 @@
     "e2e:cleanup": "tsx scripts/e2e-seed.ts --cleanup"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
     "@urban-ibile/i18n": "workspace:*",
     "@urban-ibile/shared": "workspace:*",
     "next": "^16.4.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",

@@ -7,6 +7,7 @@ import { siteOrigin } from '@/config/env';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { allLocales, getTranslator, toLocale } from '@/lib/i18n/server';
+import { Providers } from '@/components/providers';
 import { I18nProvider } from '@/lib/i18n/provider';
 import { drafting, inter } from '../fonts';
 import '../globals.css';
@@ -55,14 +56,16 @@ export default async function LocaleLayout({
     >
       <body>
         <I18nProvider locale={locale}>
-          <a className="skip-link" href="#main">
-            {t('a11y.skip_to_content')}
-          </a>
-          <SiteHeader locale={locale} />
-          <main id="main" tabIndex={-1} className="outline-none">
-            {children}
-          </main>
-          <SiteFooter locale={locale} />
+          <Providers>
+            <a className="skip-link" href="#main">
+              {t('a11y.skip_to_content')}
+            </a>
+            <SiteHeader locale={locale} />
+            <main id="main" tabIndex={-1} className="outline-none">
+              {children}
+            </main>
+            <SiteFooter locale={locale} />
+          </Providers>
         </I18nProvider>
       </body>
     </html>

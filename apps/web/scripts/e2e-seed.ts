@@ -19,9 +19,13 @@ import sharp from 'sharp';
 import { databaseName, resolveTestUrl } from './test-db';
 
 const KEY_PREFIX = 'media/e2e';
+const ZONE_CODE = 'e2e-lagos';
+/** Customers the e2e tests register (see tests/e2e/mail.ts): removed on clean-up. */
+const TEST_EMAIL_PATTERN = 'e2e-%@example.test';
 const SLUG_PREFIX = 'e2e-';
 const BULK_PRODUCTS = 25;
 const VIDEO_PRODUCTS = 4;
+export const E2E_MAIL_DIR = fileURLToPath(new URL('../e2e-mail/', import.meta.url));
 export const E2E_MEDIA_DIR = fileURLToPath(new URL('../e2e-media/', import.meta.url));
 
 interface MediaSet {
@@ -52,9 +56,67 @@ async function cleanup(client: pg.Client): Promise<void> {
   );
   await client.query(`DELETE FROM products WHERE slug LIKE $1`, [`${SLUG_PREFIX}%`]);
   await client.query(`DELETE FROM media_assets WHERE original_key LIKE $1`, [`${KEY_PREFIX}/%`]);
+  await purgeTestCustomers(client);
+  await purge(client, 'delivery_zones', 'code = $1', [ZONE_CODE]);
   await rm(E2E_MEDIA_DIR, { recursive: true, force: true });
+  await rm(E2E_MAIL_DIR, { recursive: true, force: true });
 }
 
+interface ForeignKey {
+  child: string;
+  childColumn: string;
+  parentColumn: string;
+}
+
+async function foreignKeysTo(client: pg.Client, table: string): Promise<ForeignKey[]> {
+  const { rows } = await client.query<{ child: string; child_col: string; parent_col: string }>(
+    `SELECT c.conrelid::regclass::text AS child, a.attname AS child_col, af.attname AS parent_col
+       FROM pg_constraint c
+       JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+       JOIN pg_attribute af ON af.attrelid = c.confrelid AND af.attnum = c.confkey[1]
+      WHERE c.contype = 'f' AND c.confrelid = $1::regclass AND array_length(c.conkey, 1) = 1`,
+    [table],
+  );
+  return rows.map((row) => ({
+    child: row.child,
+    childColumn: row.child_col,
+    parentColumn: row.parent_col,
+  }));
+}
+
+/**
+ * Deletes rows of `table` matching `where`, children first (found from the foreign keys).
+ * Triggers are switched off for the transaction (session_replication_role = replica) because
+ * append-only guards (Blueprint decisions, ledgers) would otherwise refuse the clean-up.
+ * Only ever reached for the *_test database (see test-db.ts).
+ */
+async function purge(
+  client: pg.Client,
+  table: string,
+  where: string,
+  params: unknown[],
+  seen = new Set<string>(),
+): Promise<void> {
+  const key = `${table}|${where}`;
+  if (seen.has(key) || seen.size > 200) return;
+  seen.add(key);
+  for (const fk of await foreignKeysTo(client, table)) {
+    await purge(
+      client,
+      fk.child,
+      `${fk.childColumn} IN (SELECT ${fk.parentColumn} FROM ${table} WHERE ${where})`,
+      params,
+      seen,
+    );
+  }
+  await client.query(`DELETE FROM ${table} WHERE ${where}`, params);
+}
+
+async function purgeTestCustomers(client: pg.Client): Promise<void> {
+  await client.query(`SET LOCAL session_replication_role = replica`);
+  await purge(client, 'customers', 'email LIKE $1', [TEST_EMAIL_PATTERN]);
+  await client.query(`SET LOCAL session_replication_role = DEFAULT`);
+}
 async function makeJpeg(_color: string, width: number, height: number): Promise<Buffer> {
   // Blurred random texture, photo-like in weight: a solid image would be ignored by LCP.
   const raw = randomBytes(width * height * 3);
@@ -271,6 +333,12 @@ async function seed(client: pg.Client): Promise<void> {
     ageSeconds: 30_000,
     variants: [[sizeM, 0]],
   });
+
+  // An active delivery zone so addresses can be saved (the real zones are a client decision).
+  await client.query(
+    `INSERT INTO delivery_zones (code, name, fee_minor, est_days_min, est_days_max, is_active, is_sample_data, sort_order)
+     VALUES ('e2e-lagos', 'E2E Lagos', 250000, 1, 2, true, true, 999)`,
+  );
 
   // Hero: published block with a (mock) video and text.
   const hero = await insertVideo(client, 'hero', '#174c3c');
