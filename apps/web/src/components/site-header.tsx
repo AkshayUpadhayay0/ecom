@@ -14,11 +14,18 @@ export function SiteHeader({ locale }: { locale: Locale }) {
   return (
     <header className="border-b border-line bg-ivory">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" aria-label={t('a11y.logo_home', { brand: BRAND_NAME })} className="mr-auto md:mr-0">
+        <Link
+          href="/"
+          aria-label={t('a11y.logo_home', { brand: BRAND_NAME })}
+          className="mr-auto md:mr-0"
+        >
           <BrandLogo />
         </Link>
         <nav aria-label={t('nav.primary')} className="flex items-center gap-5">
-          <Link href="/shop" className="py-2 text-base font-medium underline-offset-4 hover:underline">
+          <Link
+            href="/shop"
+            className="py-2 text-base font-medium underline-offset-4 hover:underline"
+          >
             {t('nav.shop')}
           </Link>
         </nav>

@@ -22,5 +22,7 @@ export function proxy(request: NextRequest): NextResponse {
 
 export const config = {
   // Skip Next internals, the API-free static files and the SEO files.
-  matcher: ['/((?!_next/|api/|fonts/|brand/|favicon|icon|apple-icon|sitemap.xml|robots.txt|.*\\..*).*)'],
+  matcher: [
+    '/((?!_next/|api/|fonts/|brand/|favicon|icon|apple-icon|sitemap.xml|robots.txt|.*\\..*).*)',
+  ],
 };

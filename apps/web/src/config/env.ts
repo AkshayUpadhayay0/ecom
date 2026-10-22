@@ -8,7 +8,9 @@ const DEFAULT_SITE_ORIGIN = 'http://localhost:3000';
 
 /** API root as seen from the server (may be an internal address in production). */
 export function serverApiBase(): string {
-  return stripSlash(process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_ORIGIN);
+  return stripSlash(
+    process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_ORIGIN,
+  );
 }
 
 /** API root as seen from the browser. */

@@ -1,4 +1,6 @@
+import { isLocale } from '@urban-ibile/i18n';
 import type { Metadata, Viewport } from 'next';
+import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { BRAND_NAME } from '@/brand/brand';
 import { siteOrigin } from '@/config/env';
@@ -8,8 +10,6 @@ import { allLocales, getTranslator, toLocale } from '@/lib/i18n/server';
 import { I18nProvider } from '@/lib/i18n/provider';
 import { drafting, inter } from '../fonts';
 import '../globals.css';
-
-export const dynamicParams = false;
 
 export function generateStaticParams() {
   return allLocales();
@@ -35,11 +35,17 @@ export default async function LocaleLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const locale = toLocale((await params).locale);
+  const rawLocale = (await params).locale;
+  // Only locales the proxy can produce exist; anything else (e.g. /fr/...) is a 404.
+  if (!isLocale(rawLocale)) notFound();
+  const locale = toLocale(rawLocale);
   const t = getTranslator(locale);
 
   return (
-    <html lang={locale === 'pcm' ? 'pcm' : 'en'} className={`${drafting.variable} ${inter.variable}`}>
+    <html
+      lang={locale === 'pcm' ? 'pcm' : 'en'}
+      className={`${drafting.variable} ${inter.variable}`}
+    >
       <body>
         <I18nProvider locale={locale}>
           <a className="skip-link" href="#main">

@@ -3,3 +3,5 @@ next-env.d.ts
 playwright-report/
 test-results/
 *.tsbuildinfo
+.e2e-media/
+.next-e2e/

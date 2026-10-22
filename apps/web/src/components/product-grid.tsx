@@ -17,10 +17,17 @@ export function ProductGrid({
   eagerPosters?: boolean;
 }) {
   return (
-    <ul aria-label={label} className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+    <ul
+      aria-label={label}
+      className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4"
+    >
       {products.map((product, index) => (
         <li key={product.id}>
-          <ProductCard product={product} locale={locale} priority={eagerPosters && index < EAGER_POSTERS} />
+          <ProductCard
+            product={product}
+            locale={locale}
+            priority={eagerPosters && index < EAGER_POSTERS}
+          />
         </li>
       ))}
     </ul>

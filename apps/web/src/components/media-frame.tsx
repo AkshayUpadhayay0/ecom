@@ -10,10 +10,14 @@ import { useVideoSlot } from '@/lib/video/use-video-slot';
 /** Smallest image variant at least this wide is used as a card poster fallback. */
 const CARD_IMAGE_MIN_WIDTH = 640;
 
-export function cardPosterUrl(media: PublicGridMediaDto | null, image: PublicImageDto | null): string | null {
+export function cardPosterUrl(
+  media: PublicGridMediaDto | null,
+  image: PublicImageDto | null,
+): string | null {
   if (media?.posterUrl) return media.posterUrl;
   const variants = image?.variants ?? [];
-  const sized = variants.find((v) => (v.width ?? 0) >= CARD_IMAGE_MIN_WIDTH) ?? variants[variants.length - 1];
+  const sized =
+    variants.find((v) => (v.width ?? 0) >= CARD_IMAGE_MIN_WIDTH) ?? variants[variants.length - 1];
   return sized?.url ?? null;
 }
 
@@ -73,7 +77,14 @@ export function MediaFrame({ media, image, priority = false, sizes }: Props) {
       style={{ backgroundColor: media?.dominantColor ?? image?.dominantColor ?? 'var(--ui-line)' }}
     >
       {posterUrl ? (
-        <Image src={posterUrl} alt="" fill sizes={sizes} priority={priority} className="object-cover" />
+        <Image
+          src={posterUrl}
+          alt=""
+          fill
+          sizes={sizes}
+          priority={priority}
+          className="object-cover"
+        />
       ) : null}
       {showVideo && previewUrl ? (
         <video

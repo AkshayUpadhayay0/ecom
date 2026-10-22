@@ -37,7 +37,9 @@ export function Pagination({
   const linkClass = 'grid min-h-11 min-w-11 place-items-center border border-ink px-3';
   return (
     <nav aria-label={t('pagination.label')} className="mt-12">
-      <p className="mb-3 text-sm text-ink-muted">{t('pagination.status', { page: current, total })}</p>
+      <p className="mb-3 text-sm text-ink-muted">
+        {t('pagination.status', { page: current, total })}
+      </p>
       <ul className="flex flex-wrap items-center gap-2">
         {current > 1 ? (
           <li>

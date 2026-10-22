@@ -1,4 +1,4 @@
-import type { en } from './en.js';
+import type { en } from './en';
 
 /** Languages the storefront knows. `pcm` = Nigerian Pidgin (copy supplied by the client's writer). */
 export const LOCALES = ['en', 'pcm'] as const;

@@ -30,9 +30,12 @@ export async function getSiteConfig(): Promise<PublicSiteConfigDto> {
 /** Footer / policy text block. Unknown or unpublished keys come back as null, not as an error. */
 export async function getContentBlock(key: string): Promise<PublicContentBlockDto | null> {
   try {
-    const body = await apiGet<{ data: PublicContentBlockDto }>(`/site/content/${encodeURIComponent(key)}`, {
-      revalidate: CATALOG_REVALIDATE_SECONDS,
-    });
+    const body = await apiGet<{ data: PublicContentBlockDto }>(
+      `/site/content/${encodeURIComponent(key)}`,
+      {
+        revalidate: CATALOG_REVALIDATE_SECONDS,
+      },
+    );
     return body.data;
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
@@ -64,9 +67,12 @@ export async function getClothingTypes(): Promise<PublicClothingTypeDto[]> {
 /** null when the product is unknown, inactive or unsellable (API answers 404). */
 export async function getProduct(slug: string): Promise<PublicProductDetailDto | null> {
   try {
-    const body = await apiGet<{ data: PublicProductDetailDto }>(`/catalog/products/${encodeURIComponent(slug)}`, {
-      revalidate: CATALOG_REVALIDATE_SECONDS,
-    });
+    const body = await apiGet<{ data: PublicProductDetailDto }>(
+      `/catalog/products/${encodeURIComponent(slug)}`,
+      {
+        revalidate: CATALOG_REVALIDATE_SECONDS,
+      },
+    );
     return body.data;
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return null;

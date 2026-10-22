@@ -23,7 +23,12 @@ export function ProductCard({
   const t = getTranslator(locale);
   return (
     <article className="group relative flex flex-col" data-testid="product-card">
-      <MediaFrame media={product.media} image={product.image} priority={priority} sizes={CARD_SIZES} />
+      <MediaFrame
+        media={product.media}
+        image={product.image}
+        priority={priority}
+        sizes={CARD_SIZES}
+      />
       <div className="mt-3 flex flex-1 flex-col gap-1">
         <h3 className="text-base font-medium leading-snug">
           <Link
@@ -33,9 +38,13 @@ export function ProductCard({
             {product.name}
           </Link>
         </h3>
-        <p className="price text-base font-semibold">{formatPrice(product.priceMinor, product.currency)}</p>
+        <p className="price text-base font-semibold">
+          {formatPrice(product.priceMinor, product.currency)}
+        </p>
         {!product.inStock ? (
-          <p className="mt-1 w-fit bg-ink px-2 py-0.5 text-sm text-ivory">{t('product.out_of_stock')}</p>
+          <p className="mt-1 w-fit bg-ink px-2 py-0.5 text-sm text-ivory">
+            {t('product.out_of_stock')}
+          </p>
         ) : null}
       </div>
     </article>

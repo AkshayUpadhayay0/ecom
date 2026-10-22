@@ -64,9 +64,20 @@ export function HeroMedia({ video }: { video: PublicVideoDto }) {
 
   return (
     <>
-      <div className="absolute inset-0" style={{ backgroundColor: video.dominantColor ?? 'var(--ui-ink)' }}>
+      <div
+        className="absolute inset-0"
+        style={{ backgroundColor: video.dominantColor ?? 'var(--ui-ink)' }}
+      >
         {video.posterUrl ? (
-          <Image src={video.posterUrl} alt="" fill priority fetchPriority="high" sizes="100vw" className="object-cover" />
+          <Image
+            src={video.posterUrl}
+            alt=""
+            fill
+            priority
+            fetchPriority="high"
+            sizes="100vw"
+            className="object-cover"
+          />
         ) : null}
         {src ? (
           <video

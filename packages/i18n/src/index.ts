@@ -1,10 +1,10 @@
-import { en } from './en.js';
-import { pcm } from './pcm.js';
-import type { Locale, MessageKey, Messages, MessageParams, PartialMessages } from './types.js';
+import { en } from './en';
+import { pcm } from './pcm';
+import type { Locale, MessageKey, Messages, MessageParams, PartialMessages } from './types';
 
 export { en, pcm };
 export type { Locale, MessageKey, Messages, MessageParams, PartialMessages };
-export { DEFAULT_LOCALE, LOCALES, isLocale } from './types.js';
+export { DEFAULT_LOCALE, LOCALES, isLocale } from './types';
 
 const dictionaries: Record<Locale, PartialMessages> = { en, pcm };
 
@@ -12,7 +12,9 @@ const dictionaries: Record<Locale, PartialMessages> = { en, pcm };
  * Message lookup with a per-key fallback: a key missing (or empty) in the chosen language is
  * answered in English, so an incomplete language file never shows a blank or a raw key.
  */
-export function createTranslator(locale: Locale): (key: MessageKey, params?: MessageParams) => string {
+export function createTranslator(
+  locale: Locale,
+): (key: MessageKey, params?: MessageParams) => string {
   const chosen = dictionaries[locale];
   return (key, params) => {
     const raw = chosen[key] ?? en[key];

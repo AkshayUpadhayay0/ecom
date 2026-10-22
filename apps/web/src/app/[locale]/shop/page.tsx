@@ -8,10 +8,7 @@ import { listHref, parseListState, type RawSearchParams } from '@/lib/list-param
 
 const BASE_PATH = '/shop';
 
-export async function generateMetadata({
-  params,
-  searchParams,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const t = getTranslator(toLocale((await params).locale));
   const state = parseListState(await searchParams);
   // Filtered and paged variants canonicalise to their own URL; sort-only changes to the base.
@@ -36,7 +33,11 @@ export default async function ShopPage({ params, searchParams }: PageProps) {
   const state = parseListState(await searchParams);
 
   const [list, types] = await Promise.all([
-    getProducts({ page: state.page, sort: state.sort, ...(state.type ? { clothingType: state.type } : {}) }),
+    getProducts({
+      page: state.page,
+      sort: state.sort,
+      ...(state.type ? { clothingType: state.type } : {}),
+    }),
     getClothingTypes().catch(() => []),
   ]);
 

@@ -4,7 +4,10 @@ const isProd = process.env.NODE_ENV === 'production';
 const API_DEFAULT = 'http://localhost:4000';
 
 function origins(value: string | undefined, fallback: string[]): URL[] {
-  const list = (value ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const list = (value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   return (list.length > 0 ? list : fallback).map((o) => new URL(o));
 }
 
@@ -43,6 +46,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Separate build folder lets the e2e run build while a dev server uses .next.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   poweredByHeader: false,
   transpilePackages: ['@urban-ibile/i18n', '@urban-ibile/shared'],
   images: {
@@ -51,8 +56,8 @@ const nextConfig: NextConfig = {
       hostname: u.hostname,
       ...(u.port ? { port: u.port } : {}),
     })),
-    // Local-storage dev serves media from localhost; production uses the public CDN host.
-    dangerouslyAllowLocalIP: !isProd,
+    // Local-storage dev/e2e serves media from localhost (NEXT_ALLOW_LOCAL_MEDIA=true outside dev); production uses the public CDN host.
+    dangerouslyAllowLocalIP: !isProd || process.env.NEXT_ALLOW_LOCAL_MEDIA === 'true',
     formats: ['image/avif', 'image/webp'],
   },
   headers() {

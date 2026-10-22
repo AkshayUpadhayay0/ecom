@@ -78,7 +78,15 @@ export function SearchBox() {
           className="grid w-11 place-items-center bg-ink text-ivory"
           aria-label={t('search.submit')}
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <circle cx="11" cy="11" r="6.5" />
             <path d="m16 16 4.5 4.5" strokeLinecap="round" />
           </svg>

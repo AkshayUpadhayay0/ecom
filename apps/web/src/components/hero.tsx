@@ -13,7 +13,8 @@ interface HeroCopy {
 
 function copyFor(hero: PublicHeroDto | null, locale: Locale, fallbackLocale: string): HeroCopy {
   const all = hero?.translations ?? {};
-  const pick = (code: string): Partial<HeroCopy> => (all as Record<string, Partial<HeroCopy> | undefined>)[code] ?? {};
+  const pick = (code: string): Partial<HeroCopy> =>
+    (all as Record<string, Partial<HeroCopy> | undefined>)[code] ?? {};
   const chosen = pick(locale);
   const fallback = pick(fallbackLocale);
   return {

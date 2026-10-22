@@ -26,7 +26,15 @@ class FakeIntersectionObserver {
   }
 }
 
-function Card({ id, pool, enabled = true }: { id: string; pool: VideoSlotPool; enabled?: boolean }) {
+function Card({
+  id,
+  pool,
+  enabled = true,
+}: {
+  id: string;
+  pool: VideoSlotPool;
+  enabled?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const active = useVideoSlot(ref, { enabled, pool });
   return (

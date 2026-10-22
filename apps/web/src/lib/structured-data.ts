@@ -29,7 +29,9 @@ export function productJsonLd(product: PublicProductDetailDto): Record<string, u
       url: `${siteOrigin()}/products/${product.slug}`,
       price: majorUnitsString(product.priceMinor),
       priceCurrency: product.currency,
-      availability: product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      availability: product.inStock
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
     },
   };
 }

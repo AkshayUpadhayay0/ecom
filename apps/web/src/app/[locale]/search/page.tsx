@@ -5,7 +5,12 @@ import { Pagination } from '@/components/pagination';
 import { ProductGrid } from '@/components/product-grid';
 import { searchProducts } from '@/lib/api/public';
 import { getTranslator, toLocale } from '@/lib/i18n/server';
-import { listHref, parseListState, parseSearchQuery, type RawSearchParams } from '@/lib/list-params';
+import {
+  listHref,
+  parseListState,
+  parseSearchQuery,
+  type RawSearchParams,
+} from '@/lib/list-params';
 
 const BASE_PATH = '/search';
 
@@ -42,10 +47,14 @@ export default async function SearchPage({ params, searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-semibold sm:text-4xl">{t('search.heading_for', { query: q })}</h1>
+      <h1 className="text-3xl font-semibold sm:text-4xl">
+        {t('search.heading_for', { query: q })}
+      </h1>
       {!empty ? (
         <>
-          <p className="mt-2 text-ink-muted">{t('search.results_count', { total: result.meta.total })}</p>
+          <p className="mt-2 text-ink-muted">
+            {t('search.results_count', { total: result.meta.total })}
+          </p>
           <div className="mt-6">
             <ListControls basePath={BASE_PATH} state={state} q={q} types={[]} locale={locale} />
           </div>

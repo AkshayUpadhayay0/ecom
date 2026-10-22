@@ -3,14 +3,15 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ProductPlayer } from '@/components/product-player';
-import { PAGE_REVALIDATE_SECONDS } from '@/config/constants';
 import { getProduct } from '@/lib/api/public';
 import { formatPrice } from '@/lib/format/price';
 import { getTranslator, toLocale } from '@/lib/i18n/server';
 import { jsonLdScript, productImageUrls, productJsonLd } from '@/lib/structured-data';
 
-export const revalidate = PAGE_REVALIDATE_SECONDS;
+// Next reads this export statically, so it must be a literal (60 s, as CATALOG_REVALIDATE_SECONDS).
+export const revalidate = 60;
 // Product pages are generated on first visit, then refreshed at most every 60 s.
+export const dynamicParams = true; // slugs are rendered on first visit
 export function generateStaticParams() {
   return [];
 }
@@ -58,12 +59,18 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <article className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd(product)) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd(product)) }}
+      />
       <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr]">
         <div className="space-y-4">
           {video ? <ProductPlayer video={video} name={product.name} /> : null}
           {product.images.length > 0 ? (
-            <ul aria-label={t('product.gallery')} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <ul
+              aria-label={t('product.gallery')}
+              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
+            >
               {product.images.map((image, index) => {
                 const src = image.variants[image.variants.length - 1];
                 if (!src) return null;
@@ -92,11 +99,17 @@ export default async function ProductPage({ params }: PageProps) {
         </div>
 
         <div>
-          <p className="text-sm text-ink-muted">{product.clothingType.name ?? product.clothingType.slug}</p>
+          <p className="text-sm text-ink-muted">
+            {product.clothingType.name ?? product.clothingType.slug}
+          </p>
           <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">{product.name}</h1>
-          <p className="price mt-3 text-2xl font-semibold">{formatPrice(product.priceMinor, product.currency)}</p>
+          <p className="price mt-3 text-2xl font-semibold">
+            {formatPrice(product.priceMinor, product.currency)}
+          </p>
           {!product.inStock ? (
-            <p className="mt-3 w-fit bg-ink px-2 py-0.5 text-sm text-ivory">{t('product.out_of_stock')}</p>
+            <p className="mt-3 w-fit bg-ink px-2 py-0.5 text-sm text-ivory">
+              {t('product.out_of_stock')}
+            </p>
           ) : null}
 
           {product.description ? (
@@ -117,12 +130,16 @@ export default async function ProductPage({ params }: PageProps) {
                 <li
                   key={size.sizeCode}
                   className={`border px-3 py-2 text-sm ${
-                    size.availability === 'out_of_stock' ? 'border-line text-ink-muted' : 'border-ink'
+                    size.availability === 'out_of_stock'
+                      ? 'border-line text-ink-muted'
+                      : 'border-ink'
                   }`}
                 >
                   <span className="font-semibold">{size.sizeCode}</span>
                   <span className="sr-only"> ({size.label}): </span>
-                  <span className="ml-2 text-ink-muted">{t(SIZE_LABEL_KEY[size.availability])}</span>
+                  <span className="ml-2 text-ink-muted">
+                    {t(SIZE_LABEL_KEY[size.availability])}
+                  </span>
                 </li>
               ))}
             </ul>

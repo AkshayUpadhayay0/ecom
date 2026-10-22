@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTranslator, interpolate, missingKeys, en } from './index.js';
+import { createTranslator, interpolate, missingKeys, en } from './index';
 
 describe('i18n', () => {
   it('answers English for en', () => {

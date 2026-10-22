@@ -15,7 +15,9 @@ describe('pickRendition', () => {
     expect(pickRendition(sources, { viewportWidth: 1280, constrained: false })?.label).toBe('720p');
   });
   it('takes the largest on big screens with a good connection', () => {
-    expect(pickRendition(sources, { viewportWidth: 1920, constrained: false })?.label).toBe('1080p');
+    expect(pickRendition(sources, { viewportWidth: 1920, constrained: false })?.label).toBe(
+      '1080p',
+    );
   });
   it('takes the smallest on a constrained connection whatever the screen', () => {
     expect(pickRendition(sources, { viewportWidth: 1920, constrained: true })?.label).toBe('480p');
@@ -28,7 +30,9 @@ describe('pickRendition', () => {
     expect(pickRendition(portrait, { viewportWidth: 390, constrained: false })?.label).toBe('480p');
   });
   it('copes with a single rendition and none', () => {
-    expect(pickRendition(sources.slice(1, 2), { viewportWidth: 1920, constrained: false })?.label).toBe('480p');
+    expect(
+      pickRendition(sources.slice(1, 2), { viewportWidth: 1920, constrained: false })?.label,
+    ).toBe('480p');
     expect(pickRendition([], { viewportWidth: 1920, constrained: false })).toBeUndefined();
   });
 });

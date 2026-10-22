@@ -7,6 +7,8 @@ import { BRAND_NAME } from '@/brand/brand';
  */
 export function BrandLogo({ className = '' }: { className?: string }) {
   return (
-    <span className={`font-display text-xl font-semibold tracking-tight ${className}`}>{BRAND_NAME}</span>
+    <span className={`font-display text-xl font-semibold tracking-tight ${className}`}>
+      {BRAND_NAME}
+    </span>
   );
 }

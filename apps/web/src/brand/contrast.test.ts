@@ -17,7 +17,9 @@ function channel(value: number): number {
 
 function luminance(hex: string): number {
   const n = Number.parseInt(hex.slice(1), 16);
-  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
+  return (
+    0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255)
+  );
 }
 
 export function contrast(a: string, b: string): number {
@@ -29,13 +31,14 @@ const AA_NORMAL = 4.5;
 const AA_LARGE = 3;
 
 describe('colour tokens', () => {
-  it.each(USED_PAIRS.map((p) => [`${p.foreground} on ${p.background} (${p.size}): ${p.usage}`, p] as const))(
-    '%s meets WCAG AA',
-    (_label, pair) => {
-      const ratio = contrast(COLORS[pair.foreground], COLORS[pair.background]);
-      expect(ratio).toBeGreaterThanOrEqual(pair.size === 'large' ? AA_LARGE : AA_NORMAL);
-    },
-  );
+  it.each(
+    USED_PAIRS.map(
+      (p) => [`${p.foreground} on ${p.background} (${p.size}): ${p.usage}`, p] as const,
+    ),
+  )('%s meets WCAG AA', (_label, pair) => {
+    const ratio = contrast(COLORS[pair.foreground], COLORS[pair.background]);
+    expect(ratio).toBeGreaterThanOrEqual(pair.size === 'large' ? AA_LARGE : AA_NORMAL);
+  });
 
   it('never uses Marigold as text on a light background', () => {
     const offenders = USED_PAIRS.filter(

@@ -11,7 +11,8 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/dist/**',
       '**/coverage/**',
-      '**/.next/**',
+      '**/.next*/**',
+      'apps/web/test-results/**',
       'apps/web/next-env.d.ts',
       'apps/web/*.mjs',
       'apps/web/playwright-report/**',
@@ -46,7 +47,7 @@ export default tseslint.config(
   },
   {
     // CLI scripts may print to the terminal.
-    files: ['apps/api/scripts/**/*.ts'],
+    files: ['apps/api/scripts/**/*.ts', 'apps/web/scripts/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
   {

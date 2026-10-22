@@ -28,7 +28,8 @@ export function ListControls({
   locale: Locale;
 }) {
   const t = getTranslator(locale);
-  const href = (change: Partial<ListState>) => listHref(basePath, { ...state, ...change, page: 1, q });
+  const href = (change: Partial<ListState>) =>
+    listHref(basePath, { ...state, ...change, page: 1, q });
   return (
     <div className="space-y-4">
       {types.length > 0 ? (

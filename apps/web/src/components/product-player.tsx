@@ -24,7 +24,10 @@ export function ProductPlayer({ video, name }: { video: PublicVideoDto; name: st
 
   return (
     <div>
-      <div className="w-full overflow-hidden" style={{ aspectRatio: aspect, backgroundColor: video.dominantColor ?? 'var(--ui-ink)' }}>
+      <div
+        className="w-full overflow-hidden"
+        style={{ aspectRatio: aspect, backgroundColor: video.dominantColor ?? 'var(--ui-ink)' }}
+      >
         {/* eslint-disable-next-line jsx-a11y/media-has-caption -- no caption source exists; product videos are visual (muted loops and clips) */}
         <video
           key={src}

@@ -1,4 +1,4 @@
-import type { PartialMessages } from './types.js';
+import type { PartialMessages } from './types';
 
 /**
  * Nigerian Pidgin. Intentionally EMPTY: the approved copy is written by the client's professional

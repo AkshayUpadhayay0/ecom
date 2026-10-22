@@ -1,4 +1,10 @@
-import { DEFAULT_LOCALE, LOCALES, createTranslator, isLocale, type Locale } from '@urban-ibile/i18n';
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  createTranslator,
+  isLocale,
+  type Locale,
+} from '@urban-ibile/i18n';
 
 export type Translate = ReturnType<typeof createTranslator>;
 

@@ -19,7 +19,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     do {
       const list = await getProducts({ page, pageSize: SITEMAP_PAGE_SIZE });
       for (const product of list.data) {
-        entries.push({ url: `${origin}/products/${product.slug}`, changeFrequency: 'weekly', priority: 0.7 });
+        entries.push({
+          url: `${origin}/products/${product.slug}`,
+          changeFrequency: 'weekly',
+          priority: 0.7,
+        });
       }
       totalPages = list.meta.totalPages;
       page += 1;

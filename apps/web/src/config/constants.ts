@@ -6,8 +6,8 @@ export const LANGUAGE_COOKIE = 'ui_lang';
 /** Seconds the server may reuse catalogue/site responses (matches the API's 60 s caching). */
 export const CATALOG_REVALIDATE_SECONDS = 60;
 
-/** Product pages and shop listings are regenerated at most this often. */
-export const PAGE_REVALIDATE_SECONDS = 60;
+/* Page-level 
+evalidate exports are literal 60 (Next needs a static value): keep in step with the above. */
 
 /** How many outfits the homepage shows (desktop / mobile; extra cards are hidden by CSS on mobile). */
 export const HOME_FEATURED_DESKTOP = 8;
