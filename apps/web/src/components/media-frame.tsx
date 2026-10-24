@@ -1,8 +1,8 @@
 'use client';
 
 import type { PublicGridMediaDto, PublicImageDto } from '@urban-ibile/shared';
-import Image from 'next/image';
 import { useCallback, useRef, useState } from 'react';
+import { MediaImage } from '@/components/media-image';
 import { useI18n } from '@/lib/i18n/provider';
 import { useMediaPreferences } from '@/lib/video/use-media-preferences';
 import { useVideoSlot } from '@/lib/video/use-video-slot';
@@ -77,10 +77,10 @@ export function MediaFrame({ media, image, priority = false, sizes }: Props) {
       style={{ backgroundColor: media?.dominantColor ?? image?.dominantColor ?? 'var(--ui-line)' }}
     >
       {posterUrl ? (
-        <Image
+        <MediaImage
           src={posterUrl}
           alt=""
-          fill
+          variants={media?.posterUrl ? undefined : image?.variants}
           sizes={sizes}
           priority={priority}
           className="object-cover"

@@ -1,15 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n/provider';
+import { resetMediaSourcesCache } from '@/config/media-env';
 import { MediaFrame, cardPosterUrl } from './media-frame';
 
-vi.mock('next/image', () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
-}));
-
+const R2 = 'https://pub-0123456789abcdef.r2.dev';
 const media = {
-  posterUrl: 'https://cdn.test/poster.jpg',
-  previewUrl: 'https://cdn.test/preview.mp4',
+  posterUrl: `${R2}/media/video/v1/a1/poster.jpg`,
+  previewUrl: `${R2}/media/video/v1/a1/preview.mp4`,
   mp4: [],
   dominantColor: '#112233',
 };
@@ -47,9 +45,13 @@ function renderFrame() {
 describe('MediaFrame', () => {
   beforeEach(() => {
     vi.stubGlobal('IntersectionObserver', IdleObserver);
+    vi.stubEnv('NEXT_PUBLIC_MEDIA_BASE_URL', R2);
+    resetMediaSourcesCache();
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    resetMediaSourcesCache();
   });
 
   it('starts on the poster with no video loaded', () => {
@@ -58,6 +60,45 @@ describe('MediaFrame', () => {
     expect(container.querySelector('video')).toBeNull();
     expect(container.querySelector('img')?.getAttribute('src')).toBe(media.posterUrl);
     expect(screen.queryByRole('button', { name: 'Play video' })).toBeNull();
+  });
+
+  it('renders an R2-style card (image renditions, no video) without throwing', () => {
+    stubPreferences(false);
+    const image = {
+      dominantColor: '#abcdef',
+      width: 1280,
+      height: 1600,
+      variants: [320, 640, 1280].map((w) => ({
+        width: w,
+        height: w * 1.25,
+        url: `${R2}/media/image/i1/a1/w${w}.webp`,
+      })),
+    };
+    const { container } = render(
+      <I18nProvider locale="en">
+        <MediaFrame media={null} image={image} sizes="50vw" />
+      </I18nProvider>,
+    );
+    const img = container.querySelector('img');
+    expect(img?.getAttribute('src')).toBe(`${R2}/media/image/i1/a1/w640.webp`);
+    expect(img?.getAttribute('srcset')).toBe(
+      image.variants.map((v) => `${v.url} ${v.width}w`).join(', '),
+    );
+    expect(img?.getAttribute('sizes')).toBe('50vw');
+  });
+
+  it('renders no picture for a host that is not the configured media host', () => {
+    stubPreferences(false);
+    const { container } = render(
+      <I18nProvider locale="en">
+        <MediaFrame
+          media={{ ...media, posterUrl: 'https://evil.example/media/video/v1/a1/poster.jpg' }}
+          image={null}
+          sizes="100vw"
+        />
+      </I18nProvider>,
+    );
+    expect(container.querySelector('img')).toBeNull();
   });
 
   it('offers a play button instead of autoplay when reduced motion is on', () => {

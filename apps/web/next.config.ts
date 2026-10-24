@@ -1,22 +1,20 @@
 import type { NextConfig } from 'next';
+import { mediaOriginsOf, mediaSourcesFrom, remotePatternsOf } from './src/config/media';
 
 const isProd = process.env.NODE_ENV === 'production';
 const API_DEFAULT = 'http://localhost:4000';
 
-function origins(value: string | undefined, fallback: string[]): URL[] {
-  const list = (value ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return (list.length > 0 ? list : fallback).map((o) => new URL(o));
-}
-
-/** Hosts that serve media (CDN bucket, or the API itself in local-storage dev). */
-const mediaOrigins = origins(process.env.NEXT_PUBLIC_MEDIA_ORIGINS, [
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? API_DEFAULT,
-]);
+/**
+ * Hosts that serve media: the public media base URL (same value as the API's R2_PUBLIC_BASE_URL),
+ * optional extras, and the API itself for local-storage dev. Only the media path is allowed.
+ */
+const sources = mediaSourcesFrom({
+  mediaBaseUrl: process.env.NEXT_PUBLIC_MEDIA_BASE_URL,
+  extraBaseUrls: process.env.NEXT_PUBLIC_MEDIA_ORIGINS,
+  apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? API_DEFAULT,
+});
 const apiOrigin = new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? API_DEFAULT).origin;
-const mediaSources = mediaOrigins.map((u) => u.origin).join(' ');
+const mediaSources = mediaOriginsOf(sources).join(' ');
 
 // CSP starts in REPORT-ONLY mode: violations show in the browser console without breaking pages.
 // script/style 'unsafe-inline' are needed by Next's inline hydration data until nonces are added.
@@ -51,11 +49,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ['@urban-ibile/i18n', '@urban-ibile/shared'],
   images: {
-    remotePatterns: mediaOrigins.map((u) => ({
-      protocol: u.protocol.replace(':', '') as 'http' | 'https',
-      hostname: u.hostname,
-      ...(u.port ? { port: u.port } : {}),
-    })),
+    // Host AND media path only. MediaImage serves pre-generated renditions unoptimised, so this
+    // is the safety net for any plain next/image use.
+    remotePatterns: remotePatternsOf(sources),
     // Local-storage dev/e2e serves media from localhost (NEXT_ALLOW_LOCAL_MEDIA=true outside dev); production uses the public CDN host.
     dangerouslyAllowLocalIP: !isProd || process.env.NEXT_ALLOW_LOCAL_MEDIA === 'true',
     formats: ['image/avif', 'image/webp'],

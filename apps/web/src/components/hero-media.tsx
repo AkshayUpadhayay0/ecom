@@ -1,7 +1,7 @@
 'use client';
 
 import type { PublicVideoDto } from '@urban-ibile/shared';
-import Image from 'next/image';
+import { MediaImage } from '@/components/media-image';
 import { useEffect, useRef, useState } from 'react';
 import { useRenditionUrl } from '@/lib/video/use-rendition-url';
 import { useI18n } from '@/lib/i18n/provider';
@@ -69,10 +69,9 @@ export function HeroMedia({ video }: { video: PublicVideoDto }) {
         style={{ backgroundColor: video.dominantColor ?? 'var(--ui-ink)' }}
       >
         {video.posterUrl ? (
-          <Image
+          <MediaImage
             src={video.posterUrl}
             alt=""
-            fill
             priority
             fetchPriority="high"
             sizes="100vw"

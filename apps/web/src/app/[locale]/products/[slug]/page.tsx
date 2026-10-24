@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
+import { MediaImage } from '@/components/media-image';
 import { notFound } from 'next/navigation';
 import { PurchasePanel } from '@/components/blueprint/purchase-panel';
 import { ProductPlayer } from '@/components/product-player';
@@ -77,10 +77,10 @@ export default async function ProductPage({ params }: PageProps) {
                     className="relative aspect-[4/5] overflow-hidden"
                     style={{ backgroundColor: image.dominantColor ?? 'var(--ui-line)' }}
                   >
-                    <Image
+                    <MediaImage
                       src={src.url}
+                      variants={image.variants}
                       alt={`${product.name} (${index + 1})`}
-                      fill
                       sizes={IMAGE_SIZES}
                       priority={!video && index === 0}
                       className="object-cover"
