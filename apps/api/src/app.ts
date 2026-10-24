@@ -6,6 +6,7 @@ import type { Env } from './config/env.js';
 import type { Database } from './db/database.js';
 import { corsAllowList } from './middleware/cors.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { privateByDefault } from './middleware/private-cache.js';
 import { notFound } from './middleware/not-found.js';
 import { apiRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
@@ -103,6 +104,8 @@ export function createApp({
   // The Paystack webhook (raw body for the HMAC) is mounted above, before this JSON parser.
   v1.use(express.json({ limit: JSON_BODY_LIMIT }));
   v1.use(cookieParser());
+  // Private by default; only the public storefront and public media files keep their own caching.
+  v1.use(privateByDefault([PUBLIC_CATALOG_PATH, SITE_PATH, LOCAL_MEDIA_PATH]));
 
   const healthService = createHealthService({
     repository: createHealthRepository(db),
