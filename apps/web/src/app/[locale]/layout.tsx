@@ -2,7 +2,7 @@ import { isLocale } from '@urban-ibile/i18n';
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { BRAND_NAME } from '@/brand/brand';
+import { BRAND_NAME, BRAND_NAME_ASCII } from '@/brand/brand';
 import { siteOrigin } from '@/config/env';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
@@ -28,7 +28,9 @@ export async function generateMetadata({
     title: { default: BRAND_NAME, template: `%s | ${BRAND_NAME}` },
     description: t('meta.site_description', { brand: BRAND_NAME }),
     applicationName: BRAND_NAME,
-    openGraph: { siteName: BRAND_NAME, type: 'website', locale: 'en_NG' },
+    // Plain spelling next to the display name, for people who type it without diacritics.
+    keywords: [...new Set([BRAND_NAME_ASCII, BRAND_NAME])],
+    openGraph: { siteName: BRAND_NAME_ASCII, type: 'website', locale: 'en_NG' },
   };
 }
 export const viewport: Viewport = {

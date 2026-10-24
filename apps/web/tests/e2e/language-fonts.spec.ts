@@ -70,3 +70,52 @@ test.describe('prices and fonts', () => {
     expect(manifest.icons).toHaveLength(3);
   });
 });
+
+test.describe('brand name', () => {
+  test('displays the diacritic spelling while metadata keeps the plain one', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/');
+    await expect(page).toHaveTitle('Urban \u00ccb\u00edl\u00e9');
+    await expect(
+      page.getByRole('link', { name: 'Urban \u00ccb\u00edl\u00e9, home' }),
+    ).toBeVisible();
+    await expect(page.locator('footer')).toContainText('Urban \u00ccb\u00edl\u00e9');
+    await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
+      'content',
+      'Urban Ibile',
+    );
+    const keywords = (await page.locator('meta[name="keywords"]').getAttribute('content')) ?? '';
+    expect(keywords).toContain('Urban Ibile');
+    expect(keywords).toContain('Urban \u00ccb\u00edl\u00e9');
+    // URLs stay ASCII.
+    expect(page.url()).toMatch(/^[\x20-\x7e]+$/);
+    expect((await request.get('/robots.txt')).status()).toBe(200);
+  });
+
+  test('the accented letters are drawn by Drafting Mono itself (no fallback font needed)', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => {
+      const holder = document.createElement('div');
+      holder.id = 'glyph-probe';
+      holder.innerHTML =
+        '<h1 id="probe-h1" class="font-display">Urban \u00ccb\u00edl\u00e9</h1>' +
+        '<p id="probe-p" class="font-display font-medium">\u00a9 2026 Urban \u00ccb\u00edl\u00e9</p>';
+      document.body.append(holder);
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('DOM.enable');
+    await cdp.send('CSS.enable');
+    const { root } = await cdp.send('DOM.getDocument');
+    for (const selector of ['#probe-h1', '#probe-p', 'footer .border-t p']) {
+      const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector });
+      const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
+      const families = new Set(fonts.map((font) => font.familyName));
+      expect(families.size, `${selector} uses one face: ${[...families].join(', ')}`).toBe(1);
+    }
+  });
+});

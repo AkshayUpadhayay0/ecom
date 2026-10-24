@@ -1,5 +1,5 @@
 import type { PublicProductDetailDto } from '@urban-ibile/shared';
-import { BRAND_NAME } from '@/brand/brand';
+import { BRAND_NAME_ASCII } from '@/brand/brand';
 import { siteOrigin } from '@/config/env';
 import { majorUnitsString } from '@/lib/format/price';
 
@@ -22,7 +22,7 @@ export function productJsonLd(product: PublicProductDetailDto): Record<string, u
     name: product.name,
     ...(product.description ? { description: product.description } : {}),
     ...(images.length > 0 ? { image: images } : {}),
-    brand: { '@type': 'Brand', name: BRAND_NAME },
+    brand: { '@type': 'Brand', name: BRAND_NAME_ASCII },
     category: product.clothingType.name ?? product.clothingType.slug,
     offers: {
       '@type': 'Offer',
