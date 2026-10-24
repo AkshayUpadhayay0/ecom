@@ -7,6 +7,12 @@ function notFound(): AppError {
   return new AppError('NOT_FOUND', HTTP_STATUS.NOT_FOUND, 'Not found.');
 }
 
+/** send reports unknown, refused or unreadable files with a 4xx status. */
+function isClientError(error: unknown): boolean {
+  const status = (error as { status?: unknown }).status;
+  return typeof status === 'number' && status >= 400 && status < 500;
+}
+
 async function sendObject(
   storage: LocalStorage,
   res: Response,
@@ -26,7 +32,17 @@ async function sendObject(
   // helmet's default same-origin policy would block <img>/<video> from another port.
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   if (bucket === 'private') res.set('Cache-Control', 'private, no-store');
-  res.sendFile(found.path);
+  // Served relative to the bucket folder: the folder itself may start with a dot (the default
+  // .media-local), but a file or folder INSIDE it that starts with a dot is still refused, and the
+  // send module rejects any traversal out of the root.
+  await new Promise<void>((resolve, reject) => {
+    res.sendFile(found.relative, { root: found.root }, (error) => {
+      if (!error) resolve();
+      // send answers 404 for a file it refuses (dot-file inside the root) or cannot find.
+      else if (isClientError(error)) reject(notFound());
+      else reject(error);
+    });
+  });
 }
 
 /**

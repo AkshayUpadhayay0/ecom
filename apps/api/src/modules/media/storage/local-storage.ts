@@ -39,13 +39,27 @@ export class LocalUploadError extends Error {
   }
 }
 
+export interface LocatedObject {
+  path: string;
+  /** Bucket folder: the only place files may be served from. */
+  root: string;
+  /** Key relative to 
+oot (forward slashes). */
+  relative: string;
+  contentType: string;
+}
+
 export interface LocalStorage extends StorageProvider {
   readonly driver: 'local';
   verifyToken(token: string): LocalToken | undefined;
   /** Streams a PUT body to disk, enforcing the token's type and exact length. */
   receiveUpload(token: LocalToken, contentType: string | undefined, body: Readable): Promise<void>;
-  /** Absolute path + content type of an object, or undefined. */
-  locate(bucket: Bucket, key: string): Promise<{ path: string; contentType: string } | undefined>;
+  /**
+   * Where an object lives: the bucket folder (
+oot), the key relative to it, the absolute path and the
+   * content type; undefined when the file does not exist.
+   */
+  locate(bucket: Bucket, key: string): Promise<LocatedObject | undefined>;
 }
 
 export interface LocalStorageConfig {
@@ -168,11 +182,16 @@ export function createLocalStorage(config: LocalStorageConfig): LocalStorage {
     async locate(bucket, key) {
       const path = pathOf(bucket, key);
       try {
-        await stat(path);
+        if (!(await stat(path)).isFile()) return undefined; // a folder is not an object
       } catch {
         return undefined;
       }
-      return { path, contentType: (await readMeta(path)) ?? 'application/octet-stream' };
+      return {
+        path,
+        root: join(root, bucket),
+        relative: key,
+        contentType: (await readMeta(path)) ?? 'application/octet-stream',
+      };
     },
 
     async headObject(bucket, key): Promise<ObjectHead | undefined> {
