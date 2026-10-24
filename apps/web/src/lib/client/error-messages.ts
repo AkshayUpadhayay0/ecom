@@ -31,6 +31,7 @@ const CODE_TO_KEY: Readonly<Record<string, MessageKey>> = {
   INVALID_DELIVERY_ZONE: 'err.INVALID_DELIVERY_ZONE',
   CART_EMPTY: 'err.CART_EMPTY',
   [NETWORK_ERROR_CODE]: 'err.NETWORK_ERROR',
+  UNEXPECTED_RESPONSE: 'err.UNEXPECTED_RESPONSE',
 };
 
 export interface DescribedError {

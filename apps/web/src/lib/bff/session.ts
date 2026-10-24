@@ -81,7 +81,10 @@ export function refreshTokens(refreshToken: string, clientIp?: string): Promise<
 }
 
 export function errorResponse(status: number, code: string, message: string): NextResponse {
-  return NextResponse.json({ error: { code, message, requestId: 'web-bff' } }, { status });
+  return NextResponse.json(
+    { error: { code, message, requestId: 'web-bff' } },
+    { status, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 function passThrough(result: UpstreamResult): NextResponse {

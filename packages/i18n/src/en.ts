@@ -103,6 +103,8 @@ export const en = {
   'form.loading': 'Loading…',
 
   'err.generic': 'Something went wrong. Please try again.',
+  'err.UNEXPECTED_RESPONSE':
+    'The server sent an answer we could not use. Reload the page and try again.',
   'err.NETWORK_ERROR': 'We could not reach the server. Check your connection and try again.',
   'err.VALIDATION_ERROR': 'Please check the details and try again.',
   'err.UNAUTHENTICATED': 'Please sign in to continue.',

@@ -2,6 +2,7 @@ import { COOKIE_NAMES } from '@/lib/auth/cookies';
 import { CSRF_HEADER } from '@/lib/auth/csrf';
 
 const BFF = '/api/bff';
+const HTTP_NOT_MODIFIED = 304;
 /** Fired when the server says the session is gone (refresh failed): the app sends the shopper to login. */
 export const SIGNED_OUT_EVENT = 'ui:signed-out';
 
@@ -59,21 +60,34 @@ export async function bff<T>(path: string, options: BffOptions = {}): Promise<T>
   if (options.json !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') headers[CSRF_HEADER] = await csrfToken();
 
-  let response: Response;
-  try {
-    response = await fetch(`${BFF}/${path}`, {
-      method,
-      headers,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      ...(options.json !== undefined ? { body: JSON.stringify(options.json) } : {}),
-      ...(options.signal ? { signal: options.signal } : {}),
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') throw error;
-    throw new BffError(0, NETWORK_ERROR_CODE, 'Network error');
-  }
+  const attempt = async (cache: RequestCache, bust: boolean): Promise<Response> => {
+    try {
+      return await fetch(
+        `${BFF}/${path}${bust ? `${path.includes('?') ? '&' : '?'}_nc=${Date.now()}` : ''}`,
+        {
+          method,
+          headers,
+          credentials: 'same-origin',
+          cache,
+          ...(options.json !== undefined ? { body: JSON.stringify(options.json) } : {}),
+          ...(options.signal ? { signal: options.signal } : {}),
+        },
+      );
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error;
+      throw new BffError(0, NETWORK_ERROR_CODE, 'Network error');
+    }
+  };
 
+  // "304 Not Modified" has no body and is not an error. The BFF answers private data with
+  // no-store and no ETag, so it should never appear; if a stale cache, proxy or extension still
+  // produces one, ask again bypassing every cache instead of failing.
+  let response = await attempt('no-store', false);
+  if (response.status === HTTP_NOT_MODIFIED) response = await attempt('reload', false);
+  if (response.status === HTTP_NOT_MODIFIED) response = await attempt('reload', true);
+  if (response.status === HTTP_NOT_MODIFIED) {
+    throw new BffError(304, 'UNEXPECTED_RESPONSE', 'Not modified without data');
+  }
   if (response.status === 204 || response.status === 202) return undefined as T;
   let body: unknown = null;
   try {

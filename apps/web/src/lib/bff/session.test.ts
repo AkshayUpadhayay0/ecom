@@ -9,7 +9,7 @@ vi.mock('./upstream', async (importOriginal) => ({
   callApi: (...args: unknown[]) => callApi(...args) as unknown,
 }));
 
-const { forward, refreshTokens } = await import('./session');
+const { errorResponse, forward, refreshTokens } = await import('./session');
 
 function refreshOk(suffix: string) {
   return {
@@ -130,5 +130,58 @@ describe('forward', () => {
     const sent = callApi.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(JSON.stringify(sent)).not.toContain('cookie');
     expect(sent.accessToken).toBe('token');
+  });
+
+  it('every BFF answer (data, API errors, sign-out, refusals) is no-store and has no ETag', async () => {
+    const answers = [
+      { status: 200, body: '{"data":{"lines":[]}}' },
+      { status: 409, body: '{"error":{"code":"INSUFFICIENT_STOCK"}}' },
+      { status: 500, body: '{"error":{"code":"INTERNAL_ERROR"}}' },
+    ];
+    for (const answer of answers) {
+      callApi.mockResolvedValueOnce({
+        ...answer,
+        contentType: 'application/json',
+        setCookies: [],
+      });
+      const response = await forward(requestWith('ui_at=token'), {
+        apiPath: 'cart',
+        search: '',
+        json: undefined,
+        authenticated: true,
+      });
+      expect(response.status).toBe(answer.status);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(response.headers.get('etag')).toBeNull();
+    }
+    const signedOut = await forward(requestWith(''), {
+      apiPath: 'cart',
+      search: '',
+      json: undefined,
+      authenticated: true,
+    });
+    expect(signedOut.headers.get('cache-control')).toBe('no-store');
+    expect(errorResponse(403, 'FORBIDDEN', 'x').headers.get('cache-control')).toBe('no-store');
+    expect(errorResponse(404, 'NOT_FOUND', 'x').headers.get('etag')).toBeNull();
+  });
+
+  it('a conditional request from the browser is not passed on (the API sees a plain request)', async () => {
+    callApi.mockResolvedValue({
+      status: 200,
+      contentType: 'application/json',
+      body: '{"data":[]}',
+      setCookies: [],
+    });
+    const request = new NextRequest('http://localhost:3000/api/bff/cart', {
+      headers: {
+        cookie: 'ui_at=token',
+        'if-none-match': 'W/"abc"',
+        'if-modified-since': 'Sat, 01 Jan 2028 00:00:00 GMT',
+      },
+    });
+    await forward(request, { apiPath: 'cart', search: '', json: undefined, authenticated: true });
+    expect(JSON.stringify(callApi.mock.calls[0]?.[0])).not.toMatch(
+      /if-none-match|if-modified-since/i,
+    );
   });
 });
