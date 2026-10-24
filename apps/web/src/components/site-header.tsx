@@ -20,7 +20,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
           aria-label={t('a11y.logo_home', { brand: BRAND_NAME })}
           className="mr-auto md:mr-0"
         >
-          <BrandLogo />
+          <BrandLogo className="h-6 w-auto sm:h-7" />
         </Link>
         <nav aria-label={t('nav.primary')} className="flex items-center gap-5">
           <Link

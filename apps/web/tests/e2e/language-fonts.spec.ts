@@ -42,8 +42,31 @@ test.describe('prices and fonts', () => {
     expect(new Set(fonts.map((f) => f.familyName)).size).toBeGreaterThanOrEqual(2);
   });
 
-  test('the brand name and accented letters render without tofu', async ({ page }) => {
+  test('uses the supplied logo files and the generated icon set', async ({ page, request }) => {
     await page.goto('/');
-    await expect(page.locator('header')).toContainText('Urban Ibile');
+    await expect(page.locator('header img[src="/brand/wordmark-ink-black.svg"]')).toBeVisible();
+    await expect(page.locator('footer img[src="/brand/seal-warm-ivory.svg"]')).toBeVisible();
+    const icons = await page
+      .locator('head link[rel~="icon"]')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    expect(icons.some((href) => href.includes('icon.svg'))).toBe(true);
+    expect(icons.some((href) => href.includes('favicon.ico'))).toBe(true);
+    await expect(page.locator('head link[rel="apple-touch-icon"]')).toHaveCount(1);
+    await expect(page.locator('head link[rel="manifest"]')).toHaveCount(1);
+
+    for (const path of [
+      '/favicon.ico',
+      '/icon.svg',
+      '/apple-icon.png',
+      '/icons/icon-192.png',
+      '/icons/icon-512.png',
+      '/icons/icon-maskable-512.png',
+    ]) {
+      expect((await request.get(path)).status(), path).toBe(200);
+    }
+    const manifest = (await (await request.get('/manifest.webmanifest')).json()) as {
+      icons: { src: string }[];
+    };
+    expect(manifest.icons).toHaveLength(3);
   });
 });

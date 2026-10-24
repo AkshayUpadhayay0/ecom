@@ -54,7 +54,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
       </div>
       <div className="border-t border-ivory/25">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 text-sm sm:px-6 lg:px-8">
-          <BrandLogo />
+          <BrandLogo variant="seal" className="h-24 w-24" />
           <p>{t('footer.rights', { year: new Date().getFullYear(), brand: BRAND_NAME })}</p>
         </div>
       </div>
