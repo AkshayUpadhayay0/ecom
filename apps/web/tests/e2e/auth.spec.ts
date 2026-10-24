@@ -234,6 +234,26 @@ test.describe('session cookies', () => {
     expect(crossOrigin.status()).toBe(403);
   });
 
+  test('private BFF answers are never cacheable: no-store, no ETag, and a conditional request is a plain 200', async ({
+    page,
+  }) => {
+    await register(page, newTestEmail('headers'));
+    await expect(page).toHaveURL('/');
+    for (const path of ['/api/bff/auth/me', '/api/bff/cart', '/api/bff/me/addresses']) {
+      const first = await page.request.get(path);
+      expect(first.status(), path).toBe(200);
+      expect(first.headers()['cache-control'], path).toBe('no-store');
+      expect(first.headers().etag, path).toBeUndefined();
+      const conditional = await page.request.get(path, { headers: { 'If-None-Match': '*' } });
+      expect(conditional.status(), `${path} conditional`).toBe(200);
+    }
+    // Errors are private too.
+    const refused = await page.request.get('/api/bff/admin/orders');
+    expect(refused.status()).toBe(404);
+    expect(refused.headers()['cache-control']).toBe('no-store');
+    expect(refused.headers().etag).toBeUndefined();
+  });
+
   test('the BFF refuses paths outside its allow-list', async ({ request }) => {
     expect((await request.get('/api/bff/admin/stats/overview')).status()).toBe(404);
     expect((await request.get('/api/bff/checkout/orders')).status()).toBe(404);
