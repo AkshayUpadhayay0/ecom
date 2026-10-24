@@ -72,6 +72,22 @@ test.describe('accounts', () => {
     await expect(summary).toBeFocused();
   });
 
+  test('the password rules from the API are shown upfront and a too-short password is caught', async ({
+    page,
+  }) => {
+    await page.goto('/register');
+    await expect(
+      page.getByText('Use at least 10 characters. Very common passwords are not accepted.'),
+    ).toBeVisible();
+    await page.getByLabel('Full name').fill('Ada Tester');
+    await page.getByLabel('Email').fill(newTestEmail('short-pass'));
+    await page.getByLabel('Password', { exact: true }).fill('short');
+    await page.getByLabel('I accept the terms and conditions.').check();
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(alertBox(page)).toContainText('shorter than the minimum shown above');
+    await expect(page).toHaveURL(/\/register$/);
+  });
+
   test('a logged-out visit to the account page goes to login and comes back after signing in', async ({
     page,
   }) => {

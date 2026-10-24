@@ -165,10 +165,15 @@ The UI shows "No outfits found. Try another word." for `code: "NO_RESULTS"`.
       { "code": "lagos", "name": "Lagos", "feeMinor": 250000, "estDaysMin": 1, "estDaysMax": 2 }
     ],
     "defaultLanguage": "en",
-    "languages": ["en", "pcm"]
+    "languages": ["en", "pcm"],
+    "passwordRules": { "minLength": 10, "maxLength": 128, "rejectsCommonPasswords": true }
   }
 }
 ```
+
+`passwordRules` (additive) tells register / reset-password forms what the API will enforce
+(`minLength` is the server setting `PASSWORD_MIN_LENGTH`; very common passwords are refused whatever
+their length, answer `400 WEAK_PASSWORD`).
 
 `settings` is an explicit allow-list; `null` means "not provided yet". `hero` is `null` when the
 hero block is unpublished; `hero.video` is `null` until a ready public video is assigned. Only

@@ -1,5 +1,6 @@
 import {
   CONTENT_TEXT_LANGUAGE,
+  PASSWORD_MAX_LENGTH,
   PUBLIC_SETTING_KEYS,
   parsePlainText,
   type PublicContentBlockDto,
@@ -30,12 +31,15 @@ export interface SiteConfigServiceDeps {
   db: Database;
   repository: SiteConfigRepository;
   storage: StorageProvider;
+  /** env PASSWORD_MIN_LENGTH: the same value the auth service enforces. */
+  passwordMinLength: number;
 }
 
 export function createSiteConfigService({
   db,
   repository,
   storage,
+  passwordMinLength,
 }: SiteConfigServiceDeps): SiteConfigService {
   return {
     async content(key) {
@@ -87,6 +91,11 @@ export function createSiteConfigService({
         })),
         defaultLanguage,
         languages: languages.map((language) => language.code),
+        passwordRules: {
+          minLength: passwordMinLength,
+          maxLength: PASSWORD_MAX_LENGTH,
+          rejectsCommonPasswords: true,
+        },
       };
     },
   };

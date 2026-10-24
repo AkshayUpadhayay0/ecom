@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_PAGE_SIZE, slugSchema, type Translations } from './admin-common.js';
+import type { PASSWORD_MAX_LENGTH } from './auth.js';
 
 /*
  * Public (customer-facing) API contract, shared by the web app (framework pending) and the React
@@ -164,6 +165,14 @@ export interface PublicHeroDto {
   }>;
 }
 
+/** Password rules the website shows upfront (the API enforces them: weak passwords are refused). */
+export interface PublicPasswordRulesDto {
+  minLength: number;
+  maxLength: typeof PASSWORD_MAX_LENGTH;
+  /** Very common (leaked) passwords are refused whatever their length. */
+  rejectsCommonPasswords: boolean;
+}
+
 export interface PublicSiteConfigDto {
   /** Allow-listed public settings only (NULL = not provided yet). */
   settings: Record<string, unknown>;
@@ -171,6 +180,7 @@ export interface PublicSiteConfigDto {
   deliveryZones: PublicDeliveryZoneDto[];
   defaultLanguage: string;
   languages: string[];
+  passwordRules: PublicPasswordRulesDto;
 }
 
 /** Settings the storefront may read. Everything else stays private. */

@@ -1,6 +1,6 @@
 'use client';
 
-import { registerRequestSchema } from '@urban-ibile/shared';
+import { registerRequestSchema, type PublicPasswordRulesDto } from '@urban-ibile/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,6 +9,8 @@ import { CheckboxField, ErrorSummary, Field, primaryButtonClass } from '@/compon
 import { loginHref } from '@/lib/auth/safe-redirect';
 import { bff } from '@/lib/client/bff';
 import { notifySessionChanged } from '@/lib/client/session';
+import { passwordHint, passwordLengthError } from '@/lib/forms/password-rules';
+import type { FieldErrors } from '@/lib/forms/validate';
 import { blankToUndefined, validate } from '@/lib/forms/validate';
 import { useI18n } from '@/lib/i18n/provider';
 import { PasswordField } from './password-field';
@@ -16,7 +18,14 @@ import { useFormState } from './use-form-state';
 
 const schema = registerRequestSchema.omit({ client: true });
 
-export function RegisterForm({ next }: { next: string }) {
+export function RegisterForm({
+  next,
+  rules,
+}: {
+  next: string;
+  rules: PublicPasswordRulesDto | null;
+}) {
+  const hint = passwordHint(rules);
   const { t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -37,8 +46,11 @@ export function RegisterForm({ next }: { next: string }) {
       acceptTerms,
       ...(blankToUndefined(phone) ? { phone: blankToUndefined(phone) } : {}),
     });
-    if (!result.ok) {
-      form.fail(result.errors);
+    const tooShort = passwordLengthError(password, rules);
+    if (!result.ok || tooShort) {
+      const errors: FieldErrors = result.ok ? {} : { ...result.errors };
+      if (tooShort && !('password' in errors)) errors.password = tooShort;
+      form.fail(errors);
       return;
     }
     form.reset();
@@ -113,7 +125,7 @@ export function RegisterForm({ next }: { next: string }) {
         name="password"
         label={t('auth.field.password')}
         autoComplete="new-password"
-        hint={t('auth.password.hint')}
+        hint={t(hint.key, hint.params)}
         value={password}
         error={form.errors.password}
         onChange={setPassword}

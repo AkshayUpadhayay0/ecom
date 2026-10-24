@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { ResetForm } from '@/components/auth/reset-form';
+import { getSiteConfig, passwordRulesFrom } from '@/lib/api/public';
 import { getTranslator, toLocale } from '@/lib/i18n/server';
 
 export async function generateMetadata({
@@ -23,9 +24,10 @@ export default async function ResetPasswordPage({
   params: Promise<{ locale: string }>;
 }) {
   const t = getTranslator(toLocale((await params).locale));
+  const config = await getSiteConfig().catch(() => null);
   return (
     <AuthShell title={t('auth.reset.title')}>
-      <ResetForm />
+      <ResetForm rules={passwordRulesFrom(config)} />
     </AuthShell>
   );
 }

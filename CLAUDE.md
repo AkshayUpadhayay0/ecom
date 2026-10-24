@@ -151,3 +151,13 @@ Write tests with each feature. Critical areas need strong coverage: auth, invent
 - Phase 7: admin orders (list, filter, detail with Blueprint snapshot, status update, notes), stock adjustments with ledger, Returns/Exchange/Fault-Line (customer request from an order item, private photo evidence, admin review: approve/reject/request info, inspection and restock, exchange reservation)
 - Phase 8: admin panel UI (React) over the admin API, module by module
 - Phase 9: load testing (target 5,000 concurrent users), security review, deployment config
+
+## 10. Known launch blockers
+
+Do not go live until each of these is resolved (status labels as in section 5):
+
+1. **Refresh-token rotation grace window** (Technical Recommendation, needs a decision). The API revokes the whole session when a rotated refresh token is presented again. The website's BFF serialises refreshes inside ONE process only, so run a single web instance until the API accepts the previous refresh token for a few seconds after rotation. See `docs/web-auth-bff.md`.
+2. **Real delivery zones and fees** (Pending Client Decision). Only sample data exists; `pnpm seed:demo` adds one active "Sample zone (temporary)" with a SAMPLE fee for demos and `pnpm seed:demo:remove` removes it. Checkout cannot go live without real areas, fees and timings (and no Jumia integration is built from assumptions).
+3. **Email provider** (Pending Client Decision). Only the MOCK `log` provider exists; the API refuses it in production, so verification, reset and order emails need a real provider first.
+4. **Pidgin copy** (Pending Client Decision). `packages/i18n` has an empty `pcm` file; the switcher stays off (`NEXT_PUBLIC_ENABLE_PIDGIN=false`) until the client's writer supplies approved copy. Never machine-translate.
+5. **Final sizing chart** (Pending Client Decision). The seeded charts and measurement profiles are TEAM DESIGN built from the client's examples; the tailor must confirm them, together with the out-of-range handling and the wording for choosing a different size (`fms.other.*`, Pending Client Wording).

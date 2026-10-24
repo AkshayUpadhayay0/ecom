@@ -430,9 +430,24 @@ describe.skipIf(!hasTestDatabase)('public storefront API', () => {
       expect(res.status).toBe(200);
       const detail = bodyOf<{ data: PublicProductDetailDto }>(res).data;
       expect(detail.sizes).toEqual([
-        { id: expect.any(String) as string, sizeCode: 'M', label: 'Medium', availability: 'out_of_stock' },
-        { id: expect.any(String) as string, sizeCode: 'L', label: 'Large', availability: 'low_stock' },
-        { id: expect.any(String) as string, sizeCode: 'XL', label: 'Extra Large', availability: 'in_stock' },
+        {
+          id: expect.any(String) as string,
+          sizeCode: 'M',
+          label: 'Medium',
+          availability: 'out_of_stock',
+        },
+        {
+          id: expect.any(String) as string,
+          sizeCode: 'L',
+          label: 'Large',
+          availability: 'low_stock',
+        },
+        {
+          id: expect.any(String) as string,
+          sizeCode: 'XL',
+          label: 'Extra Large',
+          availability: 'in_stock',
+        },
       ]);
       expect(detail.blueprint.required).toBe(true);
       expect(detail.blueprint.profile?.measurements.map((m) => m.code)).toEqual([
@@ -508,6 +523,12 @@ describe.skipIf(!hasTestDatabase)('public storefront API', () => {
     ]);
     expect(config).toMatchObject({ defaultLanguage: 'en', languages: ['en', 'pcm'] });
     expect(config.hero?.video).toBeNull();
+    expect(config.passwordRules).toEqual({
+      minLength: expect.any(Number) as number,
+      maxLength: 128,
+      rejectsCommonPasswords: true,
+    });
+    expect(config.passwordRules.minLength).toBeGreaterThanOrEqual(8);
   });
 
   it('never leaks internal fields, stock counts or retired media in any public response', async () => {

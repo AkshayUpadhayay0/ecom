@@ -140,6 +140,8 @@ export const en = {
   'auth.field.new_password': 'New password',
   'auth.field.full_name': 'Full name',
   'auth.field.phone': 'Phone (optional)',
+  'auth.password.rules': 'Use at least {min} characters. Very common passwords are not accepted.',
+  'form.error.password_short': 'This password is shorter than the minimum shown above.',
   'auth.password.hint': 'Use a long, unique password. Very common passwords are not accepted.',
   'auth.password.show': 'Show password',
   'auth.password.hide': 'Hide password',

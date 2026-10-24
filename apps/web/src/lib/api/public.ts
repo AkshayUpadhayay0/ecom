@@ -2,6 +2,7 @@ import type {
   CatalogSort,
   PublicClothingTypeDto,
   PublicContentBlockDto,
+  PublicPasswordRulesDto,
   PublicProductDetailDto,
   PublicProductListDto,
   PublicSearchResultDto,
@@ -78,6 +79,13 @@ export async function getProduct(slug: string): Promise<PublicProductDetailDto |
     if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return null;
     throw error;
   }
+}
+
+/** Password rules for the register / reset forms (null when the API is unreachable). */
+export function passwordRulesFrom(
+  config: PublicSiteConfigDto | null,
+): PublicPasswordRulesDto | null {
+  return config?.passwordRules ?? null;
 }
 
 const DEFAULT_MAX_QUANTITY = 10;

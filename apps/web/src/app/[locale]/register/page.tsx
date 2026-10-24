@@ -5,6 +5,7 @@ import { AuthShell } from '@/components/auth/auth-shell';
 import { RegisterForm } from '@/components/auth/register-form';
 import { COOKIE_NAMES } from '@/lib/auth/cookies';
 import { safeRedirect } from '@/lib/auth/safe-redirect';
+import { getSiteConfig, passwordRulesFrom } from '@/lib/api/public';
 import { getTranslator, toLocale } from '@/lib/i18n/server';
 import type { RawSearchParams } from '@/lib/list-params';
 
@@ -20,12 +21,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function RegisterPage({ params, searchParams }: PageProps) {
   const t = getTranslator(toLocale((await params).locale));
+  const config = await getSiteConfig().catch(() => null);
   const raw = (await searchParams).next;
   const next = safeRedirect(Array.isArray(raw) ? raw[0] : raw);
   if ((await cookies()).get(COOKIE_NAMES.hint)?.value === '1') redirect(next);
   return (
     <AuthShell title={t('auth.register.title')}>
-      <RegisterForm next={next} />
+      <RegisterForm next={next} rules={passwordRulesFrom(config)} />
     </AuthShell>
   );
 }

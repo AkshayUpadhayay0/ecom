@@ -1,10 +1,12 @@
 'use client';
 
-import { resetPasswordRequestSchema } from '@urban-ibile/shared';
+import { resetPasswordRequestSchema, type PublicPasswordRulesDto } from '@urban-ibile/shared';
 import Link from 'next/link';
 import { useState, type SyntheticEvent } from 'react';
 import { ErrorSummary, StatusMessage, primaryButtonClass } from '@/components/ui/form';
 import { bff } from '@/lib/client/bff';
+import { passwordHint, passwordLengthError } from '@/lib/forms/password-rules';
+import type { FieldErrors } from '@/lib/forms/validate';
 import { validate } from '@/lib/forms/validate';
 import { useI18n } from '@/lib/i18n/provider';
 import { PasswordField } from './password-field';
@@ -13,7 +15,8 @@ import { useFormState } from './use-form-state';
 
 const schema = resetPasswordRequestSchema.pick({ newPassword: true });
 
-export function ResetForm() {
+export function ResetForm({ rules }: { rules: PublicPasswordRulesDto | null }) {
+  const hint = passwordHint(rules);
   const { t } = useI18n();
   const { token, ready } = useUrlToken();
   const form = useFormState();
@@ -24,8 +27,11 @@ export function ResetForm() {
     event.preventDefault();
     if (form.submitting || !token) return;
     const result = validate(schema, { newPassword });
-    if (!result.ok) {
-      form.fail(result.errors);
+    const tooShort = passwordLengthError(newPassword, rules);
+    if (!result.ok || tooShort) {
+      const errors: FieldErrors = result.ok ? {} : { ...result.errors };
+      if (tooShort && !('newPassword' in errors)) errors.newPassword = tooShort;
+      form.fail(errors);
       return;
     }
     form.reset();
@@ -85,7 +91,7 @@ export function ResetForm() {
         name="newPassword"
         label={t('auth.field.new_password')}
         autoComplete="new-password"
-        hint={t('auth.password.hint')}
+        hint={t(hint.key, hint.params)}
         value={newPassword}
         error={form.errors.newPassword}
         onChange={setNewPassword}

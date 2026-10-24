@@ -174,7 +174,12 @@ export function createApp({
   v1.use(
     SITE_PATH,
     createSiteConfigRouter(
-      createSiteConfigService({ db, repository: createSiteConfigRepository(), storage }),
+      createSiteConfigService({
+        db,
+        repository: createSiteConfigRepository(),
+        storage,
+        passwordMinLength: env.PASSWORD_MIN_LENGTH,
+      }),
       publicLimit(),
       env.PUBLIC_CACHE_MAX_AGE_SECONDS,
     ),

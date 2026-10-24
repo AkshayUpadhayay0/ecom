@@ -14,6 +14,8 @@
     "db:test:setup": "tsx scripts/setup-test-db.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo:remove": "tsx scripts/seed-demo.ts --remove",
     "worker": "tsx --conditions=source src/worker.ts",
     "worker:media": "tsx --conditions=source src/worker.ts",
     "admin:create": "tsx --conditions=source scripts/admin-create.ts",
