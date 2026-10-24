@@ -1,9 +1,9 @@
-import type { SizeAvailability } from '@urban-ibile/shared';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
+import { PurchasePanel } from '@/components/blueprint/purchase-panel';
 import { ProductPlayer } from '@/components/product-player';
-import { getProduct } from '@/lib/api/public';
+import { getProduct, getSiteConfig, maxQuantityFrom, supportFrom } from '@/lib/api/public';
 import { formatPrice } from '@/lib/format/price';
 import { getTranslator, toLocale } from '@/lib/i18n/server';
 import { jsonLdScript, productImageUrls, productJsonLd } from '@/lib/structured-data';
@@ -19,12 +19,6 @@ export function generateStaticParams() {
 interface PageProps {
   params: Promise<{ locale: string; slug: string }>;
 }
-
-const SIZE_LABEL_KEY = {
-  in_stock: 'size.in_stock',
-  low_stock: 'size.low_stock',
-  out_of_stock: 'size.out_of_stock',
-} as const satisfies Record<SizeAvailability, string>;
 
 const DESCRIPTION_LIMIT = 160;
 const IMAGE_SIZES = '(min-width: 1024px) 45vw, 100vw';
@@ -52,7 +46,10 @@ export default async function ProductPage({ params }: PageProps) {
   const { locale: rawLocale, slug } = await params;
   const locale = toLocale(rawLocale);
   const t = getTranslator(locale);
-  const product = await getProduct(slug);
+  const [product, config] = await Promise.all([
+    getProduct(slug),
+    getSiteConfig().catch(() => null),
+  ]);
   if (!product) notFound();
 
   const video = product.videos[0] ?? null;
@@ -121,30 +118,16 @@ export default async function ProductPage({ params }: PageProps) {
             </section>
           ) : null}
 
-          <section aria-labelledby="sizes" className="mt-8">
-            <h2 id="sizes" className="text-lg font-semibold">
-              {t('product.sizes')}
-            </h2>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {product.sizes.map((size) => (
-                <li
-                  key={size.sizeCode}
-                  className={`border px-3 py-2 text-sm ${
-                    size.availability === 'out_of_stock'
-                      ? 'border-line text-ink-muted'
-                      : 'border-ink'
-                  }`}
-                >
-                  <span className="font-semibold">{size.sizeCode}</span>
-                  <span className="sr-only"> ({size.label}): </span>
-                  <span className="ml-2 text-ink-muted">
-                    {t(SIZE_LABEL_KEY[size.availability])}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
+          <div className="mt-8">
+            <PurchasePanel
+              productId={product.id}
+              slug={product.slug}
+              sizes={product.sizes}
+              blueprintRequired={product.blueprint.required}
+              maxQuantity={maxQuantityFrom(config)}
+              support={supportFrom(config)}
+            />
+          </div>
           <section aria-label="Blueprint" className="mt-8 border-l-4 border-emerald pl-4">
             {product.blueprint.required && product.blueprint.profile ? (
               <>
@@ -158,12 +141,6 @@ export default async function ProductPage({ params }: PageProps) {
               <p>{t('product.blueprint_none')}</p>
             )}
           </section>
-
-          {/*
-            W2/W3 EXTENSION POINT: "Find My Size" (Blueprint, W2) and "Add to cart" (W3) belong here,
-            between the Blueprint note above and the end of this column. Both need a signed-in
-            customer, so no buttons are rendered in W1.
-          */}
         </div>
       </div>
     </article>

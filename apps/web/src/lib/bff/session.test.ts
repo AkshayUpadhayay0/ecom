@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { NextRequest } from 'next/server';
+import type * as Upstream from './upstream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const callApi = vi.fn();
 vi.mock('./upstream', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./upstream')>()),
+  ...(await importOriginal<typeof Upstream>()),
   callApi: (...args: unknown[]) => callApi(...args) as unknown,
 }));
 
@@ -73,14 +74,12 @@ describe('forward', () => {
   });
 
   it('renews an expired access token from the refresh cookie and retries once', async () => {
-    callApi
-      .mockResolvedValueOnce(refreshOk('2'))
-      .mockResolvedValueOnce({
-        status: 200,
-        contentType: 'application/json',
-        body: '{"data":{"lines":[]}}',
-        setCookies: [],
-      });
+    callApi.mockResolvedValueOnce(refreshOk('2')).mockResolvedValueOnce({
+      status: 200,
+      contentType: 'application/json',
+      body: '{"data":{"lines":[]}}',
+      setCookies: [],
+    });
     const response = await forward(requestWith('ui_rt=old-token-renew'), {
       apiPath: 'cart',
       search: '',

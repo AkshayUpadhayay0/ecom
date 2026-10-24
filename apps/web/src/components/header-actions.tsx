@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useHasSession } from '@/lib/client/session';
+import { CartButton } from '@/components/cart/cart-button';
 import { useI18n } from '@/lib/i18n/provider';
 
 /** Account / sign-in link in the header (cart button joins it with the cart step). */
@@ -25,6 +26,7 @@ export function HeaderActions() {
           {t('nav.sign_in')}
         </Link>
       )}
+      <CartButton />
     </nav>
   );
 }

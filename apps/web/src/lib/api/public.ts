@@ -80,6 +80,28 @@ export async function getProduct(slug: string): Promise<PublicProductDetailDto |
   }
 }
 
+const DEFAULT_MAX_QUANTITY = 10;
+
+function textSetting(config: PublicSiteConfigDto | null, key: string): string | null {
+  const value = config?.settings[key];
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+/** Support contacts from the site settings (null while the client has not supplied them). */
+export function supportFrom(config: PublicSiteConfigDto | null) {
+  return {
+    email: textSetting(config, 'support.email'),
+    phone: textSetting(config, 'support.phone'),
+    whatsapp: textSetting(config, 'support.whatsapp'),
+  };
+}
+
+/** Per-line quantity limit (setting cart.max_quantity_per_item). */
+export function maxQuantityFrom(config: PublicSiteConfigDto | null): number {
+  const value = config?.settings['cart.max_quantity_per_item'];
+  return typeof value === 'number' && value > 0 ? value : DEFAULT_MAX_QUANTITY;
+}
+
 /** Page size the catalogue uses (setting catalog.page_size); never hard-coded in the UI. */
 export function pageSizeFrom(config: PublicSiteConfigDto): number | undefined {
   const value = config.settings['catalog.page_size'];

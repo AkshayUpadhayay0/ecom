@@ -170,7 +170,9 @@ test.describe('session cookies', () => {
     expect(visible).not.toContain('ui_at');
     expect(visible).not.toContain('ui_rt');
     const stored = await page.evaluate(
-      () => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }),
+      () =>
+        JSON.stringify(Object.entries(localStorage)) +
+        JSON.stringify(Object.entries(sessionStorage)),
     );
     expect(stored).not.toMatch(/eyJ/); // no JWT anywhere in web storage
   });
