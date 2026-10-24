@@ -46,22 +46,17 @@ async function cleanup(client: pg.Client): Promise<void> {
      WHERE media_asset_id IN (SELECT id FROM media_assets WHERE original_key LIKE $1)`,
     [`${KEY_PREFIX}/%`],
   );
-  await client.query(
-    `DELETE FROM product_images WHERE product_id IN (SELECT id FROM products WHERE slug LIKE $1)`,
-    [`${SLUG_PREFIX}%`],
-  );
-  await client.query(
-    `DELETE FROM product_variants WHERE product_id IN (SELECT id FROM products WHERE slug LIKE $1)`,
-    [`${SLUG_PREFIX}%`],
-  );
-  await client.query(`DELETE FROM products WHERE slug LIKE $1`, [`${SLUG_PREFIX}%`]);
-  await client.query(`DELETE FROM media_assets WHERE original_key LIKE $1`, [`${KEY_PREFIX}/%`]);
-  await purgeTestCustomers(client);
+  // Customers first (their carts and Blueprint decisions reference the products), then products,
+  // then the zone. purge() walks the foreign keys, with triggers off for append-only tables.
+  await client.query(`SET LOCAL session_replication_role = replica`);
+  await purge(client, 'customers', 'email LIKE $1', [TEST_EMAIL_PATTERN]);
+  await purge(client, 'products', 'slug LIKE $1', [`${SLUG_PREFIX}%`]);
   await purge(client, 'delivery_zones', 'code = $1', [ZONE_CODE]);
+  await client.query(`SET LOCAL session_replication_role = DEFAULT`);
+  await client.query(`DELETE FROM media_assets WHERE original_key LIKE $1`, [`${KEY_PREFIX}/%`]);
   await rm(E2E_MEDIA_DIR, { recursive: true, force: true });
   await rm(E2E_MAIL_DIR, { recursive: true, force: true });
 }
-
 interface ForeignKey {
   child: string;
   childColumn: string;
@@ -84,38 +79,34 @@ async function foreignKeysTo(client: pg.Client, table: string): Promise<ForeignK
   }));
 }
 
+/** Deepest foreign-key chain followed when removing test data (guards against cycles). */
+const MAX_PURGE_DEPTH = 8;
+
 /**
- * Deletes rows of `table` matching `where`, children first (found from the foreign keys).
- * Triggers are switched off for the transaction (session_replication_role = replica) because
- * append-only guards (Blueprint decisions, ledgers) would otherwise refuse the clean-up.
- * Only ever reached for the *_test database (see test-db.ts).
+ * Deletes the rows of `table` matching `where`, then the rows that reference them (found from the
+ * foreign keys), using the key values of the deleted rows: a few small queries per table instead of
+ * nested sub-selects. Triggers and foreign-key checks are switched off for the transaction
+ * (session_replication_role = replica) because append-only guards (Blueprint decisions, ledgers)
+ * would otherwise refuse the clean-up. Only ever reached for the *_test database (see test-db.ts).
  */
 async function purge(
   client: pg.Client,
   table: string,
   where: string,
   params: unknown[],
-  seen = new Set<string>(),
+  depth = 0,
 ): Promise<void> {
-  const key = `${table}|${where}`;
-  if (seen.has(key) || seen.size > 200) return;
-  seen.add(key);
+  const { rows } = await client.query<Record<string, unknown>>(
+    `DELETE FROM ${table} WHERE ${where} RETURNING *`,
+    params,
+  );
+  if (rows.length === 0 || depth >= MAX_PURGE_DEPTH) return;
   for (const fk of await foreignKeysTo(client, table)) {
-    await purge(
-      client,
-      fk.child,
-      `${fk.childColumn} IN (SELECT ${fk.parentColumn} FROM ${table} WHERE ${where})`,
-      params,
-      seen,
-    );
+    const values = [...new Set(rows.map((row) => row[fk.parentColumn]).filter((v) => v != null))];
+    if (values.length > 0) {
+      await purge(client, fk.child, `${fk.childColumn} = ANY($1)`, [values], depth + 1);
+    }
   }
-  await client.query(`DELETE FROM ${table} WHERE ${where}`, params);
-}
-
-async function purgeTestCustomers(client: pg.Client): Promise<void> {
-  await client.query(`SET LOCAL session_replication_role = replica`);
-  await purge(client, 'customers', 'email LIKE $1', [TEST_EMAIL_PATTERN]);
-  await client.query(`SET LOCAL session_replication_role = DEFAULT`);
 }
 async function makeJpeg(_color: string, width: number, height: number): Promise<Buffer> {
   // Blurred random texture, photo-like in weight: a solid image would be ignored by LCP.
@@ -334,6 +325,22 @@ async function seed(client: pg.Client): Promise<void> {
     variants: [[sizeM, 0]],
   });
 
+  // No measurement profile: the shopper picks a size directly. Plenty of M (per-line limit tests),
+  // two L (stock tests), no XL stock (disabled option).
+  await product({
+    slug: `${SLUG_PREFIX}direct-shirt`,
+    name: 'E2E Direct Shirt',
+    type: shirt,
+    price: 1_500_000,
+    ageSeconds: 20_000,
+    description: 'A shirt sold by direct size choice.',
+    variants: [
+      [sizeM, 50],
+      [sizeL, 2],
+      [await sizeId('XL'), 0],
+    ],
+  });
+
   // An active delivery zone so addresses can be saved (the real zones are a client decision).
   await client.query(
     `INSERT INTO delivery_zones (code, name, fee_minor, est_days_min, est_days_max, is_active, is_sample_data, sort_order)
@@ -362,7 +369,7 @@ async function main(): Promise<void> {
     console.log(
       cleanupOnly
         ? 'E2E data removed.'
-        : `E2E data seeded (${BULK_PRODUCTS + 4} products). Media in ${E2E_MEDIA_DIR}`,
+        : `E2E data seeded (${BULK_PRODUCTS + 5} products). Media in ${E2E_MEDIA_DIR}`,
     );
   } catch (error) {
     await client.query('ROLLBACK');

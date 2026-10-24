@@ -7,6 +7,7 @@ import { siteOrigin } from '@/config/env';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { allLocales, getTranslator, toLocale } from '@/lib/i18n/server';
+import { DraftRestorer } from '@/components/draft-restorer';
 import { Providers } from '@/components/providers';
 import { I18nProvider } from '@/lib/i18n/provider';
 import { drafting, inter } from '../fonts';
@@ -57,6 +58,7 @@ export default async function LocaleLayout({
       <body>
         <I18nProvider locale={locale}>
           <Providers>
+            <DraftRestorer />
             <a className="skip-link" href="#main">
               {t('a11y.skip_to_content')}
             </a>

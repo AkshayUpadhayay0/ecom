@@ -128,19 +128,15 @@ export default async function ProductPage({ params }: PageProps) {
               support={supportFrom(config)}
             />
           </div>
-          <section aria-label="Blueprint" className="mt-8 border-l-4 border-emerald pl-4">
-            {product.blueprint.required && product.blueprint.profile ? (
-              <>
-                <p>{t('product.blueprint_applies')}</p>
-                <p className="mt-2 text-sm text-ink-muted">
-                  {t('product.blueprint_measurements')}:{' '}
-                  {product.blueprint.profile.measurements.map((m) => m.label).join(', ')}
-                </p>
-              </>
-            ) : (
-              <p>{t('product.blueprint_none')}</p>
-            )}
-          </section>
+          {product.blueprint.required && product.blueprint.profile ? (
+            <section aria-label="Blueprint" className="mt-8 border-l-4 border-emerald pl-4">
+              <p>{t('product.blueprint_applies')}</p>
+              <p className="mt-2 text-sm text-ink-muted">
+                {t('product.blueprint_measurements')}:{' '}
+                {product.blueprint.profile.measurements.map((m) => m.label).join(', ')}
+              </p>
+            </section>
+          ) : null}
         </div>
       </div>
     </article>

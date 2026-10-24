@@ -3,6 +3,7 @@
 import { LOCALES, type Locale } from '@urban-ibile/i18n';
 import { useRouter } from 'next/navigation';
 import { PIDGIN_ENABLED } from '@/config/env';
+import { saveDrafts } from '@/lib/i18n/drafts';
 import { setLanguageCookie } from '@/lib/i18n/language-cookie';
 import { useI18n } from '@/lib/i18n/provider';
 
@@ -19,6 +20,7 @@ export function LanguageSwitcher() {
 
   function choose(next: Locale): void {
     if (next === locale) return;
+    saveDrafts(); // the new language re-renders the page: keep what was typed
     setLanguageCookie(next);
     router.refresh();
   }

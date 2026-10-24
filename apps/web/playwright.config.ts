@@ -24,9 +24,12 @@ const MAIL_DIR = fileURLToPath(new URL('./e2e-mail/', import.meta.url));
 
 const testDatabaseUrl = resolveTestUrl();
 
-// A stale marker from the previous run would let the second build start too early (see wait-for.mjs).
+// Start from clean build folders: a stale BUILD_ID would let the second build start too early (see
+// wait-for.mjs) and Next's on-disk data cache would serve products from an earlier run.
 if (process.env.TEST_WORKER_INDEX === undefined) {
-  rmSync(fileURLToPath(new URL('./.next-e2e/BUILD_ID', import.meta.url)), { force: true });
+  for (const dir of ['.next-e2e', '.next-e2e-flags']) {
+    rmSync(fileURLToPath(new URL(`./${dir}`, import.meta.url)), { recursive: true, force: true });
+  }
 }
 
 const apiEnv = {
@@ -42,6 +45,7 @@ const apiEnv = {
   CORS_ORIGINS: `${WEB_URL},${FLAGS_URL}`,
   BODY_SCAN_PROVIDER: 'mock',
   // The tests sign in and out many times from one address.
+  RATE_LIMIT_MAX: '100000',
   AUTH_RATE_LIMIT_MAX: '100000',
   PUBLIC_RATE_LIMIT_MAX: '100000',
   CART_RATE_LIMIT_MAX: '100000',

@@ -236,6 +236,7 @@ export function PurchasePanel({
             </label>
             <input
               id="qty"
+              name="quantity"
               type="number"
               min={1}
               max={maxQuantity}

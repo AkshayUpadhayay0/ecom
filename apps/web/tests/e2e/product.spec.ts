@@ -36,8 +36,9 @@ test.describe('product page', () => {
     await expect(sizes.getByText('Low stock')).toBeVisible(); // L
     await expect(sizes.getByText('In stock', { exact: true })).toBeVisible(); // XL
     await expect(page.getByText(/Blueprint fit: your size is worked out/)).toBeVisible();
-    // W1 is read-only: no cart or fitting buttons yet.
+    // Signed out: a sign-in prompt instead of fitting or cart buttons.
     await expect(page.getByRole('button', { name: /cart|find my size/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Sign in to continue' })).toBeVisible();
   });
 
   test('has product JSON-LD (NGN, availability) and Open Graph with the poster', async ({
