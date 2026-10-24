@@ -1,6 +1,8 @@
 'use client';
 
-import { createTranslator, type Locale } from '@urban-ibile/i18n';
+import type { createTranslator } from '@urban-ibile/i18n';
+import { type Locale } from '@urban-ibile/i18n';
+import { translatorFor } from './translator';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 interface I18nValue {
@@ -11,7 +13,7 @@ interface I18nValue {
 const I18nContext = createContext<I18nValue | null>(null);
 
 export function I18nProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
-  const value = useMemo(() => ({ locale, t: createTranslator(locale) }), [locale]);
+  const value = useMemo(() => ({ locale, t: translatorFor(locale) }), [locale]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

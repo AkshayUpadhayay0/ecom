@@ -14,8 +14,10 @@ const dictionaries: Record<Locale, PartialMessages> = { en, pcm };
  */
 export function createTranslator(
   locale: Locale,
+  /** Extra keys for this language (tests only: lets a fixture stand in for real copy). */
+  overrides?: PartialMessages,
 ): (key: MessageKey, params?: MessageParams) => string {
-  const chosen = dictionaries[locale];
+  const chosen = overrides ? { ...dictionaries[locale], ...overrides } : dictionaries[locale];
   return (key, params) => {
     const raw = chosen[key] ?? en[key];
     const template = raw === '' ? en[key] : raw;

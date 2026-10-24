@@ -122,6 +122,8 @@ export default defineConfig({
         NEXT_PUBLIC_SITE_URL: FLAGS_URL,
         NEXT_PUBLIC_ENABLE_PIDGIN: 'true',
         NEXT_PUBLIC_ENABLE_BODY_SCAN: 'true',
+        // TEST ONLY: one fake Pidgin key (not real Pidgin) to prove the per-key fallback.
+        NEXT_PUBLIC_I18N_TEST_FIXTURE: 'true',
       },
     },
   ],

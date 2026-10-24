@@ -8,7 +8,8 @@ const STORAGE_KEY = 'ui:form-drafts';
 const MAX_AGE_MS = 15_000;
 const RETRY_MS = 150;
 const MAX_ATTEMPTS = 14;
-const FIELD_SELECTOR = 'main input, main select, main textarea';
+// The header search box is kept too (what was typed there survives a language switch).
+const FIELD_SELECTOR = 'main input, main select, main textarea, header input[name="q"]';
 const SKIPPED_TYPES = new Set(['password', 'hidden', 'file', 'submit', 'button']);
 
 interface Draft {

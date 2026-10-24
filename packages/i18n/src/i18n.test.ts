@@ -12,6 +12,13 @@ describe('i18n', () => {
     expect(missingKeys('en')).toEqual([]);
   });
 
+  it('overrides stand in for a language file and every other key still falls back', () => {
+    const t = createTranslator('pcm', { 'nav.shop': 'FIXTURE' });
+    expect(t('nav.shop')).toBe('FIXTURE');
+    expect(t('nav.search')).toBe(en['nav.search']);
+    expect(createTranslator('en')('nav.shop')).toBe(en['nav.shop']); // other languages unaffected
+  });
+
   it('interpolates {params} and leaves unknown ones visible', () => {
     expect(interpolate('Page {page} of {total}', { page: 2, total: 5 })).toBe('Page 2 of 5');
     expect(interpolate('Hi {name}', {})).toBe('Hi {name}');

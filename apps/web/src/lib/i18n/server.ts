@@ -1,10 +1,7 @@
-import {
-  DEFAULT_LOCALE,
-  LOCALES,
-  createTranslator,
-  isLocale,
-  type Locale,
-} from '@urban-ibile/i18n';
+import type { createTranslator } from '@urban-ibile/i18n';
+import { DEFAULT_LOCALE, LOCALES, isLocale, type Locale } from '@urban-ibile/i18n';
+
+import { translatorFor } from './translator';
 
 export type Translate = ReturnType<typeof createTranslator>;
 
@@ -14,7 +11,7 @@ export function toLocale(value: string | undefined): Locale {
 }
 
 export function getTranslator(locale: Locale): Translate {
-  return createTranslator(locale);
+  return translatorFor(locale);
 }
 
 export function allLocales(): { locale: Locale }[] {
