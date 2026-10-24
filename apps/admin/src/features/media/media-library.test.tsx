@@ -121,3 +121,31 @@ describe('Media Library for a regular admin', () => {
     );
   });
 });
+
+describe('Media list regression: "Couldn\'t load media" after a 304', () => {
+  it('shows the files, not an error, when the first answer is "304 Not Modified"', async () => {
+    let calls = 0;
+    server.use(
+      http.get(`${API}/admin/media`, () => {
+        calls += 1;
+        return calls === 1
+          ? new HttpResponse(null, { status: 304 })
+          : HttpResponse.json(listOf([ATTACHED, FAILED]));
+      }),
+    );
+    renderApp('/media');
+    expect(await screen.findByText('front.jpg')).toBeInTheDocument();
+    expect(screen.queryByText(/couldn.t load/i)).not.toBeInTheDocument();
+    expect(calls).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a network failure on the list says the server could not be reached (with a retry), not a vague error', async () => {
+    server.use(http.get(`${API}/admin/media`, () => HttpResponse.error()));
+    renderApp('/media');
+    // The query retries a few times before giving up, so allow for the back-off.
+    expect(
+      await screen.findByText(/couldn.t load media/i, {}, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Cannot reach the server/)).toBeInTheDocument();
+  }, 30_000);
+});

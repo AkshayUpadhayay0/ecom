@@ -2,7 +2,7 @@ import type { ApiErrorBody, ErrorCode } from '@urban-ibile/shared';
 import { resolveApiBaseUrl } from './config';
 
 /** Client-side codes for failures that never reached the API's error handler. */
-export type ClientErrorCode = ErrorCode | 'NETWORK_ERROR' | 'UNEXPECTED_RESPONSE';
+export type ClientErrorCode = ErrorCode | 'NETWORK_ERROR' | 'UNEXPECTED_RESPONSE' | 'UPLOAD_FAILED';
 
 export class ApiError extends Error {
   readonly code: ClientErrorCode;
@@ -28,6 +28,7 @@ export class ApiError extends Error {
 
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_NO_CONTENT = 204;
+const HTTP_NOT_MODIFIED = 304;
 const REFRESH_PATH = '/admin/auth/refresh';
 /** Web Locks name: serialises refreshes across tabs (see refreshAccessToken). */
 const REFRESH_LOCK = 'urban-ibile-admin-refresh';
@@ -94,6 +95,24 @@ interface RequestOptions {
   /** Send the access token and refresh on 401 (default true). */
   auth?: boolean;
   signal?: AbortSignal;
+  /** Browser cache mode; default 'no-store' (private data is never cached or revalidated). */
+  cache?: RequestCache;
+  /** Appended as a cache-busting query parameter (last resort after a stray 304). */
+  bust?: boolean;
+}
+
+/** Where a request that could not be delivered was going (shown to help find the cause). */
+function describeNetworkFailure(): string {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return 'You appear to be offline. Check your internet connection and try again.';
+  }
+  let where = 'the API';
+  try {
+    where = `the API at ${new URL(resolveApiBaseUrl()).origin}`;
+  } catch {
+    // keep the generic wording
+  }
+  return `Cannot reach the server (${where}). It may be restarting or not running. If it keeps happening, ask a developer to check that the API is up and that this site's address is allowed by its CORS_ORIGINS setting.`;
 }
 
 async function send(path: string, options: RequestOptions): Promise<Response> {
@@ -103,8 +122,9 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
   if (options.auth !== false && accessToken !== null) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
+  const url = `${resolveApiBaseUrl()}${path}${options.bust ? `${path.includes('?') ? '&' : '?'}_nc=${Date.now()}` : ''}`;
   try {
-    return await fetch(`${resolveApiBaseUrl()}${path}`, {
+    return await fetch(url, {
       method: options.method ?? 'GET',
       headers,
       body:
@@ -115,19 +135,36 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
             : JSON.stringify(options.body),
       // Required so the browser sends/stores the httpOnly refresh cookie.
       credentials: 'include',
+      cache: options.cache ?? 'no-store',
       signal: options.signal,
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err;
-    throw new ApiError(
-      'NETWORK_ERROR',
-      0,
-      'Cannot reach the server. Check your connection and try again.',
-    );
+    throw new ApiError('NETWORK_ERROR', 0, describeNetworkFailure());
   }
 }
 
+/**
+ * "304 Not Modified" has no body and is not an error. It should never reach the app (the API sends
+ * private answers with no-store and no ETag, and this client sends no-store), but a stale cache,
+ * proxy or extension can still produce one. Ask again, bypassing every cache, instead of failing.
+ */
+async function sendAvoiding304(path: string, options: RequestOptions): Promise<Response> {
+  let response = await send(path, options);
+  if (response.status !== HTTP_NOT_MODIFIED) return response;
+  response = await send(path, { ...options, cache: 'reload' });
+  if (response.status !== HTTP_NOT_MODIFIED) return response;
+  return send(path, { ...options, cache: 'reload', bust: true });
+}
+
 async function parse<T>(response: Response): Promise<T> {
+  if (response.status === HTTP_NOT_MODIFIED) {
+    throw new ApiError(
+      'UNEXPECTED_RESPONSE',
+      response.status,
+      'The server answered "not modified" without any data. Reload the page; if it keeps happening, tell a developer.',
+    );
+  }
   if (!response.ok) throw await toApiError(response);
   if (response.status === HTTP_NO_CONTENT) return undefined as T;
   return (await response.json()) as T;
@@ -182,13 +219,13 @@ export function refreshAccessToken(): Promise<boolean> {
  * retries once; if that fails the session is cleared and the expiry handler runs.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await send(path, options);
+  const response = await sendAvoiding304(path, options);
   if (response.status !== HTTP_UNAUTHORIZED || options.auth === false) {
     return parse<T>(response);
   }
 
   if (await refreshAccessToken()) {
-    const retried = await send(path, options);
+    const retried = await sendAvoiding304(path, options);
     if (retried.status !== HTTP_UNAUTHORIZED) return parse<T>(retried);
   }
 

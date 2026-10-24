@@ -9,6 +9,18 @@ import { ApiError } from '@/lib/api/client';
 const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 
+const HTTP_SERVER_ERROR = 500;
+
+/** The API / network cause worth showing to staff (never technical details of other errors). */
+function friendlyCause(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  const showMessage =
+    error.code === 'NETWORK_ERROR' ||
+    error.code === 'UNEXPECTED_RESPONSE' ||
+    error.status >= HTTP_SERVER_ERROR;
+  return showMessage ? error.message : undefined;
+}
+
 export function LoadingBlock({ rows = 5, label }: { rows?: number; label: string }) {
   return (
     <div className="space-y-3 p-5" aria-busy="true">
@@ -59,7 +71,9 @@ export function QueryView<T>({
         />
       );
     }
-    return <ErrorState what={what} onRetry={() => void query.refetch()} />;
+    return (
+      <ErrorState what={what} detail={friendlyCause(error)} onRetry={() => void query.refetch()} />
+    );
   }
   if (empty && isEmpty?.(query.data)) return <EmptyState {...empty} />;
   return <>{children(query.data)}</>;

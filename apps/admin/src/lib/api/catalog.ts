@@ -29,7 +29,7 @@ import {
   type VariantArchiveResultDto,
   type VariantDto,
 } from '@urban-ibile/shared';
-import { apiRequest } from './client';
+import { ApiError, apiRequest } from './client';
 import { getData, getList, send } from './http';
 
 export type ListParams = Record<string, string | number | boolean | undefined>;
@@ -109,15 +109,69 @@ export const catalogApi = {
   purgeRetired: () => send<PurgeRetiredResultDto>('POST', '/admin/media/purge-retired'),
 };
 
-/** Sends the file straight to storage with the presigned PUT (the API never proxies bytes). */
+const HTTP = {
+  BAD_REQUEST: 400,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  TOO_LARGE: 413,
+  UNSUPPORTED: 415,
+  SERVER_ERROR: 500,
+} as const;
+
+/** Friendly cause for a storage answer that was not a success (storage speaks XML/plain text, not our JSON). */
+export function describeStorageStatus(status: number): string {
+  switch (status) {
+    case HTTP.FORBIDDEN:
+      return 'Storage refused the upload: the upload link has expired or does not match the file. Choose the file again and retry.';
+    case HTTP.TOO_LARGE:
+      return 'Storage says this file is too large. Choose a smaller file.';
+    case HTTP.UNSUPPORTED:
+    case HTTP.BAD_REQUEST:
+      return 'Storage did not accept this file (type or size). Use an MP4, MOV or WebM video, or a JPEG, PNG or WebP image.';
+    case HTTP.NOT_FOUND:
+      return 'Storage could not find where to put the file (the upload link is no longer valid). Retry the upload.';
+    default:
+      return status >= HTTP.SERVER_ERROR
+        ? 'Storage is having trouble right now. Wait a moment and retry.'
+        : `Storage answered with an unexpected status (HTTP ${status}).`;
+  }
+}
+
+async function storageRejection(response: Response): Promise<ApiError> {
+  // The local development storage answers with the API's own JSON errors (file too large, wrong type...).
+  const body: unknown = await response.json().catch(() => undefined);
+  const error = (body as { error?: { code?: unknown; message?: unknown } } | undefined)?.error;
+  if (typeof error?.message === 'string') {
+    return new ApiError('UPLOAD_FAILED', response.status, error.message);
+  }
+  return new ApiError('UPLOAD_FAILED', response.status, describeStorageStatus(response.status));
+}
+
+/**
+ * Sends the file straight to storage with the presigned PUT (the API never proxies bytes). Every
+ * failure becomes an ApiError with the real, plain-language cause: offline, blocked / dropped
+ * (usually storage CORS or a lost connection), or the status storage answered with.
+ */
 export async function putToStorage(
   upload: CreateUploadResultDto['upload'],
   file: File,
 ): Promise<void> {
-  const response = await fetch(upload.url, {
-    method: upload.method,
-    headers: upload.headers,
-    body: file,
-  });
-  if (!response.ok) throw new Error(`Upload failed (HTTP ${response.status}).`);
+  let response: Response;
+  try {
+    response = await fetch(upload.url, {
+      method: upload.method,
+      headers: upload.headers,
+      body: file,
+      cache: 'no-store',
+    });
+  } catch {
+    throw new ApiError(
+      'UPLOAD_FAILED',
+      0,
+      typeof navigator !== 'undefined' && !navigator.onLine
+        ? 'You appear to be offline. Check your internet connection, then retry the upload.'
+        : 'The file could not be sent to storage: the connection dropped or the browser blocked the upload. Retry; if it keeps happening, storage may not allow uploads from this site (CORS): ask a developer.',
+    );
+  }
+  if (!response.ok) throw await storageRejection(response);
 }
