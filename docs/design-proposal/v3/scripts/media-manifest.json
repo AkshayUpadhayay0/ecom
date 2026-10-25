@@ -1,0 +1,29 @@
+{
+  "_note": "Every video the prototype plays. 'source' is a Pexels clip (see CREDITS.md); a file named prototype-media/<id>.mp4 (the client's own clip) replaces it. 'ss' = start second, 't' = seconds kept, 'crop' = ffmpeg crop (w:h:x:y), 'size' = output WxH.",
+  "stock": {
+    "9510022": "https://videos.pexels.com/video-files/9510022/9510022-uhd_2732_1440_25fps.mp4",
+    "9512048": "https://videos.pexels.com/video-files/9512048/9512048-uhd_1440_2732_25fps.mp4",
+    "9512045": "https://videos.pexels.com/video-files/9512045/9512045-uhd_2732_1440_25fps.mp4",
+    "9953125": "https://videos.pexels.com/video-files/9953125/9953125-uhd_1440_2732_25fps.mp4",
+    "6764969": "https://videos.pexels.com/video-files/6764969/6764969-uhd_1440_2560_25fps.mp4",
+    "5345978": "https://videos.pexels.com/video-files/5345978/5345978-hd_1920_1080_25fps.mp4",
+    "7778408": "https://videos.pexels.com/video-files/7778408/7778408-uhd_2732_1440_25fps.mp4",
+    "6459952": "https://videos.pexels.com/video-files/6459952/6459952-hd_1080_1920_30fps.mp4"
+  },
+  "outputs": [
+    { "id": "hero-wide", "source": "9510022", "ss": 2, "t": 8, "size": "1280:-2", "crf": 26, "poster": 1280 },
+    { "id": "hero-tall", "source": "9512048", "ss": 0.5, "t": 8, "size": "720:-2", "crf": 27, "poster": 720 },
+    { "id": "band", "source": "7778408", "ss": 5, "t": 6, "size": "1280:-2", "crf": 27, "poster": 1280 },
+    { "id": "fit-intro", "source": "6459952", "ss": 1, "t": 6, "crop": "1080:1350:0:250", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p01", "source": "9512048", "ss": 3, "t": 5, "crop": "1440:1800:0:300", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p02", "source": "9510022", "ss": 8, "t": 5, "crop": "1152:1440:790:0", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p03", "source": "9953125", "ss": 2, "t": 5, "crop": "1440:1800:0:200", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p04", "source": "9953125", "ss": 14, "t": 5, "crop": "1440:1800:0:300", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p05", "source": "6764969", "ss": 4, "t": 5, "crop": "1440:1800:0:380", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p06", "source": "5345978", "ss": 2, "t": 5, "crop": "864:1080:384:0", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p07", "source": "9512045", "ss": 5, "t": 5, "crop": "1152:1440:790:0", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p08", "source": "9953125", "ss": 22, "t": 5, "crop": "1440:1800:0:500", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p09", "source": "9510022", "ss": 12, "t": 5, "crop": "1152:1440:790:0", "size": "640:800", "crf": 28, "poster": 640 },
+    { "id": "p10", "source": "9512048", "ss": 8, "t": 4, "crop": "1440:1800:0:200", "size": "640:800", "crf": 28, "poster": 640 }
+  ]
+}

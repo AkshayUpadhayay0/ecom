@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Urban Ìbílé | phone preview (design proposal v3)</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#dcd8c6;font:14px/1.5 "Drafting Mono",ui-monospace,monospace;color:#171717}
+  main{display:grid;gap:1rem;justify-items:center;padding:1.5rem}
+  .device{width:414px;height:868px;padding:12px;background:#171717;border-radius:52px;box-shadow:0 20px 50px rgb(0 0 0/.3)}
+  iframe{display:block;width:390px;height:844px;border:0;border-radius:40px;background:#fffceb}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+  <div class="device"><iframe id="frame" title="Prototype at 390 px" src="index.html"></iframe></div>
+  <p>Phone preview, 390 &times; 844. <a href="index.html" id="full">Open the full prototype</a>. Design proposal: sample content.</p>
+</main>
+<script>
+  // phone.html#/shop opens the phone preview on that screen.
+  var frame = document.getElementById('frame');
+  var full = document.getElementById('full');
+  function go() { frame.src = 'index.html' + location.hash; full.href = 'index.html' + location.hash; }
+  go();
+  window.addEventListener('hashchange', go);
+</script>
+</body>
+</html>
