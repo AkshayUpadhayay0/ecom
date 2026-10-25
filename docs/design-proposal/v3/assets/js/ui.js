@@ -245,8 +245,8 @@
   var GUIDE = [
     ['Browse', [['Home', '#/'], ['Shop', '#/shop'], ['Shop: one clothing type', '#/shop?type=blazer'], ['Search results', '#/search?q=blazer'], ['Search: no result', '#/search?q=zzzz']]],
     ['Product', [['Product with Find My Size', '#/product/sample-outfit-03'], ['Product without Blueprint', '#/product/sample-outfit-08'], ['Sold-out product', '#/product/sample-outfit-06']]],
-    ['Find My Size', [['Measurements (Quick Fit)', '#/fit/sample-outfit-03'], ['Out-of-range example', '#/fit/sample-outfit-03?demo=range'], ['Height and weight (concept)', '#/fit-concept']]],
-    ['Buy', [['Cart', '#/cart'], ['Sign in', '#/signin'], ['Register', '#/register'], ['Checkout', '#/checkout'], ['My orders', '#/orders']]],
+    ['Find My Size', [['Measurements (Quick Fit)', '#/fit/sample-outfit-03'], ['Out-of-range example', '#/fit/sample-outfit-03?demo=range'], ['Size the outfit is not made in', '#/fit/sample-outfit-03?demo=small'], ['Height and weight (concept)', '#/fit-concept']]],
+    ['Account and buying', [['Sign in', '#/signin'], ['Register', '#/register'], ['Account', '#/account'], ['Cart', '#/cart'], ['Checkout', '#/checkout'], ['My orders', '#/orders']]],
   ];
   function guideHtml() {
     return (

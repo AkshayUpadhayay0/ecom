@@ -2,7 +2,7 @@
 
 A **design proposal** for client review: a video-led, clickable website with sample content. It has no backend and no database, runs from plain static files, works offline, and is marked `noindex`. Nothing is saved or sent anywhere; prices, sizes, delivery zones, orders and sign-in are all made up (shown in brackets).
 
-Status: stages 1 and 2 are built (foundation, home, navigation, search with suggestions, cart drawer, prototype guide). Shop, product, Find My Size, cart, checkout and orders follow in the next stages and show a "built in a later stage" page for now.
+Status: stages 1 to 4 are built: foundation, home, navigation, search with suggestions, cart drawer, prototype guide, shop, search results, quick add, product page, Find My Size (Blueprint) with the height and weight concept, and sign in, register and account. Cart, checkout and My orders follow in the next stage and show a "built in a later stage" page for now.
 
 ## Open it locally
 
@@ -48,7 +48,7 @@ It compresses to H.264, no audio, 720p to 1080p, writes the posters, and prints 
 
 Budget: whole folder at most **35 MB**, any clip at most **2.5 MB**, any poster at most **80 KB**, the home page at most **2.5 MB** before any video, hero poster visible within **2.5 s** on simulated slow 4G (1.6 Mbps, 150 ms, 4x slower CPU).
 
-Measured (stages 1 and 2): folder **7.5 MB** (videos 7.0 MB, biggest clip 1.9 MB, biggest poster 51 KB); home transfers **0.29 MB** before the first video; hero poster visible in **1.4 s** on simulated slow 4G (title 1.5 s, video playing 2.9 s) and **0.11 s** unthrottled.
+Measured (stages 1 to 4): folder **7.5 MB** (videos 7.0 MB, biggest clip 1.9 MB, biggest poster 51 KB); home transfers about **0.3 MB** before the first video; hero poster visible in about **1.4 to 1.7 s** on simulated slow 4G (title just after, video playing at about 3 s) and about **0.13 s** unthrottled.
 
 ## Tests
 
@@ -59,14 +59,15 @@ cd apps/web
 pnpm exec playwright test -c ../../docs/design-proposal/v3/tests/playwright.config.mjs
 ```
 
-They cover content, header states, side menu, search suggestions and the exact empty message, cart drawer, keyboard use, axe (WCAG A/AA), the video rules (limits, runway cross-fade, Save-Data, reduced motion) and the size and load budget. Screenshots at 390, 768 and 1440 px: `V3_SHOTS=<folder>` with the `shots` test.
+They cover content, header states, side menu, search suggestions and the exact empty message, cart drawer, shop (chips, sort, pagination, sold-out, quick add), product page, Find My Size (validation, recommendation rule, stock, out-of-range, other size), sign in and register, keyboard use, axe (WCAG A/AA) on every screen and state, the video rules (limits, runway cross-fade, Save-Data, reduced motion), sideways scrolling at 390, 768 and 1440 px, and the size and load budget (which runs last, alone). Screenshots at 390, 768 and 1440 px: `V3_SHOTS=<folder>` with the `shots` test.
 
 ## Folder map
 
 ```
 index.html, phone.html      entry points
 assets/css, assets/js       styles; data.js (sample data), video.js, ui.js (shell, search, cart),
-                            home.js, app.js (hash router)
+                            home.js, shop.js (shop, search, quick add), product.js, fit.js (Find My Size, concept),
+                            account.js, app.js (hash router)
 assets/fonts, assets/brand  Drafting Mono, Inter, logos (the client's, unmodified)
 media/video, media/poster   compressed clips and posters (built by scripts/build-media.mjs)
 scripts/                    build-media.mjs, media-manifest.json, serve.mjs
