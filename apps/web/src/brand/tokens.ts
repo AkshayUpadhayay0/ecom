@@ -70,7 +70,12 @@ export const USED_PAIRS: readonly ColorPair[] = [
     size: 'normal',
     usage: 'text on video overlay, out-of-stock tag',
   },
-  { foreground: 'white', background: 'red', size: 'large', usage: 'hero call to action (24px+)' },
+  {
+    foreground: 'white',
+    background: 'red',
+    size: 'large',
+    usage: 'primary buttons (19px bold or larger)',
+  },
   {
     foreground: 'red',
     background: 'ivory',

@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { openMenu } from './helpers';
 import {
   DIRECT_PRODUCT,
   PROFILE_PRODUCT,
@@ -7,6 +8,17 @@ import {
   openFitDialog,
   signUp,
 } from './shopping';
+
+/** The switcher lives in the side menu: open it, switch, close it again (Esc). */
+async function switchTo(page: Page, language: 'English' | 'Pidgin'): Promise<void> {
+  const menu = await openMenu(page);
+  await menu
+    .getByRole('group', { name: 'Language' })
+    .getByRole('button', { name: language })
+    .click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Menu' })).toBeHidden();
+}
 
 // These run against the second web build, where the Pidgin switcher and Body Scan are switched on.
 
@@ -39,7 +51,8 @@ test.describe('Body Scan (MOCK provider, flag on)', () => {
 test.describe('language switcher (flag on)', () => {
   test('is visible and defaults to English', async ({ page }) => {
     await page.goto('/shop');
-    const group = page.getByRole('group', { name: 'Language' });
+    const menu = await openMenu(page);
+    const group = menu.getByRole('group', { name: 'Language' });
     await expect(group).toBeVisible();
     await expect(group.getByRole('button', { name: 'English' })).toHaveAttribute(
       'aria-pressed',
@@ -59,10 +72,7 @@ test.describe('language switcher (flag on)', () => {
     await expect(page.getByTestId('cart-count')).toHaveText('1');
 
     await page.goto('/shop?sort=name&page=2');
-    await page
-      .getByRole('group', { name: 'Language' })
-      .getByRole('button', { name: 'Pidgin' })
-      .click();
+    await switchTo(page, 'Pidgin');
     await expect(page.locator('html')).toHaveAttribute('lang', 'pcm');
     await expect(page).toHaveURL(/\/shop\?sort=name&page=2$/);
     // No Pidgin copy exists yet: every string falls back to English.
@@ -72,10 +82,7 @@ test.describe('language switcher (flag on)', () => {
     // The cart is on the server: it is untouched.
     await expect.poll(() => cartCount(page)).toBe(1);
 
-    await page
-      .getByRole('group', { name: 'Language' })
-      .getByRole('button', { name: 'English' })
-      .click();
+    await switchTo(page, 'English');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
@@ -84,10 +91,7 @@ test.describe('language switcher (flag on)', () => {
     await page.goto(DIRECT_PRODUCT);
     await page.getByLabel('Quantity').fill('3');
     await page.getByRole('radio', { name: /^L/ }).check();
-    await page
-      .getByRole('group', { name: 'Language' })
-      .getByRole('button', { name: 'Pidgin' })
-      .click();
+    await switchTo(page, 'Pidgin');
     await expect(page.locator('html')).toHaveAttribute('lang', 'pcm');
     await expect(page.getByLabel('Quantity')).toHaveValue('3');
     await expect(page.getByRole('radio', { name: /^L/ })).toBeChecked();

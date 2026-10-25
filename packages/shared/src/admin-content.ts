@@ -43,6 +43,14 @@ export interface ContentBlockDto extends ContentBlockSummaryDto {
 export const CONTENT_KINDS = ['text', 'video'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
+/**
+ * Blocks that exist and stay editable but that the redesigned website no longer renders (21 Oct
+ * 2026 design). Nothing is deleted; the admin tells the client so.
+ */
+export const CONTENT_KEYS_NOT_SHOWN_ON_SITE: readonly string[] = ['footer.about'];
+export const CONTENT_NOT_SHOWN_NOTE =
+  'The website no longer shows this block. Your text is kept and can still be edited, but changes will not appear on the site.';
+
 /** Text blocks are edited in English only (approved Pidgin copy is applied by developers). */
 export const CONTENT_TEXT_LANGUAGE = 'en';
 export const CONTENT_TITLE_MAX_LENGTH = 200;

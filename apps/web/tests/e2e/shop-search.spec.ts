@@ -53,8 +53,60 @@ test.describe('search', () => {
     await expect(page.getByRole('link', { name: SEEDED.zanzibarName })).toBeVisible();
   });
 
-  test('typing in the header box searches (debounced) through the URL', async ({ page }) => {
+  test('matches the clothing type as well as the name, across the whole catalogue', async ({
+    page,
+  }) => {
+    // The agbada's name has no "trouser" in it and it is the oldest product (beyond page 1 of the
+    // shop): only its clothing type can match this word.
+    await page.goto('/search?q=trouser');
+    await expect(page.getByRole('link', { name: SEEDED.zanzibarName })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'E2E Outfit 02' })).toBeVisible();
+    // A word from the name alone still works.
+    await page.goto('/search?q=zanzibar');
+    await expect(page.getByRole('link', { name: SEEDED.zanzibarName })).toBeVisible();
+  });
+
+  test('the header search opens an overlay; Enter shows the results page', async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Open search' }).click();
+    const overlay = page.getByRole('dialog', { name: 'Search' });
+    await expect(overlay).toBeVisible();
+    const box = overlay.getByRole('searchbox', { name: 'Search outfits' });
+    await expect(box).toBeFocused();
+    await box.fill('zanzibar');
+    await box.press('Enter');
+    await expect(page).toHaveURL(/\/search\?q=zanzibar$/);
+    await expect(overlay).toBeHidden();
+    await expect(page.getByRole('link', { name: SEEDED.zanzibarName })).toBeVisible();
+  });
+
+  test('a search with no match through the overlay shows the exact empty message', async ({
+    page,
+  }) => {
+    await page.goto('/shop');
+    await page.getByRole('button', { name: 'Open search' }).click();
+    await page
+      .getByRole('dialog', { name: 'Search' })
+      .getByRole('searchbox', { name: 'Search outfits' })
+      .fill('qzxqzxqzx');
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(NO_RESULTS_TEXT, { exact: true })).toBeVisible();
+  });
+
+  test('Esc closes the search overlay and returns focus to the search button', async ({ page }) => {
+    await page.goto('/shop');
+    const opener = page.getByRole('button', { name: 'Open search' });
+    await opener.click();
+    await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Search' })).toBeHidden();
+    await expect(opener).toBeFocused();
+  });
+
+  test('typing in the search page box still searches (debounced) through the URL', async ({
+    page,
+  }) => {
+    await page.goto('/search');
     await page.getByRole('searchbox', { name: 'Search outfits' }).fill('zanzibar');
     await expect(page).toHaveURL(/\/search\?q=zanzibar$/);
     await expect(page.getByRole('link', { name: SEEDED.zanzibarName })).toBeVisible();

@@ -7,11 +7,7 @@ import { useI18n } from '@/lib/i18n/provider';
 export const inputClass =
   'w-full border border-ink bg-white px-3 py-2.5 text-base text-ink placeholder:text-ink-muted aria-[invalid=true]:border-2 aria-[invalid=true]:border-red-text';
 
-export const primaryButtonClass =
-  'inline-flex min-h-11 items-center justify-center bg-emerald px-6 py-2 text-base font-semibold text-ivory disabled:cursor-not-allowed disabled:opacity-60';
-
-export const secondaryButtonClass =
-  'inline-flex min-h-11 items-center justify-center border border-ink px-5 py-2 text-base disabled:cursor-not-allowed disabled:opacity-60';
+export { primaryButtonClass, secondaryButtonClass } from './button-classes';
 
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'name'> {
   name: string;

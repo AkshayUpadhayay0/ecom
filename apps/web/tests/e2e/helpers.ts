@@ -1,4 +1,5 @@
 import type { PublicProductListDto } from '@urban-ibile/shared';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /** The API the e2e stack runs (see playwright.config.ts). */
 export const API_URL = 'http://localhost:4010';
@@ -16,3 +17,11 @@ export const SEEDED = {
 } as const;
 
 export const NO_RESULTS_TEXT = 'No outfits found. Try another word.';
+
+/** Opens the side menu from the header and returns it (a modal dialog named "Menu"). */
+export async function openMenu(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  const menu = page.getByRole('dialog', { name: 'Menu' });
+  await expect(menu).toBeVisible();
+  return menu;
+}

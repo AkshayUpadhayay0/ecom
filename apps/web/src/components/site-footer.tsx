@@ -1,62 +1,38 @@
 import type { Locale } from '@urban-ibile/i18n';
-import Link from 'next/link';
 import { BRAND_NAME } from '@/brand/brand';
-import { getContentBlock } from '@/lib/api/public';
 import { getTranslator } from '@/lib/i18n/server';
-import { BrandLogo } from './brand-logo';
-
-const FOOTER_BLOCK_KEY = 'footer.about';
+import { getSiteLinks } from '@/lib/site-links';
 
 /**
- * Footer text comes from the content API (published plain text). While the client has not
- * supplied it ("pending") or the API is unreachable, a quiet empty state shows instead: no copy
- * is invented here.
+ * One line: the rights notice, plus contact and policy links only when the client supplied them.
+ * The "About" content block still exists in the admin but is no longer shown on the site.
  */
 export async function SiteFooter({ locale }: { locale: Locale }) {
   const t = getTranslator(locale);
-  const block = await getContentBlock(FOOTER_BLOCK_KEY).catch(() => null);
-  const parts = block?.status === 'available' ? block.parts : [];
+  const links = await getSiteLinks(locale);
+  const items = [...links.policies, ...links.support];
 
   return (
-    <footer className="on-dark mt-24 bg-emerald text-ivory">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[2fr_1fr] lg:px-8">
-        <section aria-labelledby="footer-about">
-          <h2 id="footer-about" className="text-lg font-semibold">
-            {block?.title ?? t('footer.heading_about')}
-          </h2>
-          {parts.length > 0 ? (
-            <div className="mt-4 max-w-prose space-y-3 font-body leading-relaxed">
-              {parts.map((part, index) =>
-                part.type === 'heading' ? (
-                  <h3 key={index} className="pt-2 text-base font-semibold">
-                    {part.text}
-                  </h3>
-                ) : (
-                  <p key={index}>{part.text}</p>
-                ),
-              )}
-            </div>
-          ) : (
-            <p className="mt-4 text-ivory/90" data-testid="footer-empty">
-              {t('footer.about_pending')}
-            </p>
-          )}
-        </section>
-        <nav aria-label={t('footer.nav')}>
-          <ul className="space-y-2">
-            <li>
-              <Link href="/shop" className="underline underline-offset-4">
-                {t('nav.shop')}
-              </Link>
-            </li>
-          </ul>
-        </nav>
-      </div>
-      <div className="border-t border-ivory/25">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 text-sm sm:px-6 lg:px-8">
-          <BrandLogo variant="seal" className="h-24 w-24" />
-          <p>{t('footer.rights', { year: new Date().getFullYear(), brand: BRAND_NAME })}</p>
-        </div>
+    <footer className="mt-20 border-t border-line">
+      <div className="mx-auto flex max-w-[100rem] flex-wrap items-center justify-between gap-x-8 gap-y-2 px-4 py-6 text-sm sm:px-6 lg:px-8">
+        <p>{t('footer.rights', { year: new Date().getFullYear(), brand: BRAND_NAME })}</p>
+        {items.length > 0 ? (
+          <nav aria-label={t('footer.nav')}>
+            <ul className="flex flex-wrap gap-x-6">
+              {items.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    {...(link.external ? { rel: 'noopener' } : {})}
+                    className="inline-flex min-h-11 items-center underline underline-offset-4"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
       </div>
     </footer>
   );

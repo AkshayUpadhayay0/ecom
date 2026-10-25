@@ -5,6 +5,7 @@ import { useEffect, useId, useState, type SyntheticEvent } from 'react';
 import { SEARCH_DEBOUNCE_MS, SEARCH_MAX_LENGTH } from '@/config/constants';
 import { useI18n } from '@/lib/i18n/provider';
 import { listHref, normalizeQuery } from '@/lib/list-params';
+import { pathWithoutLocale } from '@/lib/pathname';
 
 const SEARCH_PATH = '/search';
 
@@ -19,7 +20,8 @@ export function SearchBox() {
   const pathname = usePathname();
   const params = useSearchParams();
   const inputId = useId();
-  const urlQuery = pathname === SEARCH_PATH ? normalizeQuery(params.get('q') ?? undefined) : '';
+  const urlQuery =
+    pathWithoutLocale(pathname) === SEARCH_PATH ? normalizeQuery(params.get('q') ?? undefined) : '';
   const [value, setValue] = useState(urlQuery);
   const [typed, setTyped] = useState(false);
   const [seenUrlQuery, setSeenUrlQuery] = useState(urlQuery);

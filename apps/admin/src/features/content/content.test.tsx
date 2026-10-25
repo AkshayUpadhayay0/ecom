@@ -320,3 +320,47 @@ describe('Reset to default (text blocks, super_admin only)', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('footer About block is no longer shown on the website', () => {
+  const FOOTER_BLOCK: ContentBlockDto = {
+    ...TERMS,
+    id: 'cb-4',
+    key: 'footer.about',
+    pending: false,
+    isPublished: true,
+    translations: { en: { title: 'About us', body: 'Kept text', ctaLabel: null } },
+  };
+
+  beforeEach(() => {
+    apiState.role = 'admin';
+    server.use(
+      http.get(`${API}/admin/content-blocks`, () =>
+        HttpResponse.json(listOf([FOOTER_BLOCK, TERMS])),
+      ),
+      http.get(`${API}/admin/content-blocks/footer.about`, () =>
+        HttpResponse.json({ data: FOOTER_BLOCK }),
+      ),
+    );
+  });
+
+  it('the list marks only footer.about as "Not shown on the website" (nothing deleted)', async () => {
+    renderApp('/content');
+    const footerRow = (await screen.findByText('footer.about')).closest('tr');
+    expect(
+      within(footerRow ?? document.body).getByText('Not shown on the website'),
+    ).toBeInTheDocument();
+    const termsRow = (await screen.findByText(TERMS.key)).closest('tr');
+    expect(
+      within(termsRow ?? document.body).queryByText('Not shown on the website'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('the editor explains it, and the text is still editable', async () => {
+    const { user } = renderApp('/content');
+    const row = (await screen.findByText('footer.about')).closest('tr');
+    await user.click(within(row ?? document.body).getByRole('button', { name: 'Open' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText(/no longer shows this block/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: /Text/ })).toHaveValue('Kept text');
+  });
+});

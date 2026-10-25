@@ -23,6 +23,7 @@
 
 @layer base {
   html {
+    scroll-padding-top: var(--ui-header-h);
     background: var(--ui-ivory);
     color: var(--ui-ink);
     font-family: var(--font-display);
@@ -82,6 +83,83 @@
 }
 .skip-link:focus {
   top: 1rem;
+}
+
+/* Type scale (tokens.css). Real text, sized fluidly; the hero title is the largest thing on the site. */
+.type-display {
+  font-size: var(--ui-text-display);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+.type-band {
+  font-size: var(--ui-text-band);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+.type-heading {
+  font-size: var(--ui-text-heading);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* Header: transparent over the hero, solid afterwards. */
+.site-header {
+  transition:
+    background-color var(--ui-motion-base) var(--ui-ease),
+    color var(--ui-motion-base) var(--ui-ease),
+    border-color var(--ui-motion-base) var(--ui-ease);
+}
+.site-header[data-state='over-hero'] {
+  background-image: linear-gradient(to bottom, rgb(23 23 23 / 0.6), transparent);
+  background-color: transparent;
+  color: var(--ui-ivory);
+  border-bottom: 1px solid transparent;
+  background-clip: padding-box;
+}
+.site-header[data-state='solid'] {
+  background-color: var(--ui-ivory);
+  color: var(--ui-ink);
+  border-bottom: 1px solid var(--ui-line);
+}
+.site-header[data-state='over-hero'] .logo-solid,
+.site-header[data-state='solid'] .logo-over-hero {
+  display: none;
+}
+
+/* Side menu slides in from the left (native dialog). */
+.side-menu[open] {
+  animation: menu-in var(--ui-motion-base) var(--ui-ease);
+}
+@keyframes menu-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.search-overlay[open] {
+  animation: overlay-in var(--ui-motion-base) var(--ui-ease);
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Save-Data: no decorative motion (set on <html> by MotionPreferences). */
+html[data-save-data='true'] *,
+html[data-save-data='true'] *::before,
+html[data-save-data='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

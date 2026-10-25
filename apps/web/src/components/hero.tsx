@@ -2,6 +2,7 @@ import type { Locale } from '@urban-ibile/i18n';
 import type { PublicHeroDto } from '@urban-ibile/shared';
 import Link from 'next/link';
 import { BRAND_NAME } from '@/brand/brand';
+import { primaryButtonClass } from '@/components/ui/button-classes';
 import { getTranslator } from '@/lib/i18n/server';
 import { HeroMedia } from './hero-media';
 
@@ -46,7 +47,8 @@ export function Hero({
   return (
     <section
       aria-label={t('home.hero_label')}
-      className="on-dark relative isolate flex min-h-[70svh] items-end overflow-hidden bg-emerald text-ivory"
+      data-hero
+      className="on-dark relative isolate flex min-h-[85svh] items-end overflow-hidden bg-emerald text-ivory"
     >
       {video ? <HeroMedia video={video} /> : null}
       <div
@@ -56,10 +58,7 @@ export function Hero({
       <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 pt-32 sm:px-6 lg:px-8">
         <h1 className="max-w-3xl text-4xl font-semibold sm:text-5xl lg:text-6xl">{title}</h1>
         {copy.body ? <p className="mt-4 max-w-xl text-lg font-body">{copy.body}</p> : null}
-        <Link
-          href="/shop"
-          className="mt-8 inline-flex min-h-14 items-center bg-red px-8 text-2xl font-semibold text-white"
-        >
+        <Link href="/shop" className={`${primaryButtonClass} mt-8 min-h-14 px-8`}>
           {copy.ctaLabel ?? t('home.hero_fallback_cta')}
         </Link>
       </div>

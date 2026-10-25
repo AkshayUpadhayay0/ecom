@@ -1,5 +1,7 @@
 import {
   CONTENT_BODY_MAX_LENGTH,
+  CONTENT_KEYS_NOT_SHOWN_ON_SITE,
+  CONTENT_NOT_SHOWN_NOTE,
   CONTENT_TEXT_LANGUAGE,
   CONTENT_TITLE_MAX_LENGTH,
   parsePlainText,
@@ -72,7 +74,13 @@ export function TextBlockEditor({
           <Badge tone="success">Text provided</Badge>
         )}
         <span className="text-xs text-muted-foreground">English</span>
+        {CONTENT_KEYS_NOT_SHOWN_ON_SITE.includes(block.key) ? (
+          <Badge>Not shown on the website</Badge>
+        ) : null}
       </div>
+      {CONTENT_KEYS_NOT_SHOWN_ON_SITE.includes(block.key) ? (
+        <p className="text-sm text-muted-foreground">{CONTENT_NOT_SHOWN_NOTE}</p>
+      ) : null}
       <Field label="Title" required>
         <Input
           value={title}

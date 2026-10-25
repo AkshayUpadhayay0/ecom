@@ -15,6 +15,12 @@ export const en = {
   'header.search_placeholder': 'Search outfits',
   'header.open_search': 'Open search',
   'header.close_search': 'Close search',
+  'menu.title': 'Menu',
+  'menu.open': 'Open menu',
+  'menu.close': 'Close menu',
+  'policy.link.privacy': 'Privacy',
+  'policy.link.terms': 'Terms',
+  'policy.link.returns': 'Returns',
 
   'search.title': 'Search',
   'search.submit': 'Search',
@@ -64,8 +70,6 @@ export const en = {
   'video.play': 'Play video',
   'video.pause': 'Pause video',
 
-  'footer.heading_about': 'About',
-  'footer.about_pending': 'More information is coming soon.',
   'footer.rights': '© {year} {brand}',
   'footer.nav': 'Footer navigation',
 

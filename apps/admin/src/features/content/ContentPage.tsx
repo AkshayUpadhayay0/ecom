@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ContentBlockSummaryDto, MediaAssetDto } from '@urban-ibile/shared';
+import {
+  CONTENT_KEYS_NOT_SHOWN_ON_SITE,
+  CONTENT_NOT_SHOWN_NOTE,
+  type ContentBlockSummaryDto,
+  type MediaAssetDto,
+} from '@urban-ibile/shared';
 import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -246,6 +251,11 @@ export function ContentPage() {
                       ) : (
                         'Text provided'
                       )}
+                      {CONTENT_KEYS_NOT_SHOWN_ON_SITE.includes(b.key) ? (
+                        <div className="mt-1">
+                          <Badge title={CONTENT_NOT_SHOWN_NOTE}>Not shown on the website</Badge>
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       {b.isPublished ? (

@@ -1,5 +1,7 @@
 import { SEARCH_NO_RESULTS } from '@urban-ibile/shared';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { SearchBox } from '@/components/search-box';
 import { ListControls } from '@/components/list-controls';
 import { Pagination } from '@/components/pagination';
 import { ProductGrid } from '@/components/product-grid';
@@ -37,6 +39,11 @@ export default async function SearchPage({ params, searchParams }: PageProps) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold sm:text-4xl">{t('search.title')}</h1>
+        <div className="mt-6 max-w-xl">
+          <Suspense fallback={<div className="h-11 border border-ink bg-white" />}>
+            <SearchBox />
+          </Suspense>
+        </div>
         <p className="mt-4">{t('search.prompt')}</p>
       </div>
     );
@@ -50,6 +57,11 @@ export default async function SearchPage({ params, searchParams }: PageProps) {
       <h1 className="text-3xl font-semibold sm:text-4xl">
         {t('search.heading_for', { query: q })}
       </h1>
+      <div className="mt-6 max-w-xl">
+        <Suspense fallback={<div className="h-11 border border-ink bg-white" />}>
+          <SearchBox />
+        </Suspense>
+      </div>
       {!empty ? (
         <>
           <p className="mt-2 text-ink-muted">

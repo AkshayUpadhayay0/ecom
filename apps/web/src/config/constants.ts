@@ -26,6 +26,9 @@ export const SEARCH_DEBOUNCE_MS = 350;
 /** Longest search text accepted before it is cut (the API limit is the same). */
 export { SEARCH_MAX_LENGTH } from '@urban-ibile/shared';
 
+/** The header turns solid once the hero's bottom edge passes this many px from the top (the header height). */
+export const HEADER_SOLID_OFFSET_PX = 72;
+
 /** Product aspect ratio for card media (width / height). Portrait fashion video. */
 export const CARD_ASPECT = '4 / 5';
 

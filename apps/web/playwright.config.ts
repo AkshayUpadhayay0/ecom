@@ -22,6 +22,9 @@ const FLAGS_URL = `http://localhost:${FLAGS_PORT}`;
 const MEDIA_DIR = fileURLToPath(new URL('./e2e-media/', import.meta.url));
 const MAIL_DIR = fileURLToPath(new URL('./e2e-mail/', import.meta.url));
 
+// `pnpm lighthouse` reuses this stack (API, worker, flags-off web build) and runs tests/lighthouse.
+const lighthouse = process.env.E2E_PROFILE === 'lighthouse';
+
 const testDatabaseUrl = resolveTestUrl();
 
 // Start from clean build folders: a stale BUILD_ID would let the second build start too early (see
@@ -70,6 +73,15 @@ export default defineConfig({
   globalTeardown: './tests/e2e/global-teardown.ts',
   use: { trace: 'retain-on-failure' },
   projects: [
+    ...(lighthouse
+      ? [
+          {
+            name: 'lighthouse',
+            testDir: './tests/lighthouse',
+            use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
+          },
+        ]
+      : []),
     {
       name: 'chromium',
       testIgnore: /\.flags\.spec\.ts$/,
@@ -111,20 +123,25 @@ export default defineConfig({
         NEXT_PUBLIC_ENABLE_BODY_SCAN: 'false',
       },
     },
-    {
-      command: `node scripts/wait-for.mjs .next-e2e/BUILD_ID && pnpm exec next build && pnpm exec next start -p ${FLAGS_PORT}`,
-      url: FLAGS_URL,
-      reuseExistingServer: false,
-      timeout: 600_000,
-      env: {
-        ...webEnv,
-        NEXT_DIST_DIR: '.next-e2e-flags',
-        NEXT_PUBLIC_SITE_URL: FLAGS_URL,
-        NEXT_PUBLIC_ENABLE_PIDGIN: 'true',
-        NEXT_PUBLIC_ENABLE_BODY_SCAN: 'true',
-        // TEST ONLY: one fake Pidgin key (not real Pidgin) to prove the per-key fallback.
-        NEXT_PUBLIC_I18N_TEST_FIXTURE: 'true',
-      },
-    },
+    // The flags build is only needed by the *.flags.spec.ts tests.
+    ...(lighthouse
+      ? []
+      : [
+          {
+            command: `node scripts/wait-for.mjs .next-e2e/BUILD_ID && pnpm exec next build && pnpm exec next start -p ${FLAGS_PORT}`,
+            url: FLAGS_URL,
+            reuseExistingServer: false,
+            timeout: 600_000,
+            env: {
+              ...webEnv,
+              NEXT_DIST_DIR: '.next-e2e-flags',
+              NEXT_PUBLIC_SITE_URL: FLAGS_URL,
+              NEXT_PUBLIC_ENABLE_PIDGIN: 'true',
+              NEXT_PUBLIC_ENABLE_BODY_SCAN: 'true',
+              // TEST ONLY: one fake Pidgin key (not real Pidgin) to prove the per-key fallback.
+              NEXT_PUBLIC_I18N_TEST_FIXTURE: 'true',
+            },
+          },
+        ]),
   ],
 });

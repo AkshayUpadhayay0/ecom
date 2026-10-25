@@ -44,8 +44,13 @@ test.describe('prices and fonts', () => {
 
   test('uses the supplied logo files and the generated icon set', async ({ page, request }) => {
     await page.goto('/');
+    // Over the hero the header uses the Warm Ivory wordmark; on a solid bar, the Ink Black one.
+    await expect(page.locator('header img[src="/brand/wordmark-warm-ivory.svg"]')).toBeVisible();
+    await page.goto('/shop');
     await expect(page.locator('header img[src="/brand/wordmark-ink-black.svg"]')).toBeVisible();
-    await expect(page.locator('footer img[src="/brand/seal-warm-ivory.svg"]')).toBeVisible();
+    // The footer is one line now: no seal.
+    await expect(page.locator('footer img')).toHaveCount(0);
+    await page.goto('/');
     const icons = await page
       .locator('head link[rel~="icon"]')
       .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
@@ -111,7 +116,7 @@ test.describe('brand name', () => {
     await cdp.send('DOM.enable');
     await cdp.send('CSS.enable');
     const { root } = await cdp.send('DOM.getDocument');
-    for (const selector of ['#probe-h1', '#probe-p', 'footer .border-t p']) {
+    for (const selector of ['#probe-h1', '#probe-p', 'footer p']) {
       const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector });
       const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
       const families = new Set(fonts.map((font) => font.familyName));
