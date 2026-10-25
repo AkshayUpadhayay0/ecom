@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urban Ibile design notes</title>
+<style>
+@font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Regular.otf");font-weight:400}
+@font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Bold.otf");font-weight:700}
+:root{--ivory:#fffceb;--ink:#171717;--muted:#5c5b57;--line:rgb(23 23 23/.14);--display:"Drafting Mono","Inter",ui-monospace,monospace;--body:"Inter",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--ivory);color:var(--ink);font:16px/1.6 var(--body)}
+.banner{background:var(--ink);color:var(--ivory);font:500 13px var(--display);padding:10px 16px}.banner b{background:#f2b544;color:var(--ink);padding:2px 8px}.banner a{color:var(--ivory);margin-left:14px}
+main{max-width:900px;margin:0 auto;padding:32px 16px 80px}
+h1{font:700 36px/1.1 var(--display);margin-bottom:6px}h2{font:700 15px var(--display);letter-spacing:.08em;text-transform:uppercase;margin:44px 0 12px;padding-top:14px;border-top:1.5px solid var(--ink)}
+p,li{max-width:70ch}ul{padding-left:20px}li{margin:4px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font:700 12px var(--display);text-transform:uppercase}
+.sw{display:flex;flex-wrap:wrap;gap:10px}.sw div{width:150px;font:12px var(--display)}.sw i{display:block;height:56px;border:1px solid var(--line);margin-bottom:4px}
+.sp{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;font:12px var(--display)}.sp i{display:block;background:var(--ink);margin-bottom:4px}
+.t{font-family:var(--display)}
+</style>
+</head>
+<body>
+<div class="banner"><b>DESIGN PROPOSAL</b> Design notes <a href="index.html">← Prototype</a></div>
+<main>
+<h1>Design notes</h1>
+<p style="color:var(--muted)">Rules the proposed interface follows. Sample values; nothing here is live.</p>
+
+<h2>Type scale</h2>
+<table>
+<tr><th>Role</th><th>Font</th><th>Desktop / phone</th></tr>
+<tr><td class="t" style="font-size:28px"><b>Display</b> (brand name on hero)</td><td>Drafting Mono Bold</td><td>88 px / 46 px, line height 1, tight tracking</td></tr>
+<tr><td class="t"><b style="font-size:24px">Page heading</b></td><td>Drafting Mono Bold</td><td>40 px / 30 px</td></tr>
+<tr><td class="t"><b style="font-size:24px">Price</b></td><td>Drafting Mono Bold</td><td>24 px / 18 px (₦ drawn by Inter, as today)</td></tr>
+<tr><td class="t">Navigation, labels, buttons, card text</td><td>Drafting Mono Medium / Bold</td><td>15 to 18 px; labels 12 to 13 px, upper case, wide tracking</td></tr>
+<tr><td style="font-size:16px">Description and long copy</td><td><b>Open decision:</b> Inter (current default) or Drafting Mono. Compare with the toggle in the prototype.</td><td>15 to 16 px, line height 1.6</td></tr>
+</table>
+
+<h2>Spacing scale</h2>
+<p>A 4 px base. Used steps: 4, 8, 12, 16, 24, 32, 48, 72 px.</p>
+<div class="sp"><div><i style="width:4px;height:4px"></i>4</div><div><i style="width:8px;height:8px"></i>8</div><div><i style="width:16px;height:16px"></i>16</div><div><i style="width:24px;height:24px"></i>24</div><div><i style="width:32px;height:32px"></i>32</div><div><i style="width:48px;height:48px"></i>48</div><div><i style="width:72px;height:72px"></i>72</div></div>
+<ul style="margin-top:12px"><li>Page gutters: 24 px desktop, 16 px phone (phone video cards run edge to edge).</li><li>Between sections: 72 px desktop, 48 px phone. Between cards: 48 px / 36 px.</li><li>Every tap target is at least 48 px high.</li></ul>
+
+<h2>Colour usage (confirmed brand kit)</h2>
+<div class="sw"><div><i style="background:#fffceb"></i>Ivory: page background</div><div><i style="background:#171717"></i>Ink: text, outlines, selected chips</div><div><i style="background:#174c3c"></i>Emerald: Find My Size, quiet accents</div><div><i style="background:#f5262d"></i>Red: the ONE primary button per screen</div><div><i style="background:#f2b544"></i>Marigold: graphics only, never text on light</div><div><i style="background:#c95d43"></i>Terracotta: large areas and graphics only</div></div>
+<ul style="margin-top:12px"><li>Small text uses the darker text variants already in the app (contrast 4.5:1 or better).</li><li>Text over video always sits on an Ink gradient scrim.</li><li>The ruler-tick motif is the only decoration. It uses Ink or Emerald at reduced opacity.</li></ul>
+
+<h2>Motion rules</h2>
+<ul>
+<li>The hero video autoplays, muted, and loops. Everything else is quiet: a slow push on the hero, short fades (150 to 250 ms), no parallax, no scroll-jacking.</li>
+<li>Reduced motion: no autoplay and no push. Posters show, with a play button as today.</li>
+<li>Save-Data or a slow connection: posters only, no video download, as today.</li>
+<li>Video budget: at most 4 videos play at once (MAX_CONCURRENT_VIDEOS); cards outside the screen never load video.</li>
+<li>Overlays (menu, search, cart) open with a fade or slide of 200 ms, trap focus, and close with Escape.</li>
+</ul>
+
+<h2>Content rules</h2>
+<ul><li>Description text is always in the page, as readable text, even when collapsed (visual shortening only, never removed from the page).</li><li>The footer About block is no longer shown on the site. Its data stays. The Admin Content page will mark it "Not shown on the website" instead of removing it.</li><li>No text is invented. [Bracketed] text is supplied by the client.</li></ul>
+</main>
+</body>
+</html>

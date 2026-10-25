@@ -8,46 +8,60 @@
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Regular.otf");font-weight:400}
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Medium.otf");font-weight:500}
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Bold.otf");font-weight:700}
-:root{--red:#f5262d;--red-text:#e12329;--emerald:#174c3c;--marigold:#f2b544;--terracotta:#c95d43;--ivory:#fffceb;--ink:#171717;--muted:#5c5b57;--line:rgb(23 23 23/.14);
---display:"Drafting Mono","Inter",ui-monospace,monospace;--body:"Inter",system-ui,sans-serif}
+:root{--red:#f5262d;--emerald:#174c3c;--marigold:#f2b544;--terracotta:#c95d43;--ivory:#fffceb;--ink:#171717;--muted:#5c5b57;--line:rgb(23 23 23/.14);
+--display:"Drafting Mono","Inter",ui-monospace,monospace;--body:"Inter",system-ui,sans-serif;--desc-font:var(--body)}
 *{box-sizing:border-box;margin:0}
 body{background:#dcd8c6;font-family:var(--body);color:var(--ink);line-height:1.5}
-.banner{position:sticky;top:0;z-index:50;background:var(--ink);color:var(--ivory);font:500 13px/1.4 var(--display);padding:10px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.banner{position:sticky;top:0;z-index:100;background:var(--ink);color:var(--ivory);font:500 13px/1.4 var(--display);padding:10px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .banner b{background:var(--marigold);color:var(--ink);padding:2px 8px}
-.banner nav{margin-left:auto;display:flex;gap:14px}.banner a{color:var(--ivory)}
-.wrap{max-width:1500px;margin:0 auto;padding:24px 16px 64px}
-h2.cap{font:700 15px var(--display);margin:40px 0 4px}p.note{font-size:13px;color:var(--muted);margin-bottom:14px;max-width:70ch}
+.banner nav{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}.banner a{color:var(--ivory)}
+.wrap{max-width:1500px;margin:0 auto;padding:24px 16px 80px}
+h2.cap{font:700 15px var(--display);margin:44px 0 4px}p.note{font-size:13px;color:var(--muted);margin-bottom:14px;max-width:75ch}
 .frames{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
-.frame{background:var(--ivory);box-shadow:0 8px 30px rgb(0 0 0/.25);overflow:hidden;container-type:inline-size;flex:none}
-.frame.d{width:1280px;zoom:.78}.frame.m{width:390px}
+.frame{position:relative;background:var(--ivory);box-shadow:0 8px 30px rgb(0 0 0/.25);overflow:hidden;container-type:inline-size;flex:none}
+.frame.d{width:1280px;zoom:.78}.frame.m{width:390px}.frame.fixed{height:780px}.frame.d.fixed{height:760px}
+.lbl{font:500 12px var(--display);margin:0 0 6px;color:var(--muted)}
 @media (max-width:1100px){.frame.d{zoom:.55}}
-/* ---------- the proposed site (container-query driven so one markup serves both widths) ---------- */
+.legend{font-size:13px;color:var(--muted);max-width:90ch;margin-top:30px}
+.dev{position:fixed;right:12px;bottom:12px;z-index:120;background:var(--ink);color:var(--ivory);font:500 12px var(--display);padding:8px 10px;display:flex;gap:8px;align-items:center}
+.dev button{font:inherit;background:transparent;color:inherit;border:1px solid var(--ivory);padding:3px 8px;cursor:pointer}
+.dev button[aria-pressed=true]{background:var(--marigold);color:var(--ink);border-color:var(--marigold)}
+/* ---------- proposed site ---------- */
 .site{font-family:var(--display);color:var(--ink);font-size:15px}
 .site a{color:inherit;text-decoration:none}
-.vid{position:relative;overflow:hidden;background:#222}
-.vid i{position:absolute;inset:-20%;background:linear-gradient(115deg,var(--c1),var(--c2),var(--c1));background-size:300% 300%;animation:drift 14s ease-in-out infinite}
-.vid em{position:absolute;left:10px;top:10px;font:500 11px var(--display);background:rgb(23 23 23/.7);color:var(--ivory);padding:2px 6px;font-style:normal;letter-spacing:.06em}
-@keyframes drift{50%{background-position:100% 50%}}
-@media (prefers-reduced-motion:reduce){.vid i{animation:none}}
+.ph{position:relative;overflow:hidden;background-color:#2c2c2c;background-repeat:no-repeat}
+.ph.k1{background-image:url(img/sample-01.jpg);background-size:cover;background-position:50% 35%}
+.ph.k2{background-image:url(img/sample-01.jpg);background-size:240%;background-position:36% 58%}
+.ph.k3{background-image:url(img/sample-01.jpg);background-size:210%;background-position:92% 72%}
+.ph.k4{background-image:url(img/sample-02.jpg);background-size:250%;background-position:56% 60%}
+.ph.k5{background-image:url(img/sample-01.jpg);background-size:200%;background-position:22% 100%}
+.ph.k6{background-image:url(img/sample-02.jpg);background-size:cover;background-position:50% 70%}
+.ph .tag{position:absolute;left:10px;top:10px;font:500 11px var(--display);background:rgb(23 23 23/.72);color:var(--ivory);padding:2px 6px;letter-spacing:.06em}
+.hero .ph{position:absolute;inset:0;animation:push 24s ease-in-out infinite alternate}
+@keyframes push{to{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.hero .ph{animation:none}}
 .hdr{position:absolute;inset:0 0 auto 0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:18px 24px;color:var(--ivory)}
-.hdr.solid{position:static;background:var(--ivory);color:var(--ink);border-bottom:1px solid var(--line)}
-.hdr img{height:22px}
+.hdr.solid{position:relative;background:var(--ivory);color:var(--ink);border-bottom:1px solid var(--line)}
+.hdr img{height:22px;display:block}
 .hdr nav{display:flex;gap:26px;align-items:center;font-weight:500}
-.hdr .full{display:inline}.hdr .ico{display:none}
-@container (max-width:600px){.hdr{padding:14px 16px}.hdr .full{display:none}.hdr .ico{display:inline}.hdr nav{gap:18px}}
-.hero{position:relative;height:min(100cqw*.62,720px);min-height:560px;color:var(--ivory);display:flex;align-items:flex-end}
+.hdr .mob{display:none}
+.hdr button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-weight:500}
+.hdr svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6}
+@container (max-width:600px){.hdr{padding:14px 16px}.hdr .dsk{display:none}.hdr .mob{display:flex}.hdr nav{gap:18px}}
+.hero{position:relative;height:min(100cqw*.62,720px);min-height:560px;color:var(--ivory);display:flex;align-items:flex-end;overflow:hidden}
 @container (max-width:600px){.hero{height:760px}}
-.hero .vid em{top:auto;bottom:10px;left:auto;right:10px}
-.hero .shade{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.8),rgb(23 23 23/.1) 55%,rgb(23 23 23/.35))}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.82),rgb(23 23 23/.1) 55%,rgb(23 23 23/.4))}
 .hero .copy{position:relative;padding:0 24px 48px;max-width:760px}
 @container (max-width:600px){.hero .copy{padding:0 16px 36px}}
 .hero h1{font:700 clamp(40px,7cqw,88px)/.98 var(--display);letter-spacing:-.02em}
 @container (max-width:600px){.hero h1{font-size:46px}}
-.hero p{margin:16px 0 28px;font:400 17px/1.5 var(--body);max-width:44ch;opacity:.95}
+.hero p{margin:16px 0 28px;font:400 17px/1.5 var(--body);max-width:44ch}
+.hero .ph .tag{top:auto;bottom:10px;left:auto;right:10px}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 30px;background:var(--red);color:#fff;font:700 18px var(--display);border:0}
 .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.dim{background:#b9b6a6;color:#fff}
 .ticks{height:10px;background:repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px);opacity:.5}
-.ticks.big{background:repeating-linear-gradient(90deg,currentColor 0 1.5px,transparent 1.5px 50px),repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px);background-size:100% 100%,100% 50%;background-repeat:no-repeat;background-position:0 0,0 100%;height:14px}
+.ticks.big{background:repeating-linear-gradient(90deg,currentColor 0 1.5px,transparent 1.5px 50px) 0 0/100% 100% no-repeat,repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px) 0 100%/100% 50% no-repeat;height:14px;opacity:.6}
 .sec{padding:72px 24px 24px}
 @container (max-width:600px){.sec{padding:48px 0 16px}}
 .sechead{display:flex;justify-content:space-between;align-items:baseline;padding:0 0 18px;font-weight:500}
@@ -55,21 +69,31 @@ h2.cap{font:700 15px var(--display);margin:40px 0 4px}p.note{font-size:13px;colo
 .sechead h2{font:700 15px var(--display);letter-spacing:.08em;text-transform:uppercase}
 .rail{display:grid;grid-template-columns:repeat(2,1fr);gap:48px 24px}
 @container (max-width:600px){.rail{grid-template-columns:1fr;gap:36px}}
-.card .vid{aspect-ratio:4/5}
+.card .ph{aspect-ratio:4/5}
 .card .meta{display:flex;justify-content:space-between;gap:12px;padding:12px 0 0;font-weight:500}
 @container (max-width:600px){.card .meta{padding:12px 16px 0}}
-.card .no{color:var(--muted);font-size:12px}
-.card .price{font-weight:700}
+.card .no{color:var(--muted);font-size:12px}.card .price{font-weight:700}
+.card.sold .ph{filter:grayscale(.85) brightness(.9)}
+.sold-tag{position:absolute;left:0;bottom:0;background:var(--ink);color:var(--ivory);font:700 13px var(--display);padding:6px 12px;letter-spacing:.06em;text-transform:uppercase}
 .end{text-align:center;padding:64px 24px}
 .foot{border-top:1px solid var(--line);margin-top:56px;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 @container (max-width:600px){.foot{padding:20px 16px}}
-/* product */
+.shophead{padding:36px 24px 8px}
+@container (max-width:600px){.shophead{padding:24px 16px 4px}}
+.shophead h1{font:700 40px/1 var(--display)}
+.chips{display:flex;gap:8px;overflow:auto;padding:18px 24px 6px}
+@container (max-width:600px){.chips{padding:16px 16px 4px}}
+.chips span{flex:none;height:40px;padding:0 16px;display:inline-flex;align-items:center;border:1.5px solid var(--ink);font-weight:500}
+.chips span.on{background:var(--ink);color:var(--ivory)}
+.chips .sort{margin-left:auto;border-style:dashed}
+.shopgrid{padding:28px 24px 0}.shopgrid .rail{grid-template-columns:repeat(3,1fr)}
+@container (max-width:600px){.shopgrid{padding:20px 0 0}.shopgrid .rail{grid-template-columns:1fr}}
 .pdp{display:grid;grid-template-columns:1.15fr 1fr;gap:56px;padding:32px 24px 56px}
 @container (max-width:600px){.pdp{grid-template-columns:1fr;gap:0;padding:0 0 110px}}
 .pdp .media{position:sticky;top:16px;align-self:start}
 @container (max-width:600px){.pdp .media{position:static}}
-.pdp .media .vid{aspect-ratio:4/5}
-.thumbs{display:flex;gap:8px;margin-top:8px}.thumbs span{flex:1;aspect-ratio:1;background:var(--c);opacity:.85}
+.pdp .media .ph{aspect-ratio:4/5}
+.thumbs{display:flex;gap:8px;margin-top:8px}.thumbs .ph{flex:1;aspect-ratio:1}
 @container (max-width:600px){.thumbs{padding:8px 16px 0}}
 .info{padding-top:12px}
 @container (max-width:600px){.info{padding:20px 16px 0}}
@@ -86,55 +110,109 @@ h2.cap{font:700 15px var(--display);margin:40px 0 4px}p.note{font-size:13px;colo
 .fms small{display:block;font:400 12px var(--body);color:var(--muted)}
 .cta{margin-top:24px}.cta .btn{width:100%}
 .disc{margin-top:28px;border-top:1px solid var(--line)}
-.disc div{padding:16px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;font-weight:500}
+.disc .row{padding:16px 0;border-bottom:1px solid var(--line)}
+.disc .h{display:flex;justify-content:space-between;font-weight:500}
+.desc{font-family:var(--desc-font);font-size:15px;line-height:1.6;margin-top:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.desc.open{display:block}
 .sticky{display:none}
-@container (max-width:600px){.cta{display:none}.sticky{display:flex;position:sticky;bottom:0;margin-top:-96px;align-items:center;gap:14px;padding:12px 16px;background:var(--ivory);border-top:1px solid var(--ink);z-index:6}.sticky .p{font:700 18px var(--display)}.sticky .btn{flex:1;min-height:48px;font-size:16px}}
-.legend{font-size:13px;color:var(--muted);max-width:90ch;margin-top:10px}
+@container (max-width:600px){.cta{display:none}.sticky{display:flex;position:absolute;left:0;right:0;bottom:0;align-items:center;gap:14px;padding:12px 16px;background:var(--ivory);border-top:1px solid var(--ink);z-index:6}.sticky .p{font:700 18px var(--display)}.sticky .btn{flex:1;min-height:48px;font-size:16px}}
+.frame.m.product{height:860px}
+.frame.m.product .scroller{height:100%;overflow:hidden}
+.ovl{position:absolute;inset:0;background:var(--ivory);z-index:30;display:flex;flex-direction:column}
+.ovl .top{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--line);font-weight:700}
+.ovl .top span:last-child{font-weight:500}
+.ovl a{color:inherit;text-decoration:none}
+.menu a,.menu .row{display:flex;justify-content:space-between;align-items:center;padding:20px 16px;border-bottom:1px solid var(--line);font:700 24px var(--display)}
+.menu .row.off{opacity:.45;font-size:16px;font-weight:500}
+.menu .row small{font:500 11px var(--display);border:1px solid currentColor;padding:2px 6px}
+.search{padding:16px}
+.search .in{display:flex;align-items:center;gap:10px;border:1.5px solid var(--ink);height:56px;padding:0 14px;background:#fff;font-size:18px}
+.search .in svg{width:22px;height:22px;stroke:var(--ink);fill:none;stroke-width:1.6;flex:none}
+.search .hint{margin-top:12px;font:400 13px var(--body);color:var(--muted)}
+.empty{padding:40px 16px;font:500 18px var(--display)}
+.scrim{position:absolute;inset:0;background:rgb(23 23 23/.55);z-index:25}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:100%;background:var(--ivory);z-index:30;display:flex;flex-direction:column}
+@container (min-width:601px){.drawer{width:440px;box-shadow:-10px 0 30px rgb(0 0 0/.25)}}
+.line{display:grid;grid-template-columns:84px 1fr auto;gap:14px;padding:16px;border-bottom:1px solid var(--line)}
+.line .ph{aspect-ratio:4/5}
+.line small{display:block;font:400 13px var(--body);color:var(--muted)}
+.qty{display:inline-flex;border:1.5px solid var(--ink);margin-top:8px}.qty span{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center}
+.sub{margin-top:auto;padding:16px;border-top:1.5px solid var(--ink)}
+.sub .r{display:flex;justify-content:space-between;font:700 18px var(--display);margin-bottom:6px}
+.sub p{font:400 12px var(--body);color:var(--muted);margin-bottom:14px}
 </style>
 </head>
 <body>
-<div class="banner"><b>DESIGN PROPOSAL</b> Not the live website. Sample content only: gradients stand in for videos; copy in [brackets] is supplied by the client.
-<nav><a href="#home">Home</a><a href="#product">Product page</a></nav></div>
+<div class="banner"><b>DESIGN PROPOSAL</b> Not the live website. Sample content: photos are stand-ins and "video" areas show a still; text in [brackets] is supplied by the client.
+<nav><a href="#home">Home</a><a href="#shop">Shop &amp; states</a><a href="#product">Product</a><a href="#navigation">Navigation</a><a href="design-notes.html">Design notes</a></nav></div>
 <div class="wrap">
 
-<h2 class="cap" id="home">1 · Home page</h2>
-<p class="note">Full-bleed autoplaying, looping hero video with the brand name, the introductory message and one Shop button. Then the video-led outfits, large and few. Then the page simply ends. Left: desktop. Right: 390 px phone.</p>
+<h2 class="cap" id="home">1 · Home</h2>
+<p class="note">Full-bleed autoplaying, looping hero video with the brand name, introductory message and one Shop button; then a few large video-led outfits; then the page ends. Left: desktop. Right: 390 px phone.</p>
 <div class="frames" id="homeFrames"></div>
 
-<h2 class="cap" id="product">2 · Product page</h2>
-<p class="note">The product video is the hero. Size and Find My Size sit directly under the price. On a phone the Add to cart bar is fixed to the bottom of the screen.</p>
+<h2 class="cap" id="shop">2 · Shop, sold-out card and empty search</h2>
+<p class="note">Large cards, three across on desktop, one on phone. A sold-out outfit is dimmed with a "Sold out" tag. A search with no match shows the exact message.</p>
+<div class="frames" id="shopFrames"></div>
+
+<h2 class="cap" id="product">3 · Product page</h2>
+<p class="note">The video is the hero. Size and Find My Size sit under the price. On a phone the Add to cart bar is fixed to the bottom. The description is real text in the page even when collapsed (use the dev toggle at the bottom right to compare Drafting Mono with Inter; no body font has been chosen).</p>
 <div class="frames" id="productFrames"></div>
 
-<p class="legend">Fonts and colours are the confirmed brand kit (Drafting Mono; Inter only for ₦ and accents; Ivory, Ink, Emerald, one Red action colour). Red appears only on the one primary button per screen. The ruler ticks are the proposed signature: a tailor's measuring tape, which is also what Find My Size is about.</p>
+<h2 class="cap" id="navigation">4 · Navigation: menu, search overlay and cart</h2>
+<p class="note">Phone header: Search icon, Cart, Menu button. The menu holds Shop, Sign in (Account when signed in) and the language switcher, shown dimmed because the Pidgin flag is off until approved copy exists. Desktop header: Shop, Search, Account, Cart.</p>
+<div class="frames" id="navFrames"></div>
+
+<p class="legend">Photos: two sample images from Unsplash used under the Unsplash License (see img/CREDITS.md); they are not Urban Ìbílé products and must be replaced by the client's own photography and video. Fonts and colours are the confirmed brand kit. Red appears only on the one primary button per screen.</p>
 </div>
+<div class="dev" role="group" aria-label="Dev: description font">DEV · description font <button type="button" data-f="var(--display)" aria-pressed="false">Drafting Mono</button><button type="button" data-f="var(--body)" aria-pressed="true">Inter (current default)</button></div>
 
 <script>
 const LOGO_LIGHT='../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-Warm%20ivory.svg';
 const LOGO_DARK='../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-Ink%20Black.svg';
-const pal=[['#174c3c','#c95d43'],['#f2b544','#174c3c'],['#c95d43','#171717'],['#171717','#f5262d'],['#174c3c','#f2b544'],['#c95d43','#f2b544']];
-const vid=(i,label='SAMPLE VIDEO',extra='')=>`<div class="vid" style="--c1:${pal[i%6][0]};--c2:${pal[i%6][1]};${extra}"><i></i><em>${label}</em></div>`;
+const I={search:'<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>',bag:'<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',menu:'<svg viewBox="0 0 24 24"><path d="M3 8h18M3 16h18"/></svg>'};
+const ph=(k,tag='')=>`<div class="ph k${k}">${tag?`<span class="tag">${tag}</span>`:''}</div>`;
+const VIDEO='VIDEO · sample photo shown';
 const hdr=(solid)=>`<header class="hdr ${solid?'solid':''}"><a href="#"><img src="${solid?LOGO_DARK:LOGO_LIGHT}" alt="Urban Ìbílé"></a>
-<nav><a href="#"><span class="full">Shop</span><span class="ico">Shop</span></a><a href="#" class="full">Search</a><a href="#" class="full">Account</a><a href="#">Cart (0)</a></nav></header>`;
-const card=(i)=>`<article class="card"><a href="#">${vid(i)}<div class="meta"><span><span class="no">${String(i+1).padStart(2,'0')} / 06</span><br>[Product name ${i+1}]</span><span class="price">₦ [sample]</span></div></a></article>`;
-const home=`<div class="site">
-<section class="hero">${vid(0,'SAMPLE HERO VIDEO · autoplay · loop · muted','position:absolute;inset:0')}<div class="shade"></div>${hdr(false)}
+<nav class="dsk"><a href="#">Shop</a><a href="#">Search</a><a href="#">Account</a><a href="#">Cart (0)</a></nav>
+<nav class="mob"><button aria-label="Search">${I.search}</button><button aria-label="Cart">${I.bag}</button><button aria-label="Menu">${I.menu}</button></nav></header>`;
+const card=(i,sold=false)=>`<article class="card ${sold?'sold':''}"><a href="#"><div style="position:relative">${ph(i%6+1,VIDEO)}${sold?'<span class="sold-tag">Sold out</span>':''}</div><div class="meta"><span><span class="no">${String(i+1).padStart(2,'0')}</span><br>[Product name ${i+1}]</span><span class="price">₦ [sample]</span></div></a></article>`;
+const foot=`<footer class="foot"><span>© 2026 Urban Ìbílé</span><span>[Support contact and policies: shown only if supplied in Settings / Content]</span></footer>`;
+const home=`<div class="site"><section class="hero">${ph(1,VIDEO+' · autoplay · loop · muted')}<div class="shade"></div>${hdr(false)}
 <div class="copy"><h1>Urban Ìbílé</h1><p>[Introductory message: supplied by the client]</p><a class="btn" href="#">Shop</a></div></section>
-<div class="ticks big" style="color:var(--ink)"></div>
-<section class="sec"><div class="sechead"><h2>The collection</h2><a href="#">All outfits →</a></div>
-<div class="rail">${[0,1,2,3,4,5].map(card).join('')}</div></section>
-<div class="end"><a class="btn ghost" href="#">See every outfit</a></div>
-<footer class="foot"><span>© 2026 Urban Ìbílé</span><span>[Support contact and policies: only if supplied in Settings / Content]</span></footer></div>`;
-const product=`<div class="site">${hdr(true)}
-<div class="pdp"><div class="media">${vid(1,'SAMPLE PRODUCT VIDEO · autoplay · loop')}<div class="thumbs"><span style="--c:#174c3c"></span><span style="--c:#c95d43"></span><span style="--c:#f2b544"></span><span style="--c:#171717"></span></div></div>
+<div class="ticks big"></div>
+<section class="sec"><div class="sechead"><h2>The collection</h2><a href="#">All outfits →</a></div><div class="rail">${[0,1,2,3,4,5].map(i=>card(i)).join('')}</div></section>
+<div class="end"><a class="btn ghost" href="#">See every outfit</a></div>${foot}</div>`;
+const shop=(grid)=>`<div class="site">${hdr(true)}<div class="shophead"><h1>Shop</h1></div>
+<div class="chips"><span class="on">All</span><span>[Type 1]</span><span>[Type 2]</span><span>[Type 3]</span><span class="sort">Sort ▾</span></div>
+<div class="shopgrid">${grid}</div>${foot}</div>`;
+const shopGrid=`<div class="rail">${[0,1,2,3,4,5].map(i=>card(i,i===2)).join('')}</div>`;
+const emptySearch=`<div class="site">${hdr(true)}<div class="shophead"><h1>Search</h1></div>
+<div class="search"><div class="in">${I.search}<span>zzqx</span></div></div><p class="empty">No outfits found. Try another word.</p></div>`;
+const product=`<div class="site"><div class="scroller">${hdr(true)}
+<div class="pdp"><div class="media">${ph(2,VIDEO+' · autoplay · loop')}<div class="thumbs">${ph(1)}${ph(3)}${ph(4)}${ph(5)}</div></div>
 <div class="info"><div class="type">[Clothing type]</div><h1>[Product name]</h1><div class="p">₦ [sample price]</div>
 <div class="lab"><span>Size</span><span style="color:var(--muted);font-weight:400">[Size chart]</span></div>
 <div class="sizes"><span>S</span><span class="on">M</span><span>L</span><span>XL</span><span class="off">XXL</span></div>
 <div class="fms"><div class="ticks"></div><div>Find my size<small>Quick Fit or Body Scan. Takes about a minute.</small></div></div>
 <div class="cta"><a class="btn" href="#">Add to cart</a></div>
-<div class="disc"><div><span>Description</span><span>+</span></div><div><span>Returns</span><span>+</span></div></div></div></div>
+<div class="disc"><div class="row"><div class="h"><span>Description</span><button class="more" type="button" aria-expanded="false" style="all:unset;cursor:pointer;font-weight:700">Read more +</button></div>
+<p class="desc">[Product description: supplied by the client.] This text is always in the page as real, readable text. When collapsed it is only shortened visually, so search engines, screen readers and find-in-page still see all of it.</p></div></div></div></div></div>
 <div class="sticky"><span class="p">₦ [sample]</span><a class="btn" href="#">Add to cart</a></div></div>`;
-document.getElementById('homeFrames').innerHTML=`<div class="frame d">${home}</div><div class="frame m">${home}</div>`;
-document.getElementById('productFrames').innerHTML=`<div class="frame d">${product}</div><div class="frame m">${product}</div>`;
+const menuOv=`<div class="ovl menu"><div class="top"><span>Menu</span><span>Close ✕</span></div><a href="#">Shop <span>→</span></a><a href="#">Sign in <span>→</span></a>
+<div class="row off"><span>Language</span><span>EN · PCM <small>OFF · flag-gated</small></span></div></div>`;
+const searchOv=`<div class="ovl"><div class="top"><span>Search</span><span>Close ✕</span></div><div class="search"><div class="in">${I.search}<span>[typed word]</span></div><p class="hint">Searches the whole catalogue: name, clothing type and keywords. Results appear as you type.</p></div></div>`;
+const cartOv=`<div class="scrim"></div><aside class="drawer"><div style="display:flex;justify-content:space-between;padding:16px;border-bottom:1px solid var(--line);font-weight:700"><span>Cart (1)</span><span style="font-weight:500">Close ✕</span></div>
+<div class="line">${ph(2)}<div><b>[Product name]</b><small>Size M · Fit: recommended size M</small><div class="qty"><span>−</span><span>1</span><span>+</span></div></div><b>₦ [sample]</b></div>
+<div class="sub"><div class="r"><span>Subtotal</span><span>₦ [sample]</span></div><p>Delivery is calculated at checkout.</p><a class="btn dim" style="width:100%">Checkout (next step)</a></div></aside>`;
+const F=(cls,html,label)=>`<div><p class="lbl">${label}</p><div class="frame ${cls}">${html}</div></div>`;
+document.getElementById('homeFrames').innerHTML=F('d',home,'Desktop 1280')+F('m',home,'Phone 390');
+document.getElementById('shopFrames').innerHTML=F('d',shop(shopGrid),'Desktop: shop, third card sold out')+F('m',shop(shopGrid),'Phone: shop')+F('m fixed',emptySearch,'Phone: empty search')+F('d fixed',emptySearch,'Desktop: empty search');
+document.getElementById('productFrames').innerHTML=F('d',product,'Desktop')+F('m product',product,'Phone: sticky Add to cart bar');
+const bg=`<div class="site">${hdr(true)}<div class="shophead"><h1>Shop</h1></div><div class="shopgrid"><div class="rail">${[0,1].map(i=>card(i)).join('')}</div></div></div>`;
+document.getElementById('navFrames').innerHTML=F('m fixed',bg+menuOv,'Phone: menu open')+F('m fixed',bg+searchOv,'Phone: search overlay')+F('m fixed',bg+cartOv,'Phone: cart drawer')+F('d fixed',bg+cartOv,'Desktop: cart drawer');
+document.querySelectorAll('.more').forEach(b=>b.addEventListener('click',()=>{const d=b.closest('.row').querySelector('.desc');const o=d.classList.toggle('open');b.setAttribute('aria-expanded',o);b.textContent=o?'Read less −':'Read more +'}));
+document.querySelectorAll('.dev button').forEach(b=>b.addEventListener('click',()=>{document.documentElement.style.setProperty('--desc-font',b.dataset.f);document.querySelectorAll('.dev button').forEach(x=>x.setAttribute('aria-pressed',x===b))}));
 </script>
 </body>
 </html>
