@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Urban Ibile design notes</title>
+<title>Urban Ibile design notes v2</title>
 <style>
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Regular.otf");font-weight:400}
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Bold.otf");font-weight:700}
@@ -11,51 +11,136 @@
 *{box-sizing:border-box;margin:0}
 body{background:var(--ivory);color:var(--ink);font:16px/1.6 var(--body)}
 .banner{background:var(--ink);color:var(--ivory);font:500 13px var(--display);padding:10px 16px}.banner b{background:#f2b544;color:var(--ink);padding:2px 8px}.banner a{color:var(--ivory);margin-left:14px}
-main{max-width:900px;margin:0 auto;padding:32px 16px 80px}
-h1{font:700 36px/1.1 var(--display);margin-bottom:6px}h2{font:700 15px var(--display);letter-spacing:.08em;text-transform:uppercase;margin:44px 0 12px;padding-top:14px;border-top:1.5px solid var(--ink)}
-p,li{max-width:70ch}ul{padding-left:20px}li{margin:4px 0}
-table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font:700 12px var(--display);text-transform:uppercase}
+main{max-width:980px;margin:0 auto;padding:32px 16px 80px}
+h1{font:700 36px/1.1 var(--display);margin-bottom:6px}h2{font:700 15px var(--display);letter-spacing:.08em;text-transform:uppercase;margin:48px 0 12px;padding-top:14px;border-top:1.5px solid var(--ink)}
+h3{font:700 14px var(--display);margin:22px 0 6px}
+p,li{max-width:74ch}ul{padding-left:20px}li{margin:4px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font:700 12px var(--display);text-transform:uppercase}
 .sw{display:flex;flex-wrap:wrap;gap:10px}.sw div{width:150px;font:12px var(--display)}.sw i{display:block;height:56px;border:1px solid var(--line);margin-bottom:4px}
-.sp{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;font:12px var(--display)}.sp i{display:block;background:var(--ink);margin-bottom:4px}
 .t{font-family:var(--display)}
+.pill{display:inline-block;font:700 11px var(--display);padding:1px 8px;background:#f2b544}
+.pass{color:#0b6b3a;font-weight:700}.fail{color:#b3151b;font-weight:700}
+.warn{border-left:4px solid #b3151b;padding:8px 12px;background:#fff;margin:12px 0}
 </style>
 </head>
 <body>
-<div class="banner"><b>DESIGN PROPOSAL</b> Design notes <a href="index.html">← Prototype</a></div>
+<div class="banner"><b>DESIGN PROPOSAL v2</b> Design notes <a href="index.html">← Prototype</a></div>
 <main>
-<h1>Design notes</h1>
-<p style="color:var(--muted)">Rules the proposed interface follows. Sample values; nothing here is live.</p>
+<h1>Design notes · v2</h1>
+<p style="color:var(--muted)">Principles taken from the client's reference (cinematic hero, very large type, side menu, carousel). No layout, copy, asset or code is copied. Brand kit and the tailor's-tape identity are unchanged. Sample values; nothing here is live.</p>
 
 <h2>Type scale</h2>
 <table>
 <tr><th>Role</th><th>Font</th><th>Desktop / phone</th></tr>
-<tr><td class="t" style="font-size:28px"><b>Display</b> (brand name on hero)</td><td>Drafting Mono Bold</td><td>88 px / 46 px, line height 1, tight tracking</td></tr>
-<tr><td class="t"><b style="font-size:24px">Page heading</b></td><td>Drafting Mono Bold</td><td>40 px / 30 px</td></tr>
-<tr><td class="t"><b style="font-size:24px">Price</b></td><td>Drafting Mono Bold</td><td>24 px / 18 px (₦ drawn by Inter, as today)</td></tr>
-<tr><td class="t">Navigation, labels, buttons, card text</td><td>Drafting Mono Medium / Bold</td><td>15 to 18 px; labels 12 to 13 px, upper case, wide tracking</td></tr>
-<tr><td style="font-size:16px">Description and long copy</td><td><b>Open decision:</b> Inter (current default) or Drafting Mono. Compare with the toggle in the prototype.</td><td>15 to 16 px, line height 1.6</td></tr>
+<tr><td class="t"><b>Hero title</b> (real text)</td><td>Drafting Mono Bold</td><td>up to 184 px (13% of width) / 58 px, line height .9, tracking −.04em</td></tr>
+<tr><td class="t"><b>Band headline</b></td><td>Drafting Mono Bold</td><td>up to 112 px / 38 px</td></tr>
+<tr><td class="t"><b>Page / product heading</b></td><td>Drafting Mono Bold</td><td>40 to 44 px / 30 to 32 px</td></tr>
+<tr><td class="t">Section label</td><td>Drafting Mono Bold</td><td>15 px, upper case, +.08em</td></tr>
+<tr><td class="t">Nav, prices, buttons, card text, chips</td><td>Drafting Mono Medium / Bold</td><td>15 to 24 px. Primary button text is 19 to 20 px bold (see contrast note).</td></tr>
+<tr><td style="font-size:16px">Description, Material, Delivery, Returns</td><td><b>Open decision</b>: Inter (current default) or Drafting Mono; compare with the dev toggle</td><td>15 to 16 px, line height 1.6</td></tr>
 </table>
 
 <h2>Spacing scale</h2>
-<p>A 4 px base. Used steps: 4, 8, 12, 16, 24, 32, 48, 72 px.</p>
-<div class="sp"><div><i style="width:4px;height:4px"></i>4</div><div><i style="width:8px;height:8px"></i>8</div><div><i style="width:16px;height:16px"></i>16</div><div><i style="width:24px;height:24px"></i>24</div><div><i style="width:32px;height:32px"></i>32</div><div><i style="width:48px;height:48px"></i>48</div><div><i style="width:72px;height:72px"></i>72</div></div>
-<ul style="margin-top:12px"><li>Page gutters: 24 px desktop, 16 px phone (phone video cards run edge to edge).</li><li>Between sections: 72 px desktop, 48 px phone. Between cards: 48 px / 36 px.</li><li>Every tap target is at least 48 px high.</li></ul>
+<p>4 px base. Steps: 4, 8, 12, 16, 24, 32, 48, 56, 80 px. Gutters 24 px desktop / 16 px phone (media runs edge to edge on phone). Section gap 80 px / 56 px. Tap targets at least 44 px (buttons 52 to 56 px).</p>
 
-<h2>Colour usage (confirmed brand kit)</h2>
-<div class="sw"><div><i style="background:#fffceb"></i>Ivory: page background</div><div><i style="background:#171717"></i>Ink: text, outlines, selected chips</div><div><i style="background:#174c3c"></i>Emerald: Find My Size, quiet accents</div><div><i style="background:#f5262d"></i>Red: the ONE primary button per screen</div><div><i style="background:#f2b544"></i>Marigold: graphics only, never text on light</div><div><i style="background:#c95d43"></i>Terracotta: large areas and graphics only</div></div>
-<ul style="margin-top:12px"><li>Small text uses the darker text variants already in the app (contrast 4.5:1 or better).</li><li>Text over video always sits on an Ink gradient scrim.</li><li>The ruler-tick motif is the only decoration. It uses Ink or Emerald at reduced opacity.</li></ul>
+<h2>Colour usage</h2>
+<div class="sw"><div><i style="background:#fffceb"></i>Ivory: light background, dark-mode text</div><div><i style="background:#171717"></i>Ink: light text, dark background</div><div><i style="background:#174c3c"></i>Emerald: Find My Size panel, quiet surfaces. Never as text on Ink.</div><div><i style="background:#f5262d"></i>Red: the ONE primary button per screen. Never small text.</div></div>
+<ul style="margin-top:12px"><li>Marigold and Terracotta are not used in this proposal.</li><li>Text over video sits on an Ink gradient scrim. The "VIDEO" and "playing" tags are prototype labels, not part of the design.</li><li>The ruler-tick rule is the only decoration.</li></ul>
 
-<h2>Motion rules</h2>
+<h2>Dark mode <span class="pill">PENDING CLIENT DECISION</span></h2>
+<p>Brand colours only. A visible Light / Dark toggle is shown in the prototype top bar; in the real site it would sit in the side menu (Theme row), default to the device setting, and be remembered in a cookie. If the client says no, nothing else changes.</p>
+<h3>Contrast, computed live from the colour values (WCAG 2.x)</h3>
+<table id="contrast"><tr><th>Pair</th><th>Used for</th><th>Ratio</th><th>Needs</th><th>Result</th></tr></table>
+<noscript>Enable JavaScript to see the computed table.</noscript>
+<div class="warn"><b>Flags.</b> (1) White on brand Red (#f5262d) is 4.04:1: it passes only as large text (18.66 px bold or more), so every primary button in this proposal is 19 px bold or larger. A button smaller than that would fail; the derived darker red already in the app (#e12329, 4.69:1) fixes it and needs client approval. (2) Emerald as text or as a border on Ink is 1.82:1 and fails: in dark mode Emerald is only ever a surface with Ivory text, and control borders switch to Ivory. (3) Red on Ink is 4.44:1: fine for graphics, not for small text. (4) Text on top of video cannot be computed from the palette; it relies on the scrim and must be checked on the real hero frames.</div>
+
+<h2>Motion</h2>
+<table>
+<tr><th>Motion</th><th>Rule</th></tr>
+<tr><td>Hero drift</td><td>Slow scale 1 to 1.06 over 24 s on the poster/video layer. Transform only.</td></tr>
+<tr><td>Enter</td><td>Fade and 24 px translate, 600 ms, once, when 15% visible.</td></tr>
+<tr><td>Band parallax</td><td>The band's image moves at most 32 px against scroll. Transform only, in a requestAnimationFrame, passive listener (or CSS scroll-driven animation where supported).</td></tr>
+<tr><td>Hover</td><td>Cards: poster scale 1.03, 250 ms. Buttons: colour only. Tiles: the arrow moves 4 px. Hover motion never carries information.</td></tr>
+<tr><td>Carousel</td><td>Scroll-snap, swipe on phone, arrow buttons on desktop; keyboard focusable region.</td></tr>
+<tr><td>Menu, search, cart</td><td>Slide or fade 200 ms, focus moves in, is trapped, Escape closes.</td></tr>
+<tr><td><b>prefers-reduced-motion</b></td><td>No drift, no parallax, no enter animations, no autoplay: posters with a Play button, as today.</td></tr>
+<tr><td><b>Save-Data / 2G / 3G</b></td><td>Same as reduced motion, plus no video downloads at all (posters only). Parallax and drift are off.</td></tr>
+<tr><td><b>One video at a time on phone</b></td><td>The video nearest the middle of the screen plays; all others show their poster. Desktop keeps MAX_CONCURRENT_VIDEOS = 4. Videos pause when off screen or when the tab is hidden.</td></tr>
+</table>
+
+<h2>Video and image budget (Technical Recommendation: estimates, not measurements)</h2>
+<table>
+<tr><th>Asset</th><th>Desktop</th><th>Phone</th><th>Loading</th></tr>
+<tr><td>Hero poster (the LCP image)</td><td>1280 w WebP, ~90 to 150 KB</td><td>750 w WebP, ~50 to 80 KB</td><td>Preloaded with srcset, high priority, dominant-colour background</td></tr>
+<tr><td>Hero video, 8 to 10 s loop, muted, no audio track</td><td>1080p ~2.5 Mbps, ~3 MB</td><td>480 to 540p portrait ~0.7 Mbps, ~0.9 MB</td><td>Starts only after the poster has painted and the page is idle</td></tr>
+<tr><td>Band video, 6 s loop</td><td>1080p, ~1.8 MB</td><td>480p, ~0.5 MB</td><td>Poster first; video starts only within one screen of the band, pauses off screen</td></tr>
+<tr><td>Category tiles (4 images)</td><td>640 w, ~40 to 60 KB each</td><td>same</td><td>Lazy</td></tr>
+<tr><td>Carousel card previews (3 s)</td><td>360p, ~0.25 MB each, up to 4 playing</td><td>~0.25 MB, 1 playing</td><td>Poster first; first two posters eager, the rest lazy</td></tr>
+</table>
+<p><b>Home totals.</b> First view on phone: about 50 to 80 KB of image plus the existing app JavaScript and two font weights (preloaded). Video bytes begin after load: about 0.9 MB for the hero, then about 0.5 MB when the band comes into view, then about 0.25 MB per card as each takes its turn, so a slow scroller on phone stays under about 2 MB and a full read about 3 to 4 MB. Desktop full scroll: about 6 MB, all from the CDN. <b>Slow connection:</b> posters only, no video requests, Play button, as the site does today.</p>
+<p>Today's media pipeline makes one ~1280 px video poster and 480p/720p/1080p files. A phone-sized poster and portrait renditions are <b>not built yet</b>; they need an API change in the media pipeline.</p>
+<h3>Does the cinematic design put the mobile Lighthouse target (performance 85+, accessibility 100) at risk?</h3>
+<p><b>Yes, moderately, for performance.</b> Accessibility 100 is not at risk if the rules below are kept.</p>
 <ul>
-<li>The hero video autoplays, muted, and loops. Everything else is quiet: a slow push on the hero, short fades (150 to 250 ms), no parallax, no scroll-jacking.</li>
-<li>Reduced motion: no autoplay and no push. Posters show, with a play button as today.</li>
-<li>Save-Data or a slow connection: posters only, no video download, as today.</li>
-<li>Video budget: at most 4 videos play at once (MAX_CONCURRENT_VIDEOS); cards outside the screen never load video.</li>
-<li>Overlays (menu, search, cart) open with a fade or slide of 200 ms, trap focus, and close with Escape.</li>
+<li><b>LCP:</b> a 184 px title and a full-viewport hero are fine as long as the poster is the LCP image, is small (phone rendition) and is preloaded. Never let the video be the LCP element. Needs the phone poster rendition.</li>
+<li><b>Video weight:</b> Lighthouse throttles to slow 4G. Do not start video before the load event and poster paint; hero video under about 1 MB on phone.</li>
+<li><b>Total Blocking Time:</b> parallax and reveal must not run heavy JavaScript. Use IntersectionObserver and transform/opacity only, or CSS scroll-driven animation. No animation library.</li>
+<li><b>CLS:</b> reserve every aspect ratio (4:5 cards, hero height, tiles) and use size-adjusted fallback fonts so the huge title does not jump when Drafting Mono loads.</li>
+<li><b>Fonts:</b> preload only the two weights above the fold.</li>
+<li><b>Accessibility:</b> every control keeps a name (icon buttons have labels), the carousel is a labelled, focusable region, the side menu traps focus and closes on Escape, and text over video keeps its scrim. axe cannot judge text over video, so it needs a manual check on real frames.</li>
 </ul>
 
 <h2>Content rules</h2>
-<ul><li>Description text is always in the page, as readable text, even when collapsed (visual shortening only, never removed from the page).</li><li>The footer About block is no longer shown on the site. Its data stays. The Admin Content page will mark it "Not shown on the website" instead of removing it.</li><li>No text is invented. [Bracketed] text is supplied by the client.</li></ul>
+<ul><li>Description, Material, Delivery and Returns are always real text in the page, even when collapsed (visual shortening, or a native details element that find-in-page opens).</li><li>No text is invented. [Bracketed] text is supplied by the client or Admin.</li><li>The footer About block is no longer shown. Its data stays; Admin → Content marks it "Not shown on the website".</li><li>No About page content, no newsletter.</li></ul>
+
+<h2>What the new design needs from the backend (not built)</h2>
+<table>
+<tr><th>Design element</th><th>Needs</th></tr>
+<tr><td>Category tiles with images chosen in admin</td><td>An image reference on clothing types (a media link) and a picker in Admin → Clothing types. Public clothing-types list returns it.</td></tr>
+<tr><td>"New outfits" carousel</td><td>Existing catalogue sort by newest (no new backend if that sort exists; to confirm).</td></tr>
+<tr><td>Material row</td><td>A product Material field (or content block) editable in Admin → Products; today none exists.</td></tr>
+<tr><td>Delivery row</td><td>Text from delivery settings or a content block; real delivery terms are still a Pending Client Decision.</td></tr>
+<tr><td>Returns row</td><td>Existing return policy data; wording still TEAM DESIGN.</td></tr>
+<tr><td>Similar outfits</td><td>A catalogue query: same clothing type, excluding the current product (small new endpoint or filter).</td></tr>
+<tr><td>Band video and headline</td><td>A second video content block with a text field (like the hero block).</td></tr>
+<tr><td>Dark mode</td><td>None (cookie + CSS).</td></tr>
+</table>
+
+<h2>Pending client decision (not designed, not built)</h2>
+<table>
+<tr><th>Feature</th><th>Backend it would need</th></tr>
+<tr><td>Newsletter</td><td>Subscriber table, consent and double opt-in, unsubscribe link, email provider (still undecided), admin export, privacy wording.</td></tr>
+<tr><td>Discount badges</td><td>Compare-at price or a promotions table with rules and date windows; server-side totals must stay the single source (money rules); admin UI.</td></tr>
+<tr><td>Colour swatches</td><td>A colour dimension on variants (today a variant is product + size only), stock per colour, images per colour, cart and order snapshots.</td></tr>
+<tr><td>Reviews</td><td>Reviews table linked to a purchased order item, moderation queue, rating aggregates, spam control, structured data.</td></tr>
+<tr><td>Trending logic</td><td>A popularity measure (views or recent sales), a scheduled job or materialised view, admin override, caching.</td></tr>
+</table>
 </main>
+<script>
+const lum=h=>{const c=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:((v+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const N='4.5:1 (normal text)',L='3:1 (large text, 18.66 px bold+)',U='3:1 (control border)';
+const rows=[
+['Light','Ink #171717 on Ivory #fffceb','Body text',N,4.5,'#171717','#fffceb'],
+['Light','Muted #5c5b57 on Ivory','Captions, hints',N,4.5,'#5c5b57','#fffceb'],
+['Light','Ivory on Emerald #174c3c','Find My Size panel',N,4.5,'#fffceb','#174c3c'],
+['Light','Panel hint #e8e5d6 on Emerald','Find My Size small text',N,4.5,'#e8e5d6','#174c3c'],
+['Both','White on Red #f5262d','Primary button, 19 to 20 px bold',L,3,'#ffffff','#f5262d'],
+['Both','White on Red #f5262d','If a button were smaller (not used)',N,4.5,'#ffffff','#f5262d'],
+['Both','White on derived Red #e12329 (pending approval)','Fix if small buttons are needed',N,4.5,'#ffffff','#e12329'],
+['Dark','Ivory #fffceb on Ink #171717','Body text',N,4.5,'#fffceb','#171717'],
+['Dark','Muted #b9b6a8 on Ink','Captions, hints',N,4.5,'#b9b6a8','#171717'],
+['Dark','Ivory on Emerald #174c3c','Find My Size panel',N,4.5,'#fffceb','#174c3c'],
+['Dark','Panel hint #e8e5d6 on Emerald','Find My Size small text',N,4.5,'#e8e5d6','#174c3c'],
+['Dark','Ivory border on Ink','Size chips, inputs, outline buttons',U,3,'#fffceb','#171717'],
+['Dark','Ink on Ivory','Selected chip, sold-out tag',N,4.5,'#171717','#fffceb'],
+['Dark','Red #f5262d on Ink','Small red text (not used)',N,4.5,'#f5262d','#171717'],
+['Dark','Red #f5262d on Ink','Red graphics only',U,3,'#f5262d','#171717'],
+['Dark','Emerald #174c3c on Ink','Emerald as text or border (not used)',N,4.5,'#174c3c','#171717'],
+['Dark','Emerald #174c3c on Ink','Emerald as control border (not used)',U,3,'#174c3c','#171717']];
+const t=document.getElementById('contrast');
+for(const [m,pair,use,need,min,fg,bg] of rows){const r=ratio(fg,bg);const ok=r>=min;const tr=document.createElement('tr');
+tr.innerHTML=`<td>${m}: ${pair}</td><td>${use}</td><td>${r.toFixed(2)}:1</td><td>${need}</td><td class="${ok?'pass':'fail'}">${ok?'PASS':'FAIL'}</td>`;t.appendChild(tr)}
+</script>
 </body>
 </html>

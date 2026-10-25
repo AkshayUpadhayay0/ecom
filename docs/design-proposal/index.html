@@ -3,31 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Urban Ibile design proposal</title>
+<title>Urban Ibile design proposal v2</title>
 <style>
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Regular.otf");font-weight:400}
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Medium.otf");font-weight:500}
 @font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Bold.otf");font-weight:700}
-:root{--red:#f5262d;--emerald:#174c3c;--marigold:#f2b544;--terracotta:#c95d43;--ivory:#fffceb;--ink:#171717;--muted:#5c5b57;--line:rgb(23 23 23/.14);
+:root{--red:#f5262d;--emerald:#174c3c;--marigold:#f2b544;--ivory:#fffceb;--ink:#171717;
 --display:"Drafting Mono","Inter",ui-monospace,monospace;--body:"Inter",system-ui,sans-serif;--desc-font:var(--body)}
 *{box-sizing:border-box;margin:0}
 body{background:#dcd8c6;font-family:var(--body);color:var(--ink);line-height:1.5}
 .banner{position:sticky;top:0;z-index:100;background:var(--ink);color:var(--ivory);font:500 13px/1.4 var(--display);padding:10px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .banner b{background:var(--marigold);color:var(--ink);padding:2px 8px}
-.banner nav{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}.banner a{color:var(--ivory)}
+.banner nav{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap;align-items:center}.banner a{color:var(--ivory)}
+.tt{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--ivory);padding:2px 6px}
+.tt button{font:inherit;background:transparent;color:inherit;border:1px solid var(--ivory);padding:2px 8px;cursor:pointer}
+.tt button[aria-pressed=true]{background:var(--marigold);color:var(--ink);border-color:var(--marigold)}
 .wrap{max-width:1500px;margin:0 auto;padding:24px 16px 80px}
-h2.cap{font:700 15px var(--display);margin:44px 0 4px}p.note{font-size:13px;color:var(--muted);margin-bottom:14px;max-width:75ch}
+h2.cap{font:700 15px var(--display);margin:44px 0 4px}p.note{font-size:13px;color:#5c5b57;margin-bottom:14px;max-width:80ch}
 .frames{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
-.frame{position:relative;background:var(--ivory);box-shadow:0 8px 30px rgb(0 0 0/.25);overflow:hidden;container-type:inline-size;flex:none}
+.frame{position:relative;box-shadow:0 8px 30px rgb(0 0 0/.25);overflow:hidden;container-type:inline-size;flex:none;
+--bg:#fffceb;--fg:#171717;--muted:#5c5b57;--line:rgb(23 23 23/.14);--ctl:#171717;--panel:#174c3c;--panelfg:#fffceb;background:var(--bg);color:var(--fg)}
+.frame[data-theme=dark]{--bg:#171717;--fg:#fffceb;--muted:#b9b6a8;--line:rgb(255 252 235/.22);--ctl:#fffceb}
 .frame.d{width:1280px;zoom:.78}.frame.m{width:390px}.frame.fixed{height:780px}.frame.d.fixed{height:760px}
-.lbl{font:500 12px var(--display);margin:0 0 6px;color:var(--muted)}
+.lbl{font:500 12px var(--display);margin:0 0 6px;color:#5c5b57}
 @media (max-width:1100px){.frame.d{zoom:.55}}
-.legend{font-size:13px;color:var(--muted);max-width:90ch;margin-top:30px}
+.legend{font-size:13px;color:#5c5b57;max-width:90ch;margin-top:30px}
 .dev{position:fixed;right:12px;bottom:12px;z-index:120;background:var(--ink);color:var(--ivory);font:500 12px var(--display);padding:8px 10px;display:flex;gap:8px;align-items:center}
 .dev button{font:inherit;background:transparent;color:inherit;border:1px solid var(--ivory);padding:3px 8px;cursor:pointer}
 .dev button[aria-pressed=true]{background:var(--marigold);color:var(--ink);border-color:var(--marigold)}
 /* ---------- proposed site ---------- */
-.site{font-family:var(--display);color:var(--ink);font-size:15px}
+.site{font-family:var(--display);font-size:15px}
 .site a{color:inherit;text-decoration:none}
 .ph{position:relative;overflow:hidden;background-color:#2c2c2c;background-repeat:no-repeat}
 .ph.k1{background-image:url(img/sample-01.jpg);background-size:cover;background-position:50% 35%}
@@ -36,60 +41,91 @@ h2.cap{font:700 15px var(--display);margin:44px 0 4px}p.note{font-size:13px;colo
 .ph.k4{background-image:url(img/sample-02.jpg);background-size:250%;background-position:56% 60%}
 .ph.k5{background-image:url(img/sample-01.jpg);background-size:200%;background-position:22% 100%}
 .ph.k6{background-image:url(img/sample-02.jpg);background-size:cover;background-position:50% 70%}
-.ph .tag{position:absolute;left:10px;top:10px;font:500 11px var(--display);background:rgb(23 23 23/.72);color:var(--ivory);padding:2px 6px;letter-spacing:.06em}
-.hero .ph{position:absolute;inset:0;animation:push 24s ease-in-out infinite alternate}
+.ph.k7{background-image:url(img/sample-01.jpg);background-size:cover;background-position:70% 20%}
+.ph .tag{position:absolute;left:10px;top:10px;font:500 11px var(--display);background:rgb(23 23 23/.78);color:#fffceb;padding:2px 6px;letter-spacing:.06em;z-index:2}
+.ph .tag.play{background:#f2b544;color:#171717}
+.par{position:absolute;inset:-8% 0;will-change:transform}
+.par>.ph{position:absolute;inset:0}
+.hero .par{animation:push 24s ease-in-out infinite alternate}
 @keyframes push{to{transform:scale(1.06)}}
-@media (prefers-reduced-motion:reduce){.hero .ph{animation:none}}
-.hdr{position:absolute;inset:0 0 auto 0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:18px 24px;color:var(--ivory)}
-.hdr.solid{position:relative;background:var(--ivory);color:var(--ink);border-bottom:1px solid var(--line)}
+.rv{transition:opacity .6s ease,transform .6s ease}
+.rv.pre{opacity:0;transform:translateY(24px)}
+.nomotion .hero .par{animation:none}.nomotion .rv{transition:none}.nomotion .rv.pre{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.hero .par{animation:none}.rv{transition:none}.rv.pre{opacity:1;transform:none}}
+/* header */
+.hdr{position:absolute;inset:0 0 auto 0;z-index:5;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:18px 24px;color:#fffceb}
+.hdr.solid{position:relative;background:var(--bg);color:var(--fg);border-bottom:1px solid var(--line)}
 .hdr img{height:22px;display:block}
-.hdr nav{display:flex;gap:26px;align-items:center;font-weight:500}
-.hdr .mob{display:none}
-.hdr button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-weight:500}
-.hdr svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6}
-@container (max-width:600px){.hdr{padding:14px 16px}.hdr .dsk{display:none}.hdr .mob{display:flex}.hdr nav{gap:18px}}
-.hero{position:relative;height:min(100cqw*.62,720px);min-height:560px;color:var(--ivory);display:flex;align-items:flex-end;overflow:hidden}
-@container (max-width:600px){.hero{height:760px}}
-.hero .shade{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.82),rgb(23 23 23/.1) 55%,rgb(23 23 23/.4))}
-.hero .copy{position:relative;padding:0 24px 48px;max-width:760px}
-@container (max-width:600px){.hero .copy{padding:0 16px 36px}}
-.hero h1{font:700 clamp(40px,7cqw,88px)/.98 var(--display);letter-spacing:-.02em}
-@container (max-width:600px){.hero h1{font-size:46px}}
-.hero p{margin:16px 0 28px;font:400 17px/1.5 var(--body);max-width:44ch}
+.hdr .r{display:flex;gap:20px;justify-content:flex-end}.hdr .l{display:flex}
+.hdr button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:10px;font:500 15px var(--display);min-width:44px;min-height:44px;justify-content:center}
+.hdr svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.6}
+.hdr .cnt{font-size:12px;margin-left:-6px;margin-top:-14px}
+.hdr .lg-d{display:none}.frame[data-theme=dark] .hdr.solid .lg-l{display:none}.frame[data-theme=dark] .hdr.solid .lg-d{display:block}
+@container (max-width:600px){.hdr{padding:10px 8px 10px 8px}.hdr .r{gap:0}.hdr .mt{display:none}.hdr img{height:18px}}
+/* hero */
+.hero{position:relative;height:min(100cqw*.62,760px);min-height:600px;color:#fffceb;display:flex;align-items:flex-end;overflow:hidden}
+@container (max-width:600px){.hero{height:780px}}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.85),rgb(23 23 23/.15) 55%,rgb(23 23 23/.45))}
+.hero .copy{position:relative;padding:0 24px 44px;width:100%}
+@container (max-width:600px){.hero .copy{padding:0 16px 32px}}
+.hero h1{font:700 clamp(56px,13cqw,184px)/.9 var(--display);letter-spacing:-.04em}
+@container (max-width:600px){.hero h1{font-size:58px;letter-spacing:-.03em}}
+.hero p{margin:20px 0 28px;font:400 17px/1.5 var(--body);max-width:44ch}
+.hero .row{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.cue{font:500 12px var(--display);letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:56px;padding:0 32px;background:#f5262d;color:#fff;font:700 20px var(--display);border:0}
+.site .btn{color:#fff}
+.site .btn.ghost{background:transparent;color:var(--fg);border:1.5px solid var(--ctl)}
+.site .tile{color:#fffceb}
 .hero .ph .tag{top:auto;bottom:10px;left:auto;right:10px}
-.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 30px;background:var(--red);color:#fff;font:700 18px var(--display);border:0}
-.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
-.btn.dim{background:#b9b6a6;color:#fff}
+.btn.dim{background:#8a877a;color:#fff}
 .ticks{height:10px;background:repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px);opacity:.5}
 .ticks.big{background:repeating-linear-gradient(90deg,currentColor 0 1.5px,transparent 1.5px 50px) 0 0/100% 100% no-repeat,repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px) 0 100%/100% 50% no-repeat;height:14px;opacity:.6}
-.sec{padding:72px 24px 24px}
-@container (max-width:600px){.sec{padding:48px 0 16px}}
-.sechead{display:flex;justify-content:space-between;align-items:baseline;padding:0 0 18px;font-weight:500}
+/* band */
+.band{position:relative;height:560px;overflow:hidden;color:#fffceb;display:flex;align-items:flex-end}
+@container (max-width:600px){.band{height:520px}}
+.band .shade{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.8),rgb(23 23 23/.2))}
+.band h2{position:relative;font:700 clamp(40px,8cqw,112px)/.95 var(--display);letter-spacing:-.03em;padding:0 24px 40px;max-width:16ch}
+@container (max-width:600px){.band h2{font-size:38px;padding:0 16px 28px}}
+/* sections */
+.sec{padding:80px 24px 8px}
+@container (max-width:600px){.sec{padding:56px 0 8px}}
+.sechead{display:flex;justify-content:space-between;align-items:center;padding:0 0 20px;font-weight:500;gap:12px}
 @container (max-width:600px){.sechead{padding:0 16px 14px}}
 .sechead h2{font:700 15px var(--display);letter-spacing:.08em;text-transform:uppercase}
-.rail{display:grid;grid-template-columns:repeat(2,1fr);gap:48px 24px}
-@container (max-width:600px){.rail{grid-template-columns:1fr;gap:36px}}
+.arrows{display:flex;gap:8px}.arrows span{width:48px;height:48px;border:1.5px solid var(--ctl);display:inline-flex;align-items:center;justify-content:center;font-size:20px}
+@container (max-width:600px){.arrows{display:none}}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@container (max-width:600px){.tiles{grid-template-columns:1fr 1fr;gap:8px;padding:0 8px}}
+.tile{position:relative;aspect-ratio:3/4;overflow:hidden;display:flex;align-items:flex-end;color:#fffceb}
+.tile .ph{position:absolute;inset:0}.tile i{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.78),transparent 60%)}
+.tile>span{position:relative;display:flex;justify-content:space-between;width:100%;padding:16px;font:700 18px var(--display)}
+@container (max-width:600px){.tile>span{padding:12px;font-size:15px}}
+.car{display:flex;gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 24px 8px;scrollbar-width:none}
+.car>article{flex:0 0 calc((100% - 48px - 72px)/4);scroll-snap-align:start}
+@container (max-width:600px){.car{gap:12px;padding:0 16px}.car>article{flex-basis:78%}}
 .card .ph{aspect-ratio:4/5}
 .card .meta{display:flex;justify-content:space-between;gap:12px;padding:12px 0 0;font-weight:500}
-@container (max-width:600px){.card .meta{padding:12px 16px 0}}
 .card .no{color:var(--muted);font-size:12px}.card .price{font-weight:700}
 .card.sold .ph{filter:grayscale(.85) brightness(.9)}
-.sold-tag{position:absolute;left:0;bottom:0;background:var(--ink);color:var(--ivory);font:700 13px var(--display);padding:6px 12px;letter-spacing:.06em;text-transform:uppercase}
-.end{text-align:center;padding:64px 24px}
+.sold-tag{position:absolute;left:0;bottom:0;background:#171717;color:#fffceb;font:700 13px var(--display);padding:6px 12px;letter-spacing:.06em;text-transform:uppercase;z-index:2}
+.frame[data-theme=dark] .sold-tag{background:#fffceb;color:#171717}
+.end{text-align:center;padding:72px 24px 24px}
 .foot{border-top:1px solid var(--line);margin-top:56px;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 @container (max-width:600px){.foot{padding:20px 16px}}
-.shophead{padding:36px 24px 8px}
-@container (max-width:600px){.shophead{padding:24px 16px 4px}}
-.shophead h1{font:700 40px/1 var(--display)}
+.rail{display:grid;grid-template-columns:repeat(3,1fr);gap:48px 24px}
+@container (max-width:600px){.rail{grid-template-columns:1fr;gap:36px}}
+.shophead{padding:36px 24px 8px}.shophead h1{font:700 40px/1 var(--display)}
 .chips{display:flex;gap:8px;overflow:auto;padding:18px 24px 6px}
-@container (max-width:600px){.chips{padding:16px 16px 4px}}
-.chips span{flex:none;height:40px;padding:0 16px;display:inline-flex;align-items:center;border:1.5px solid var(--ink);font-weight:500}
-.chips span.on{background:var(--ink);color:var(--ivory)}
-.chips .sort{margin-left:auto;border-style:dashed}
-.shopgrid{padding:28px 24px 0}.shopgrid .rail{grid-template-columns:repeat(3,1fr)}
-@container (max-width:600px){.shopgrid{padding:20px 0 0}.shopgrid .rail{grid-template-columns:1fr}}
-.pdp{display:grid;grid-template-columns:1.15fr 1fr;gap:56px;padding:32px 24px 56px}
-@container (max-width:600px){.pdp{grid-template-columns:1fr;gap:0;padding:0 0 110px}}
+.chips span{flex:none;height:44px;padding:0 16px;display:inline-flex;align-items:center;border:1.5px solid var(--ctl);font-weight:500}
+.chips span.on{background:var(--fg);color:var(--bg)}.chips .sort{margin-left:auto;border-style:dashed}
+.shopgrid{padding:28px 24px 0}
+@container (max-width:600px){.shophead{padding:24px 16px 4px}.chips{padding:16px 16px 4px}.shopgrid{padding:20px 0 0}}
+.card .meta,.card .ph{}
+@container (max-width:600px){.rail .card .meta,.car .card .meta{padding:12px 16px 0}.car .card .meta{padding:12px 0 0}}
+/* product */
+.pdp{display:grid;grid-template-columns:1.15fr 1fr;gap:56px;padding:32px 24px 24px}
+@container (max-width:600px){.pdp{grid-template-columns:1fr;gap:0;padding:0}}
 .pdp .media{position:sticky;top:16px;align-self:start}
 @container (max-width:600px){.pdp .media{position:static}}
 .pdp .media .ph{aspect-ratio:4/5}
@@ -98,121 +134,161 @@ h2.cap{font:700 15px var(--display);margin:44px 0 4px}p.note{font-size:13px;colo
 .info{padding-top:12px}
 @container (max-width:600px){.info{padding:20px 16px 0}}
 .info .type{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
-.info h1{font:700 40px/1.05 var(--display);margin:8px 0 12px}
-@container (max-width:600px){.info h1{font-size:30px}}
+.info h1{font:700 44px/1.02 var(--display);margin:8px 0 12px;letter-spacing:-.02em}
+@container (max-width:600px){.info h1{font-size:32px}}
 .info .p{font:700 24px var(--display)}
 .lab{font:700 13px var(--display);letter-spacing:.08em;text-transform:uppercase;margin:32px 0 10px;display:flex;justify-content:space-between}
 .sizes{display:flex;gap:8px;flex-wrap:wrap}
-.sizes span{min-width:56px;height:52px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--ink);font-weight:500}
-.sizes span.on{background:var(--ink);color:var(--ivory)}.sizes span.off{opacity:.35;text-decoration:line-through}
-.fms{display:flex;align-items:center;gap:14px;margin-top:14px;padding:14px 16px;border:1.5px dashed var(--emerald);color:var(--emerald);font-weight:700}
-.fms .ticks{width:44px;height:14px;flex:none;color:var(--emerald)}
-.fms small{display:block;font:400 12px var(--body);color:var(--muted)}
+.sizes span{min-width:56px;height:52px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--ctl);font-weight:500}
+.sizes span.on{background:var(--fg);color:var(--bg)}.sizes span.off{opacity:.45;text-decoration:line-through}
+.fms{display:flex;align-items:center;gap:14px;margin-top:14px;padding:14px 16px;background:var(--panel);color:var(--panelfg);font-weight:700}
+.frame[data-theme=dark] .fms{outline:1.5px solid var(--ctl)}
+.fms .ticks{width:44px;height:14px;flex:none}
+.fms small{display:block;font:400 12px var(--body);color:#e8e5d6}
 .cta{margin-top:24px}.cta .btn{width:100%}
-.disc{margin-top:28px;border-top:1px solid var(--line)}
-.disc .row{padding:16px 0;border-bottom:1px solid var(--line)}
-.disc .h{display:flex;justify-content:space-between;font-weight:500}
-.desc{font-family:var(--desc-font);font-size:15px;line-height:1.6;margin-top:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.acc{margin-top:28px;border-top:1px solid var(--line)}
+.acc .row,.acc details{padding:16px 0;border-bottom:1px solid var(--line)}
+.acc summary,.acc .h{display:flex;justify-content:space-between;font-weight:500;cursor:pointer;list-style:none;min-height:24px}
+.acc summary::-webkit-details-marker{display:none}.acc summary::after{content:"+"}.acc details[open] summary::after{content:"−"}
+.acc p{font-family:var(--desc-font);font-size:15px;line-height:1.6;margin-top:10px}
+.desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .desc.open{display:block}
+.more{all:unset;cursor:pointer;font-weight:700;min-height:24px}
+.similar{padding:56px 0 8px}.similar .sechead{padding:0 24px 20px}
+@container (max-width:600px){.similar .sechead{padding:0 16px 14px}.similar{padding-bottom:110px}}
 .sticky{display:none}
-@container (max-width:600px){.cta{display:none}.sticky{display:flex;position:absolute;left:0;right:0;bottom:0;align-items:center;gap:14px;padding:12px 16px;background:var(--ivory);border-top:1px solid var(--ink);z-index:6}.sticky .p{font:700 18px var(--display)}.sticky .btn{flex:1;min-height:48px;font-size:16px}}
-.frame.m.product{height:860px}
-.frame.m.product .scroller{height:100%;overflow:hidden}
-.ovl{position:absolute;inset:0;background:var(--ivory);z-index:30;display:flex;flex-direction:column}
+@container (max-width:600px){.cta{display:none}.sticky{display:flex;position:absolute;left:0;right:0;bottom:0;align-items:center;gap:14px;padding:12px 16px;background:var(--bg);border-top:1px solid var(--ctl);z-index:6}.sticky .p{font:700 18px var(--display)}.sticky .btn{flex:1;min-height:52px;font-size:19px}}
+.frame.m.product{height:900px}.frame.m.product .scroller{height:100%;overflow:hidden}
+/* overlays */
+.ovl{position:absolute;inset:0;background:var(--bg);z-index:30;display:flex;flex-direction:column;color:var(--fg)}
+.ovl a{color:inherit;text-decoration:none}
 .ovl .top{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--line);font-weight:700}
 .ovl .top span:last-child{font-weight:500}
-.ovl a{color:inherit;text-decoration:none}
-.menu a,.menu .row{display:flex;justify-content:space-between;align-items:center;padding:20px 16px;border-bottom:1px solid var(--line);font:700 24px var(--display)}
-.menu .row.off{opacity:.45;font-size:16px;font-weight:500}
-.menu .row small{font:500 11px var(--display);border:1px solid currentColor;padding:2px 6px}
 .search{padding:16px}
-.search .in{display:flex;align-items:center;gap:10px;border:1.5px solid var(--ink);height:56px;padding:0 14px;background:#fff;font-size:18px}
-.search .in svg{width:22px;height:22px;stroke:var(--ink);fill:none;stroke-width:1.6;flex:none}
+.search .in{display:flex;align-items:center;gap:10px;border:1.5px solid var(--ctl);height:56px;padding:0 14px;background:var(--bg);font-size:18px}
+.search .in svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;flex:none}
 .search .hint{margin-top:12px;font:400 13px var(--body);color:var(--muted)}
 .empty{padding:40px 16px;font:500 18px var(--display)}
-.scrim{position:absolute;inset:0;background:rgb(23 23 23/.55);z-index:25}
-.drawer{position:absolute;top:0;right:0;bottom:0;width:100%;background:var(--ivory);z-index:30;display:flex;flex-direction:column}
+.scrim{position:absolute;inset:0;background:rgb(23 23 23/.6);z-index:25}
+.panel{position:absolute;top:0;bottom:0;left:0;width:min(400px,calc(100% - 40px));background:var(--bg);color:var(--fg);z-index:30;display:flex;flex-direction:column;box-shadow:10px 0 30px rgb(0 0 0/.3)}
+.panel a,.panel .row{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);font:700 24px var(--display);color:inherit;text-decoration:none}
+.panel .sub{font:500 17px var(--display);padding:12px 20px 12px 36px;border-bottom:1px solid var(--line);color:var(--fg)}
+.panel .sub span{display:block}
+.panel .head{display:flex;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700}
+.panel .row.small{font:500 15px var(--display)}
+.panel .off{opacity:.55}
+.panel small{font:500 11px var(--display);border:1px solid currentColor;padding:2px 6px}
+.panel .foot2{margin-top:auto;padding:16px 20px;font:400 12px var(--body);color:var(--muted)}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:100%;background:var(--bg);color:var(--fg);z-index:30;display:flex;flex-direction:column}
 @container (min-width:601px){.drawer{width:440px;box-shadow:-10px 0 30px rgb(0 0 0/.25)}}
 .line{display:grid;grid-template-columns:84px 1fr auto;gap:14px;padding:16px;border-bottom:1px solid var(--line)}
-.line .ph{aspect-ratio:4/5}
-.line small{display:block;font:400 13px var(--body);color:var(--muted)}
-.qty{display:inline-flex;border:1.5px solid var(--ink);margin-top:8px}.qty span{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center}
-.sub{margin-top:auto;padding:16px;border-top:1.5px solid var(--ink)}
-.sub .r{display:flex;justify-content:space-between;font:700 18px var(--display);margin-bottom:6px}
-.sub p{font:400 12px var(--body);color:var(--muted);margin-bottom:14px}
+.line .ph{aspect-ratio:4/5}.line small{display:block;font:400 13px var(--body);color:var(--muted)}
+.qty{display:inline-flex;border:1.5px solid var(--ctl);margin-top:8px}.qty span{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center}
+.cartsub{margin-top:auto;padding:16px;border-top:1.5px solid var(--ctl)}
+.cartsub .r{display:flex;justify-content:space-between;font:700 18px var(--display);margin-bottom:6px}
+.cartsub p{font:400 12px var(--body);color:var(--muted);margin-bottom:14px}
 </style>
 </head>
 <body>
-<div class="banner"><b>DESIGN PROPOSAL</b> Not the live website. Sample content: photos are stand-ins and "video" areas show a still; text in [brackets] is supplied by the client.
-<nav><a href="#home">Home</a><a href="#shop">Shop &amp; states</a><a href="#product">Product</a><a href="#navigation">Navigation</a><a href="design-notes.html">Design notes</a></nav></div>
+<div class="banner"><b>DESIGN PROPOSAL v2</b> Not the live website. Sample content: photos are stand-ins, "video" areas show a still; [brackets] = supplied by the client.
+<nav><a href="#home">Home</a><a href="#product">Product</a><a href="#navigation">Menu &amp; cart</a><a href="#shop">Shop &amp; states</a><a href="#dark">Dark</a><a href="design-notes.html">Design notes</a>
+<span class="tt" role="group" aria-label="Theme toggle">Theme (pending client decision) <button type="button" data-t="light" aria-pressed="true">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></span></nav></div>
 <div class="wrap">
 
 <h2 class="cap" id="home">1 · Home</h2>
-<p class="note">Full-bleed autoplaying, looping hero video with the brand name, introductory message and one Shop button; then a few large video-led outfits; then the page ends. Left: desktop. Right: 390 px phone.</p>
+<p class="note">Five blocks: full-viewport video hero with a very large title, one full-bleed video band, category tiles from clothing types, a "New outfits" carousel, one button. Then a one-line footer. Phone rule: only one video plays at a time (yellow "playing" tag; the rest show their poster).</p>
 <div class="frames" id="homeFrames"></div>
 
-<h2 class="cap" id="shop">2 · Shop, sold-out card and empty search</h2>
-<p class="note">Large cards, three across on desktop, one on phone. A sold-out outfit is dimmed with a "Sold out" tag. A search with no match shows the exact message.</p>
-<div class="frames" id="shopFrames"></div>
-
-<h2 class="cap" id="product">3 · Product page</h2>
-<p class="note">The video is the hero. Size and Find My Size sit under the price. On a phone the Add to cart bar is fixed to the bottom. The description is real text in the page even when collapsed (use the dev toggle at the bottom right to compare Drafting Mono with Inter; no body font has been chosen).</p>
+<h2 class="cap" id="product">2 · Product page</h2>
+<p class="note">Large media (video first) beside the details. Description, Material, Delivery and Returns are collapsible, and their text is always in the page. "Similar outfits" shows the same clothing type. The sticky Add to cart bar stays on phone. Dev toggle (bottom right) compares the description font.</p>
 <div class="frames" id="productFrames"></div>
 
-<h2 class="cap" id="navigation">4 · Navigation: menu, search overlay and cart</h2>
-<p class="note">Phone header: Search icon, Cart, Menu button. The menu holds Shop, Sign in (Account when signed in) and the language switcher, shown dimmed because the Pidgin flag is off until approved copy exists. Desktop header: Shop, Search, Account, Cart.</p>
+<h2 class="cap" id="navigation">3 · Side menu, search and cart</h2>
+<p class="note">The menu slides in from the left and is full height. It lists Shop, the clothing types, Account / Sign in, the language switcher (dimmed: flag off), and support or policy links only when supplied. The Theme row exists only if the client approves dark mode.</p>
 <div class="frames" id="navFrames"></div>
 
-<p class="legend">Photos: two sample images from Unsplash used under the Unsplash License (see img/CREDITS.md); they are not Urban Ìbílé products and must be replaced by the client's own photography and video. Fonts and colours are the confirmed brand kit. Red appears only on the one primary button per screen.</p>
+<h2 class="cap" id="shop">4 · Shop, sold-out card and empty search</h2>
+<div class="frames" id="shopFrames"></div>
+
+<h2 class="cap" id="dark">5 · Dark variant (Pending client decision)</h2>
+<p class="note">Brand colours only: Ink Black, Ivory, Emerald, and Red for the primary button. The Theme toggle in the top bar switches every frame; these are always dark. Contrast results are in the design notes.</p>
+<div class="frames" id="darkFrames"></div>
+
+<p class="legend">Photos: two sample images from Unsplash (Unsplash License; see img/CREDITS.md). They are stand-ins only. The layout takes principles from the client's reference (cinematic hero, large type, side menu, carousel); none of its layout, copy, assets or code is used.</p>
 </div>
 <div class="dev" role="group" aria-label="Dev: description font">DEV · description font <button type="button" data-f="var(--display)" aria-pressed="false">Drafting Mono</button><button type="button" data-f="var(--body)" aria-pressed="true">Inter (current default)</button></div>
 
 <script>
-const LOGO_LIGHT='../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-Warm%20ivory.svg';
-const LOGO_DARK='../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-Ink%20Black.svg';
-const I={search:'<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>',bag:'<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',menu:'<svg viewBox="0 0 24 24"><path d="M3 8h18M3 16h18"/></svg>'};
-const ph=(k,tag='')=>`<div class="ph k${k}">${tag?`<span class="tag">${tag}</span>`:''}</div>`;
-const VIDEO='VIDEO · sample photo shown';
-const hdr=(solid)=>`<header class="hdr ${solid?'solid':''}"><a href="#"><img src="${solid?LOGO_DARK:LOGO_LIGHT}" alt="Urban Ìbílé"></a>
-<nav class="dsk"><a href="#">Shop</a><a href="#">Search</a><a href="#">Account</a><a href="#">Cart (0)</a></nav>
-<nav class="mob"><button aria-label="Search">${I.search}</button><button aria-label="Cart">${I.bag}</button><button aria-label="Menu">${I.menu}</button></nav></header>`;
-const card=(i,sold=false)=>`<article class="card ${sold?'sold':''}"><a href="#"><div style="position:relative">${ph(i%6+1,VIDEO)}${sold?'<span class="sold-tag">Sold out</span>':''}</div><div class="meta"><span><span class="no">${String(i+1).padStart(2,'0')}</span><br>[Product name ${i+1}]</span><span class="price">₦ [sample]</span></div></a></article>`;
+const LOGO=(c)=>`../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-${c}.svg`;
+const I={search:'<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>',bag:'<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',menu:'<svg viewBox="0 0 24 24"><path d="M3 8h18M3 16h18"/></svg>',user:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7"/></svg>'};
+const ph=(k,tag='',cls='')=>`<div class="ph k${k}">${tag?`<span class="tag ${cls}">${tag}</span>`:''}</div>`;
+const POSTER='VIDEO · poster';
+const PLAY='VIDEO · ▶ playing (1 of 1)';
+const hdr=(solid)=>`<header class="hdr ${solid?'solid':''}"><div class="l"><button aria-label="Menu">${I.menu}<span class="mt">Menu</span></button></div>
+<a href="#" aria-label="Urban Ìbílé"><img class="lg-l" src="${LOGO(solid?'Ink%20Black':'Warm%20ivory')}" alt=""><img class="lg-d" src="${LOGO('Warm%20ivory')}" alt=""></a>
+<div class="r"><button aria-label="Search">${I.search}</button><button aria-label="Account">${I.user}</button><button aria-label="Cart">${I.bag}<span class="cnt">0</span></button></div></header>`;
+const card=(i,sold=false,tag=POSTER,cls='')=>`<article class="card ${sold?'sold':''}"><a href="#"><div style="position:relative">${ph(i%7+1,tag,cls)}${sold?'<span class="sold-tag">Sold out</span>':''}</div><div class="meta"><span><span class="no">${String(i+1).padStart(2,'0')}</span><br>[Product name ${i+1}]</span><span class="price">₦ [sample]</span></div></a></article>`;
 const foot=`<footer class="foot"><span>© 2026 Urban Ìbílé</span><span>[Support contact and policies: shown only if supplied in Settings / Content]</span></footer>`;
-const home=`<div class="site"><section class="hero">${ph(1,VIDEO+' · autoplay · loop · muted')}<div class="shade"></div>${hdr(false)}
-<div class="copy"><h1>Urban Ìbílé</h1><p>[Introductory message: supplied by the client]</p><a class="btn" href="#">Shop</a></div></section>
+const tile=(k,n)=>`<a class="tile" href="#">${ph(k)}<i></i><span>[Type ${n}]<span>→</span></span></a>`;
+const home=`<div class="site"><section class="hero"><div class="par" style="inset:0">${ph(1,PLAY+' · autoplay · loop · muted','play')}</div><div class="shade"></div>${hdr(false)}
+<div class="copy"><h1 class="rv">Urban Ìbílé</h1><div class="row rv"><div><p>[Introductory message: supplied by the client]</p><a class="btn" href="#">Shop</a></div></div></div></section>
 <div class="ticks big"></div>
-<section class="sec"><div class="sechead"><h2>The collection</h2><a href="#">All outfits →</a></div><div class="rail">${[0,1,2,3,4,5].map(i=>card(i)).join('')}</div></section>
+<section class="band"><div class="par" data-par>${ph(4,POSTER+' · plays when in view')}</div><div class="shade"></div><h2 class="rv">[Band headline: supplied by the client]</h2></section>
+<section class="sec"><div class="sechead"><h2>Shop by type</h2><a href="#">All outfits →</a></div><div class="tiles rv">${tile(2,1)}${tile(3,2)}${tile(5,3)}${tile(7,4)}</div></section>
+<section class="sec"><div class="sechead"><h2>New outfits</h2><div class="arrows"><span>←</span><span>→</span></div></div><div class="car rv" role="region" aria-label="New outfits" tabindex="0">${[0,1,2,3,4,5].map(i=>card(i)).join('')}</div></section>
 <div class="end"><a class="btn ghost" href="#">See every outfit</a></div>${foot}</div>`;
-const shop=(grid)=>`<div class="site">${hdr(true)}<div class="shophead"><h1>Shop</h1></div>
-<div class="chips"><span class="on">All</span><span>[Type 1]</span><span>[Type 2]</span><span>[Type 3]</span><span class="sort">Sort ▾</span></div>
-<div class="shopgrid">${grid}</div>${foot}</div>`;
-const shopGrid=`<div class="rail">${[0,1,2,3,4,5].map(i=>card(i,i===2)).join('')}</div>`;
-const emptySearch=`<div class="site">${hdr(true)}<div class="shophead"><h1>Search</h1></div>
-<div class="search"><div class="in">${I.search}<span>zzqx</span></div></div><p class="empty">No outfits found. Try another word.</p></div>`;
+const similar=`<section class="similar"><div class="sechead"><h2>Similar outfits</h2><span style="color:var(--muted);font-size:13px">[same clothing type]</span></div><div class="car">${[1,2,3,4].map(i=>card(i)).join('')}</div></section>`;
 const product=`<div class="site"><div class="scroller">${hdr(true)}
-<div class="pdp"><div class="media">${ph(2,VIDEO+' · autoplay · loop')}<div class="thumbs">${ph(1)}${ph(3)}${ph(4)}${ph(5)}</div></div>
+<div class="pdp"><div class="media">${ph(2,PLAY+' · autoplay · loop','play')}<div class="thumbs">${ph(1)}${ph(3)}${ph(4)}${ph(5)}</div></div>
 <div class="info"><div class="type">[Clothing type]</div><h1>[Product name]</h1><div class="p">₦ [sample price]</div>
 <div class="lab"><span>Size</span><span style="color:var(--muted);font-weight:400">[Size chart]</span></div>
 <div class="sizes"><span>S</span><span class="on">M</span><span>L</span><span>XL</span><span class="off">XXL</span></div>
 <div class="fms"><div class="ticks"></div><div>Find my size<small>Quick Fit or Body Scan. Takes about a minute.</small></div></div>
 <div class="cta"><a class="btn" href="#">Add to cart</a></div>
-<div class="disc"><div class="row"><div class="h"><span>Description</span><button class="more" type="button" aria-expanded="false" style="all:unset;cursor:pointer;font-weight:700">Read more +</button></div>
-<p class="desc">[Product description: supplied by the client.] This text is always in the page as real, readable text. When collapsed it is only shortened visually, so search engines, screen readers and find-in-page still see all of it.</p></div></div></div></div></div>
+<div class="acc"><div class="row"><div class="h"><span>Description</span><button class="more" type="button" aria-expanded="false">Read more +</button></div>
+<p class="desc">[Description: from Admin → Product.] This text is always in the page as real, readable text. When collapsed it is only shortened visually, so search engines, screen readers and find-in-page still see all of it.</p></div>
+<details><summary>Material</summary><p>[Material: from Admin → Product. Sample text in brackets.]</p></details>
+<details><summary>Delivery</summary><p>[Delivery: from Admin → Delivery and Content. Sample text in brackets.]</p></details>
+<details><summary>Returns</summary><p>[Returns: from the return policy in Admin. Sample text in brackets.]</p></details></div></div></div>
+${similar}${foot}</div>
 <div class="sticky"><span class="p">₦ [sample]</span><a class="btn" href="#">Add to cart</a></div></div>`;
-const menuOv=`<div class="ovl menu"><div class="top"><span>Menu</span><span>Close ✕</span></div><a href="#">Shop <span>→</span></a><a href="#">Sign in <span>→</span></a>
-<div class="row off"><span>Language</span><span>EN · PCM <small>OFF · flag-gated</small></span></div></div>`;
+const menuPanel=`<div class="scrim"></div><nav class="panel" aria-label="Menu"><div class="head"><span>Menu</span><span>Close ✕</span></div>
+<a href="#">Shop <span>→</span></a><div class="sub"><span>[Type 1]</span></div><div class="sub"><span>[Type 2]</span></div><div class="sub"><span>[Type 3]</span></div><div class="sub"><span>[Type 4]</span></div>
+<a href="#">Sign in <span>→</span></a>
+<div class="row small off"><span>Language: EN · PCM</span><small>OFF · flag-gated</small></div>
+<div class="row small off"><span>[Support / policy links]</span><small>only if supplied</small></div>
+<div class="row small"><span>Theme: Light · Dark</span><small>PENDING CLIENT DECISION</small></div>
+<div class="foot2">© 2026 Urban Ìbílé</div></nav>`;
 const searchOv=`<div class="ovl"><div class="top"><span>Search</span><span>Close ✕</span></div><div class="search"><div class="in">${I.search}<span>[typed word]</span></div><p class="hint">Searches the whole catalogue: name, clothing type and keywords. Results appear as you type.</p></div></div>`;
 const cartOv=`<div class="scrim"></div><aside class="drawer"><div style="display:flex;justify-content:space-between;padding:16px;border-bottom:1px solid var(--line);font-weight:700"><span>Cart (1)</span><span style="font-weight:500">Close ✕</span></div>
 <div class="line">${ph(2)}<div><b>[Product name]</b><small>Size M · Fit: recommended size M</small><div class="qty"><span>−</span><span>1</span><span>+</span></div></div><b>₦ [sample]</b></div>
-<div class="sub"><div class="r"><span>Subtotal</span><span>₦ [sample]</span></div><p>Delivery is calculated at checkout.</p><a class="btn dim" style="width:100%">Checkout (next step)</a></div></aside>`;
-const F=(cls,html,label)=>`<div><p class="lbl">${label}</p><div class="frame ${cls}">${html}</div></div>`;
-document.getElementById('homeFrames').innerHTML=F('d',home,'Desktop 1280')+F('m',home,'Phone 390');
-document.getElementById('shopFrames').innerHTML=F('d',shop(shopGrid),'Desktop: shop, third card sold out')+F('m',shop(shopGrid),'Phone: shop')+F('m fixed',emptySearch,'Phone: empty search')+F('d fixed',emptySearch,'Desktop: empty search');
-document.getElementById('productFrames').innerHTML=F('d',product,'Desktop')+F('m product',product,'Phone: sticky Add to cart bar');
-const bg=`<div class="site">${hdr(true)}<div class="shophead"><h1>Shop</h1></div><div class="shopgrid"><div class="rail">${[0,1].map(i=>card(i)).join('')}</div></div></div>`;
-document.getElementById('navFrames').innerHTML=F('m fixed',bg+menuOv,'Phone: menu open')+F('m fixed',bg+searchOv,'Phone: search overlay')+F('m fixed',bg+cartOv,'Phone: cart drawer')+F('d fixed',bg+cartOv,'Desktop: cart drawer');
+<div class="cartsub"><div class="r"><span>Subtotal</span><span>₦ [sample]</span></div><p>Delivery is calculated at checkout.</p><a class="btn dim" style="width:100%">Checkout (next step)</a></div></aside>`;
+const bgPage=`<div class="site">${hdr(true)}<div class="shophead"><h1>Shop</h1></div><div class="shopgrid"><div class="rail" style="grid-template-columns:repeat(2,1fr)">${[0,1].map(i=>card(i)).join('')}</div></div></div>`;
+const shop=`<div class="site">${hdr(true)}<div class="shophead"><h1>Shop</h1></div>
+<div class="chips"><span class="on">All</span><span>[Type 1]</span><span>[Type 2]</span><span>[Type 3]</span><span class="sort">Sort ▾</span></div>
+<div class="shopgrid"><div class="rail">${[0,1,2,3,4,5].map(i=>card(i,i===2)).join('')}</div></div>${foot}</div>`;
+const emptySearch=`<div class="site">${hdr(true)}<div class="shophead"><h1>Search</h1></div><div class="search"><div class="in">${I.search}<span>zzqx</span></div></div><p class="empty">No outfits found. Try another word.</p></div>`;
+const F=(cls,html,label,theme='light')=>`<div><p class="lbl">${label}</p><div class="frame ${cls}" data-theme="${theme}" data-fixed-theme="${theme==='dark'?1:0}">${html}</div></div>`;
+const $=id=>document.getElementById(id);
+$('homeFrames').innerHTML=F('d',home,'Desktop 1280')+F('m',home,'Phone 390');
+$('productFrames').innerHTML=F('d',product,'Desktop')+F('m product',product,'Phone: sticky Add to cart');
+$('navFrames').innerHTML=F('m fixed',bgPage+menuPanel,'Phone: side menu (full height)')+F('m fixed',bgPage+searchOv,'Phone: search overlay')+F('m fixed',bgPage+cartOv,'Phone: cart drawer')+F('d fixed',bgPage+menuPanel,'Desktop: side menu');
+$('shopFrames').innerHTML=F('d',shop,'Desktop: third card sold out')+F('m fixed',emptySearch,'Phone: empty search');
+$('darkFrames').innerHTML=F('d',home,'Dark: home desktop','dark')+F('m',home,'Dark: home phone','dark')+F('d',product,'Dark: product desktop','dark')+F('m product',product,'Dark: product phone','dark')+F('m fixed',bgPage+menuPanel,'Dark: side menu','dark');
+/* theme toggle: switches every frame that is not a fixed dark one */
+document.querySelectorAll('.tt button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tt button').forEach(x=>x.setAttribute('aria-pressed',x===b));document.querySelectorAll('.frame[data-fixed-theme="0"]').forEach(f=>f.dataset.theme=b.dataset.t)}));
 document.querySelectorAll('.more').forEach(b=>b.addEventListener('click',()=>{const d=b.closest('.row').querySelector('.desc');const o=d.classList.toggle('open');b.setAttribute('aria-expanded',o);b.textContent=o?'Read less −':'Read more +'}));
 document.querySelectorAll('.dev button').forEach(b=>b.addEventListener('click',()=>{document.documentElement.style.setProperty('--desc-font',b.dataset.f);document.querySelectorAll('.dev button').forEach(x=>x.setAttribute('aria-pressed',x===b))}));
+/* motion rules: off for prefers-reduced-motion and Save-Data */
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches||(navigator.connection&&navigator.connection.saveData);
+if(reduced){document.body.classList.add('nomotion')}
+else{
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.remove('pre');io.unobserve(e.target)}}),{threshold:.15});
+  document.querySelectorAll('.rv').forEach(el=>{el.classList.add('pre');io.observe(el)});
+  const pars=[...document.querySelectorAll('[data-par]')];
+  const tick=()=>pars.forEach(p=>{const r=p.parentElement.getBoundingClientRect();const mid=(r.top+r.height/2-innerHeight/2)/innerHeight;p.style.transform=`translateY(${Math.max(-1,Math.min(1,mid))*-32}px)`});
+  addEventListener('scroll',()=>requestAnimationFrame(tick),{passive:true});tick();
+}
 </script>
 </body>
 </html>
