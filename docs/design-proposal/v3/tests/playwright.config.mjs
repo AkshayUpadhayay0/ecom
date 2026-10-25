@@ -16,7 +16,11 @@ export default defineConfig({
   fullyParallel: true,
   reporter: [['list']],
   use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
-  projects: [{ name: 'desktop', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'desktop', testIgnore: /budget\.spec/, use: { ...devices['Desktop Chrome'] } },
+    // The load-time budget runs alone, after everything else, so parallel tests cannot slow it down.
+    { name: 'budget', testMatch: /budget\.spec/, dependencies: ['desktop'], fullyParallel: false, use: { ...devices['Desktop Chrome'] } },
+  ],
   webServer: {
     command: `node scripts/serve.mjs ${PORT}`,
     cwd: root,

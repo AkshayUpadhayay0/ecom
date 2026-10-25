@@ -54,7 +54,7 @@ ul{margin:0;padding:0;list-style:none}
 .btn.full{width:100%}
 .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 .btn.ghost:hover{background:var(--ink);color:var(--ivory)}
-.btn.small{min-height:2.75rem;padding-inline:1.25rem;font-size:1rem}
+.btn.small{min-height:2.75rem;padding-inline:1.25rem}
 .link{text-underline-offset:.3em}
 .icon-btn{display:inline-grid;place-items:center;width:2.75rem;height:2.75rem;border:0;background:none;color:inherit;position:relative;text-decoration:none}
 .icon-btn svg,.ic{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
@@ -152,9 +152,6 @@ ul{margin:0;padding:0;list-style:none}
 .card .name a::after{content:"";position:absolute;inset:0}
 .card:hover .name a{text-decoration:underline;text-underline-offset:.25em}
 .card .price{font-weight:700;white-space:nowrap}
-.card .quick{position:absolute;left:.75rem;right:.75rem;bottom:.75rem;z-index:5;display:none}
-.card:hover .quick,.card:focus-within .quick{display:flex}
-@media (hover:none){.card .quick{display:none!important}}
 .soldtag{position:absolute;left:0;top:0;z-index:3;background:var(--ink);color:var(--ivory);font:700 .8125rem var(--display);letter-spacing:.06em;text-transform:uppercase;padding:.4rem .75rem}
 .card.sold .vframe{filter:grayscale(.85) brightness(.92)}
 

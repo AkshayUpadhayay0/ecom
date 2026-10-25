@@ -16,7 +16,7 @@
     ['p01', 'gown', 'female', 48000, 'M', { S: 3, M: 6, L: 4, XL: 2 }],
     ['p02', 'dress', 'female', 36500, 'L', { S: 5, M: 5, L: 1, XL: 0 }],
     ['p03', 'blazer', 'male', 52000, 'M', { M: 7, L: 3, XL: 2, XXL: 1 }],
-    ['p04', 'shirt', 'male', 24500, 'L', { S: 4, M: 8, L: 6, XL: 3, XXL: 2 }],
+    ['p04', 'shirt', null, 24500, 'L', { S: 4, M: 8, L: 6, XL: 3, XXL: 2 }],
     ['p05', 'suit', 'male', 89000, 'M', { M: 2, L: 2, XL: 1 }],
     ['p06', 'blazer', 'male', 46000, 'L', { M: 0, L: 0, XL: 0, XXL: 0 }],
     ['p07', 'gown', 'female', 58500, 'S', { S: 2, M: 3, L: 3, XL: 1 }],
@@ -89,6 +89,16 @@
     { id: 'UI-[0004]', placed: '[date]', status: 1, total: 41000, lines: [{ product: 'p04', size: 'L', qty: 1 }, { product: 'p08', size: 'M', qty: 1 }], zone: 'mainland' },
   ];
 
+  var PAGE_SIZE = 6; /* SAMPLE page size so the prototype shows pagination with 10 outfits */
+  var LOW_STOCK = 2;
+  /** 'in' | 'low' | 'out' for one size of one product. */
+  function stockState(p, size) {
+    var n = p.stock[size];
+    if (!n) return 'out';
+    return n <= LOW_STOCK ? 'low' : 'in';
+  }
+  var STOCK_TEXT = { in: 'In stock', low: 'Low stock', out: 'Out of stock' };
+
   function money(n) {
     return '₦ [' + Number(n).toLocaleString('en-NG') + ']';
   }
@@ -133,6 +143,7 @@
   window.PROTO = {
     TYPES: TYPES, PRODUCTS: PRODUCTS, CHART: CHART, ZONES: ZONES, STATUSES: STATUSES,
     SEED_ORDERS: SEED_ORDERS, SIZE_ORDER: SIZE_ORDER,
+    PAGE_SIZE: PAGE_SIZE, stockState: stockState, STOCK_TEXT: STOCK_TEXT,
     money: money, byId: byId, bySlug: bySlug, typeOf: typeOf, plain: plain,
     get state() { return state; },
     save: save, reset: reset,

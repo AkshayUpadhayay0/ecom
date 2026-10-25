@@ -2,9 +2,7 @@
 (function () {
   'use strict';
   var pages = [
-    ['/shop', 'Shop'], ['/search', 'Search'], ['/product/:slug', 'Product'], ['/fit/:slug', 'Find my size'],
-    ['/fit-concept', 'Height and weight (concept)'], ['/cart', 'Cart'], ['/checkout', 'Checkout'],
-    ['/signin', 'Sign in'], ['/register', 'Register'], ['/account', 'Account'], ['/orders', 'My orders'],
+    ['/cart', 'Cart'], ['/checkout', 'Checkout'], ['/orders', 'My orders'],
   ];
   pages.forEach(function (p) {
     (window.PROTO_SCREENS = window.PROTO_SCREENS || []).push([p[0], function () {

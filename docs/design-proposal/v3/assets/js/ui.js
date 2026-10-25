@@ -39,7 +39,7 @@
       '<article class="card' + (p.soldOut ? ' sold' : '') + '" data-product="' + p.id + '">' +
       '<div class="media">' + vframe(p.id, { ratio: '4/5', alt: '' }) +
       (p.soldOut ? '<span class="soldtag">Sold out</span>' : '') +
-      (opts.quick && !p.soldOut ? '<button type="button" class="btn small quick" data-quick="' + p.id + '">Quick add</button>' : '') +
+      (opts.quick && !p.soldOut ? '<button type="button" class="quick" data-quick="' + p.id + '" aria-label="Quick add ' + esc(p.name) + '"><span aria-hidden="true">+</span><span class="q-text">Quick add</span></button>' : '') +
       '</div><div class="meta"><div><span class="no">' + p.no + ' · ' + esc(t ? t.name : '') + '</span>' +
       '<h3 class="name"><a href="#/product/' + p.slug + '">' + esc(p.name) + '</a></h3></div>' +
       '<span class="price">' + D.money(p.priceNaira) + '</span></div></article>'
@@ -141,6 +141,11 @@
       var close = e.target.closest && e.target.closest('[data-close]');
       if (close) dlg.close();
     });
+  }
+
+  function openCart() {
+    renderDrawer();
+    openDialog($('#cart-drawer'));
   }
 
   function menuHtml() {
@@ -287,10 +292,7 @@
       $('#menu-dialog').innerHTML = menuHtml();
       openDialog($('#menu-dialog'));
     });
-    $('#cart-open').addEventListener('click', function () {
-      renderDrawer();
-      openDialog($('#cart-drawer'));
-    });
+    $('#cart-open').addEventListener('click', openCart);
     $('#guide-open').addEventListener('click', function () {
       $('#guide').innerHTML = guideHtml();
       openDialog($('#guide'));
@@ -317,7 +319,7 @@
 
   window.PROTO_UI = {
     esc: esc, $: $, $$: $$, ICON: ICON, vframe: vframe, card: card, toast: toast, Cart: Cart,
-    lineHtml: lineHtml, shell: shell, syncAccount: syncAccount, NO_RESULTS: NO_RESULTS,
+    lineHtml: lineHtml, openCart: openCart, shell: shell, syncAccount: syncAccount, NO_RESULTS: NO_RESULTS,
     suggestions: suggestions, openDialog: openDialog,
   };
 })();

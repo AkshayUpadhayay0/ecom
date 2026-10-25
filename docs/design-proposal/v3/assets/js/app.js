@@ -75,6 +75,7 @@
       return true;
     });
     var main = U.$('#main');
+    document.body.classList.remove('has-sticky', 'has-pdp');
     var out = match ? match.render(params, loc.query) : { title: 'Not found', html: '<div class="wrap page"><h1 class="t-head">Page not found</h1><p><a class="link" href="#/">Back to home</a></p></div>' };
     main.innerHTML = out.html;
     document.title = out.title + ' | ' + NAME + ' (design proposal v3)';
