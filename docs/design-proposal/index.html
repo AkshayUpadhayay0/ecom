@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urban Ibile design proposal</title>
+<style>
+@font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Regular.otf");font-weight:400}
+@font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Medium.otf");font-weight:500}
+@font-face{font-family:"Drafting Mono";src:url("../../brand/fonts/DraftingMono-Bold.otf");font-weight:700}
+:root{--red:#f5262d;--red-text:#e12329;--emerald:#174c3c;--marigold:#f2b544;--terracotta:#c95d43;--ivory:#fffceb;--ink:#171717;--muted:#5c5b57;--line:rgb(23 23 23/.14);
+--display:"Drafting Mono","Inter",ui-monospace,monospace;--body:"Inter",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:#dcd8c6;font-family:var(--body);color:var(--ink);line-height:1.5}
+.banner{position:sticky;top:0;z-index:50;background:var(--ink);color:var(--ivory);font:500 13px/1.4 var(--display);padding:10px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.banner b{background:var(--marigold);color:var(--ink);padding:2px 8px}
+.banner nav{margin-left:auto;display:flex;gap:14px}.banner a{color:var(--ivory)}
+.wrap{max-width:1500px;margin:0 auto;padding:24px 16px 64px}
+h2.cap{font:700 15px var(--display);margin:40px 0 4px}p.note{font-size:13px;color:var(--muted);margin-bottom:14px;max-width:70ch}
+.frames{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.frame{background:var(--ivory);box-shadow:0 8px 30px rgb(0 0 0/.25);overflow:hidden;container-type:inline-size;flex:none}
+.frame.d{width:1280px;zoom:.78}.frame.m{width:390px}
+@media (max-width:1100px){.frame.d{zoom:.55}}
+/* ---------- the proposed site (container-query driven so one markup serves both widths) ---------- */
+.site{font-family:var(--display);color:var(--ink);font-size:15px}
+.site a{color:inherit;text-decoration:none}
+.vid{position:relative;overflow:hidden;background:#222}
+.vid i{position:absolute;inset:-20%;background:linear-gradient(115deg,var(--c1),var(--c2),var(--c1));background-size:300% 300%;animation:drift 14s ease-in-out infinite}
+.vid em{position:absolute;left:10px;top:10px;font:500 11px var(--display);background:rgb(23 23 23/.7);color:var(--ivory);padding:2px 6px;font-style:normal;letter-spacing:.06em}
+@keyframes drift{50%{background-position:100% 50%}}
+@media (prefers-reduced-motion:reduce){.vid i{animation:none}}
+.hdr{position:absolute;inset:0 0 auto 0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:18px 24px;color:var(--ivory)}
+.hdr.solid{position:static;background:var(--ivory);color:var(--ink);border-bottom:1px solid var(--line)}
+.hdr img{height:22px}
+.hdr nav{display:flex;gap:26px;align-items:center;font-weight:500}
+.hdr .full{display:inline}.hdr .ico{display:none}
+@container (max-width:600px){.hdr{padding:14px 16px}.hdr .full{display:none}.hdr .ico{display:inline}.hdr nav{gap:18px}}
+.hero{position:relative;height:min(100cqw*.62,720px);min-height:560px;color:var(--ivory);display:flex;align-items:flex-end}
+@container (max-width:600px){.hero{height:760px}}
+.hero .vid em{top:auto;bottom:10px;left:auto;right:10px}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(to top,rgb(23 23 23/.8),rgb(23 23 23/.1) 55%,rgb(23 23 23/.35))}
+.hero .copy{position:relative;padding:0 24px 48px;max-width:760px}
+@container (max-width:600px){.hero .copy{padding:0 16px 36px}}
+.hero h1{font:700 clamp(40px,7cqw,88px)/.98 var(--display);letter-spacing:-.02em}
+@container (max-width:600px){.hero h1{font-size:46px}}
+.hero p{margin:16px 0 28px;font:400 17px/1.5 var(--body);max-width:44ch;opacity:.95}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 30px;background:var(--red);color:#fff;font:700 18px var(--display);border:0}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.ticks{height:10px;background:repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px);opacity:.5}
+.ticks.big{background:repeating-linear-gradient(90deg,currentColor 0 1.5px,transparent 1.5px 50px),repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 10px);background-size:100% 100%,100% 50%;background-repeat:no-repeat;background-position:0 0,0 100%;height:14px}
+.sec{padding:72px 24px 24px}
+@container (max-width:600px){.sec{padding:48px 0 16px}}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;padding:0 0 18px;font-weight:500}
+@container (max-width:600px){.sechead{padding:0 16px 14px}}
+.sechead h2{font:700 15px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.rail{display:grid;grid-template-columns:repeat(2,1fr);gap:48px 24px}
+@container (max-width:600px){.rail{grid-template-columns:1fr;gap:36px}}
+.card .vid{aspect-ratio:4/5}
+.card .meta{display:flex;justify-content:space-between;gap:12px;padding:12px 0 0;font-weight:500}
+@container (max-width:600px){.card .meta{padding:12px 16px 0}}
+.card .no{color:var(--muted);font-size:12px}
+.card .price{font-weight:700}
+.end{text-align:center;padding:64px 24px}
+.foot{border-top:1px solid var(--line);margin-top:56px;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+@container (max-width:600px){.foot{padding:20px 16px}}
+/* product */
+.pdp{display:grid;grid-template-columns:1.15fr 1fr;gap:56px;padding:32px 24px 56px}
+@container (max-width:600px){.pdp{grid-template-columns:1fr;gap:0;padding:0 0 110px}}
+.pdp .media{position:sticky;top:16px;align-self:start}
+@container (max-width:600px){.pdp .media{position:static}}
+.pdp .media .vid{aspect-ratio:4/5}
+.thumbs{display:flex;gap:8px;margin-top:8px}.thumbs span{flex:1;aspect-ratio:1;background:var(--c);opacity:.85}
+@container (max-width:600px){.thumbs{padding:8px 16px 0}}
+.info{padding-top:12px}
+@container (max-width:600px){.info{padding:20px 16px 0}}
+.info .type{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.info h1{font:700 40px/1.05 var(--display);margin:8px 0 12px}
+@container (max-width:600px){.info h1{font-size:30px}}
+.info .p{font:700 24px var(--display)}
+.lab{font:700 13px var(--display);letter-spacing:.08em;text-transform:uppercase;margin:32px 0 10px;display:flex;justify-content:space-between}
+.sizes{display:flex;gap:8px;flex-wrap:wrap}
+.sizes span{min-width:56px;height:52px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--ink);font-weight:500}
+.sizes span.on{background:var(--ink);color:var(--ivory)}.sizes span.off{opacity:.35;text-decoration:line-through}
+.fms{display:flex;align-items:center;gap:14px;margin-top:14px;padding:14px 16px;border:1.5px dashed var(--emerald);color:var(--emerald);font-weight:700}
+.fms .ticks{width:44px;height:14px;flex:none;color:var(--emerald)}
+.fms small{display:block;font:400 12px var(--body);color:var(--muted)}
+.cta{margin-top:24px}.cta .btn{width:100%}
+.disc{margin-top:28px;border-top:1px solid var(--line)}
+.disc div{padding:16px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;font-weight:500}
+.sticky{display:none}
+@container (max-width:600px){.cta{display:none}.sticky{display:flex;position:sticky;bottom:0;margin-top:-96px;align-items:center;gap:14px;padding:12px 16px;background:var(--ivory);border-top:1px solid var(--ink);z-index:6}.sticky .p{font:700 18px var(--display)}.sticky .btn{flex:1;min-height:48px;font-size:16px}}
+.legend{font-size:13px;color:var(--muted);max-width:90ch;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="banner"><b>DESIGN PROPOSAL</b> Not the live website. Sample content only: gradients stand in for videos; copy in [brackets] is supplied by the client.
+<nav><a href="#home">Home</a><a href="#product">Product page</a></nav></div>
+<div class="wrap">
+
+<h2 class="cap" id="home">1 · Home page</h2>
+<p class="note">Full-bleed autoplaying, looping hero video with the brand name, the introductory message and one Shop button. Then the video-led outfits, large and few. Then the page simply ends. Left: desktop. Right: 390 px phone.</p>
+<div class="frames" id="homeFrames"></div>
+
+<h2 class="cap" id="product">2 · Product page</h2>
+<p class="note">The product video is the hero. Size and Find My Size sit directly under the price. On a phone the Add to cart bar is fixed to the bottom of the screen.</p>
+<div class="frames" id="productFrames"></div>
+
+<p class="legend">Fonts and colours are the confirmed brand kit (Drafting Mono; Inter only for ₦ and accents; Ivory, Ink, Emerald, one Red action colour). Red appears only on the one primary button per screen. The ruler ticks are the proposed signature: a tailor's measuring tape, which is also what Find My Size is about.</p>
+</div>
+
+<script>
+const LOGO_LIGHT='../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-Warm%20ivory.svg';
+const LOGO_DARK='../../brand/logos/logoMark/Urban%20%C3%8Cb%C3%ADl%C3%A9-wordmark-Ink%20Black.svg';
+const pal=[['#174c3c','#c95d43'],['#f2b544','#174c3c'],['#c95d43','#171717'],['#171717','#f5262d'],['#174c3c','#f2b544'],['#c95d43','#f2b544']];
+const vid=(i,label='SAMPLE VIDEO',extra='')=>`<div class="vid" style="--c1:${pal[i%6][0]};--c2:${pal[i%6][1]};${extra}"><i></i><em>${label}</em></div>`;
+const hdr=(solid)=>`<header class="hdr ${solid?'solid':''}"><a href="#"><img src="${solid?LOGO_DARK:LOGO_LIGHT}" alt="Urban Ìbílé"></a>
+<nav><a href="#"><span class="full">Shop</span><span class="ico">Shop</span></a><a href="#" class="full">Search</a><a href="#" class="full">Account</a><a href="#">Cart (0)</a></nav></header>`;
+const card=(i)=>`<article class="card"><a href="#">${vid(i)}<div class="meta"><span><span class="no">${String(i+1).padStart(2,'0')} / 06</span><br>[Product name ${i+1}]</span><span class="price">₦ [sample]</span></div></a></article>`;
+const home=`<div class="site">
+<section class="hero">${vid(0,'SAMPLE HERO VIDEO · autoplay · loop · muted','position:absolute;inset:0')}<div class="shade"></div>${hdr(false)}
+<div class="copy"><h1>Urban Ìbílé</h1><p>[Introductory message: supplied by the client]</p><a class="btn" href="#">Shop</a></div></section>
+<div class="ticks big" style="color:var(--ink)"></div>
+<section class="sec"><div class="sechead"><h2>The collection</h2><a href="#">All outfits →</a></div>
+<div class="rail">${[0,1,2,3,4,5].map(card).join('')}</div></section>
+<div class="end"><a class="btn ghost" href="#">See every outfit</a></div>
+<footer class="foot"><span>© 2026 Urban Ìbílé</span><span>[Support contact and policies: only if supplied in Settings / Content]</span></footer></div>`;
+const product=`<div class="site">${hdr(true)}
+<div class="pdp"><div class="media">${vid(1,'SAMPLE PRODUCT VIDEO · autoplay · loop')}<div class="thumbs"><span style="--c:#174c3c"></span><span style="--c:#c95d43"></span><span style="--c:#f2b544"></span><span style="--c:#171717"></span></div></div>
+<div class="info"><div class="type">[Clothing type]</div><h1>[Product name]</h1><div class="p">₦ [sample price]</div>
+<div class="lab"><span>Size</span><span style="color:var(--muted);font-weight:400">[Size chart]</span></div>
+<div class="sizes"><span>S</span><span class="on">M</span><span>L</span><span>XL</span><span class="off">XXL</span></div>
+<div class="fms"><div class="ticks"></div><div>Find my size<small>Quick Fit or Body Scan. Takes about a minute.</small></div></div>
+<div class="cta"><a class="btn" href="#">Add to cart</a></div>
+<div class="disc"><div><span>Description</span><span>+</span></div><div><span>Returns</span><span>+</span></div></div></div></div>
+<div class="sticky"><span class="p">₦ [sample]</span><a class="btn" href="#">Add to cart</a></div></div>`;
+document.getElementById('homeFrames').innerHTML=`<div class="frame d">${home}</div><div class="frame m">${home}</div>`;
+document.getElementById('productFrames').innerHTML=`<div class="frame d">${product}</div><div class="frame m">${product}</div>`;
+</script>
+</body>
+</html>
