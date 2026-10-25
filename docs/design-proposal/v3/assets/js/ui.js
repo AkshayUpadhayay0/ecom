@@ -37,7 +37,7 @@
     var t = D.typeOf(p.type);
     return (
       '<article class="card' + (p.soldOut ? ' sold' : '') + '" data-product="' + p.id + '">' +
-      '<div class="media">' + vframe(p.id, { ratio: '4/5', alt: '' }) +
+      '<div class="media">' + vframe(p.media, { ratio: '4/5', alt: '' }) +
       (p.soldOut ? '<span class="soldtag">Sold out</span>' : '') +
       (opts.quick && !p.soldOut ? '<button type="button" class="quick" data-quick="' + p.id + '" aria-label="Quick add ' + esc(p.name) + '"><span aria-hidden="true">+</span><span class="q-text">Quick add</span></button>' : '') +
       '</div><div class="meta"><div><span class="no">' + p.no + ' · ' + esc(t ? t.name : '') + '</span>' +
@@ -96,18 +96,35 @@
     return '';
   }
 
-  function lineHtml(line, i, editable) {
+  var ISSUES = {
+    STOCK_LOW: 'Fewer are available than your quantity. Lower the quantity to continue.',
+    OUT_OF_STOCK: 'Out of stock right now. Remove it, or come back later.',
+  };
+  /** 'STOCK_LOW' | 'OUT_OF_STOCK' | null for one cart line. */
+  function lineIssue(line) {
+    var stock = D.byId(line.product).stock[line.size] || 0;
+    if (stock === 0) return 'OUT_OF_STOCK';
+    return line.qty > stock ? 'STOCK_LOW' : null;
+  }
+
+  /** One cart line. opts: { refit: link to reopen Find my size, unit: show the price each, issue: show stock warnings } */
+  function lineHtml(line, i, editable, opts) {
+    opts = opts || {};
     var p = D.byId(line.product);
+    var issue = opts.issue ? lineIssue(line) : null;
     return (
-      '<li class="line">' + vframe(p.id, { ratio: '4/5' }) +
-      '<div><b>' + esc(p.name) + '</b><small>Size ' + esc(line.size) + '</small>' +
+      '<li class="line">' + vframe(p.media, { ratio: '4/5' }) +
+      '<div><b><a href="#/product/' + p.slug + '" data-close style="text-decoration:none">' + esc(p.name) + '</a></b><small>Size ' + esc(line.size) + '</small>' +
       (fitLabel(line) ? '<small>' + fitLabel(line) + '</small>' : '') +
+      (opts.unit ? '<small>' + D.money(p.priceNaira) + ' each</small>' : '') +
+      (issue ? '<small class="err" role="alert">' + ISSUES[issue] + '</small>' : '') +
+      (opts.refit && p.profile ? '<a class="link" data-close href="#/fit/' + p.slug + '" style="display:inline-block;min-height:2.75rem;font:400 .8125rem var(--body)">Reopen Find my size</a>' : '') +
       (editable
         ? '<div class="qty" role="group" aria-label="Quantity of ' + esc(p.name) + '">' +
           '<button type="button" data-qty="-1" data-i="' + i + '" aria-label="Decrease quantity of ' + esc(p.name) + '">−</button>' +
           '<output aria-live="polite">' + line.qty + '</output>' +
           '<button type="button" data-qty="1" data-i="' + i + '" aria-label="Increase quantity of ' + esc(p.name) + '">+</button></div>' +
-          '<button type="button" class="link" data-remove="' + i + '" style="border:0;background:none;padding:.5rem 0;min-height:2.75rem;text-decoration:underline;text-underline-offset:.3em">Remove</button>'
+          '<button type="button" class="link" data-remove="' + i + '" aria-label="Remove ' + esc(p.name) + '" style="border:0;background:none;padding:.5rem 0;min-height:2.75rem;text-decoration:underline;text-underline-offset:.3em">Remove</button>'
         : '<small>Quantity ' + line.qty + '</small>') +
       '</div><b class="price">' + D.money(p.priceNaira * line.qty) + '</b></li>'
     );
@@ -213,7 +230,7 @@
         return '<li role="presentation"><a role="option" id="sg' + (n++) + '" aria-selected="false" class="sug" data-close href="#/shop?type=' + t.slug + '"><span class="grow">Shop ' + esc(t.name) + '</span><span aria-hidden="true">→</span></a></li>';
       }).concat(s.products.slice(0, 5).map(function (p) {
         var t = D.typeOf(p.type);
-        return '<li role="presentation"><a role="option" id="sg' + (n++) + '" aria-selected="false" class="sug" data-close href="#/product/' + p.slug + '"><img src="media/poster/' + p.id + '.webp" alt="" width="48" height="60"><span class="grow">' + esc(p.name) + '<small>' + esc(t.name) + '</small></span><span class="price">' + D.money(p.priceNaira) + '</span></a></li>';
+        return '<li role="presentation"><a role="option" id="sg' + (n++) + '" aria-selected="false" class="sug" data-close href="#/product/' + p.slug + '"><img src="media/poster/' + p.media + '.webp" alt="" width="48" height="60"><span class="grow">' + esc(p.name) + '<small>' + esc(t.name) + '</small></span><span class="price">' + D.money(p.priceNaira) + '</span></a></li>';
       }));
       rows.push('<li role="presentation"><a role="option" id="sg' + (n++) + '" aria-selected="false" class="sug" data-close href="#/search?q=' + encodeURIComponent(q) + '"><span class="grow">See all results for “' + esc(q) + '”</span><span aria-hidden="true">→</span></a></li>');
       list.innerHTML = '<ul role="listbox" id="suggest-list" aria-label="Suggestions">' + rows.join('') + '</ul>';
@@ -246,7 +263,7 @@
     ['Browse', [['Home', '#/'], ['Shop', '#/shop'], ['Shop: one clothing type', '#/shop?type=blazer'], ['Search results', '#/search?q=blazer'], ['Search: no result', '#/search?q=zzzz']]],
     ['Product', [['Product with Find My Size', '#/product/sample-outfit-03'], ['Product without Blueprint', '#/product/sample-outfit-08'], ['Sold-out product', '#/product/sample-outfit-06']]],
     ['Find My Size', [['Measurements (Quick Fit)', '#/fit/sample-outfit-03'], ['Out-of-range example', '#/fit/sample-outfit-03?demo=range'], ['Size the outfit is not made in', '#/fit/sample-outfit-03?demo=small'], ['Height and weight (concept)', '#/fit-concept']]],
-    ['Account and buying', [['Sign in', '#/signin'], ['Register', '#/register'], ['Account', '#/account'], ['Cart', '#/cart'], ['Checkout', '#/checkout'], ['My orders', '#/orders']]],
+    ['Account and buying', [['Sign in', '#/signin'], ['Register', '#/register'], ['Account', '#/account'], ['Cart', '#/cart'], ['Cart with a stock problem', '#/cart?demo=stock'], ['Checkout', '#/checkout'], ['Payment failed', '#/checkout/failed'], ['My orders', '#/orders']]],
   ];
   function guideHtml() {
     return (
@@ -303,7 +320,7 @@
       var r = e.target.closest && e.target.closest('[data-remove]');
       if (r) { Cart.setQty(Number(r.dataset.remove), 0); return; }
       var reset = e.target.closest && e.target.closest('[data-reset]');
-      if (reset) { D.reset(); Cart.refresh(); syncAccount(); toast('Prototype reset.'); }
+      if (reset) { D.reset(); document.dispatchEvent(new Event('proto:reset')); Cart.refresh(); syncAccount(); toast('Prototype reset.'); }
     });
     wireSearch();
     syncAccount();
@@ -319,7 +336,7 @@
 
   window.PROTO_UI = {
     esc: esc, $: $, $$: $$, ICON: ICON, vframe: vframe, card: card, toast: toast, Cart: Cart,
-    lineHtml: lineHtml, openCart: openCart, shell: shell, syncAccount: syncAccount, NO_RESULTS: NO_RESULTS,
+    lineHtml: lineHtml, lineIssue: lineIssue, openCart: openCart, shell: shell, syncAccount: syncAccount, NO_RESULTS: NO_RESULTS,
     suggestions: suggestions, openDialog: openDialog,
   };
 })();

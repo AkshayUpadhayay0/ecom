@@ -74,6 +74,7 @@
       r.keys.forEach(function (k, i) { params[k] = decodeURIComponent(m[i + 1]); });
       return true;
     });
+    document.dispatchEvent(new Event('proto:route'));
     var main = U.$('#main');
     document.body.classList.remove('has-sticky', 'has-pdp');
     var out = match ? match.render(params, loc.query) : { title: 'Not found', html: '<div class="wrap page"><h1 class="t-head">Page not found</h1><p><a class="link" href="#/">Back to home</a></p></div>' };
@@ -85,7 +86,7 @@
     if (out.after) out.after(main, params, loc.query);
     if (!first) {
       window.scrollTo(0, 0);
-      main.focus({ preventScroll: true });
+      (U.$('#step-h', main) || main).focus({ preventScroll: true });
       U.$('#live').textContent = out.title;
     }
     first = false;

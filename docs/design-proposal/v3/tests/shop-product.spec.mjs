@@ -4,6 +4,9 @@ import { expect, test } from '../../../../apps/web/node_modules/@playwright/test
 
 const NO_RESULTS = 'No outfits found. Try another word.';
 const cards = (page) => page.locator('main article.card');
+const PAGE = 20; // the real shop shows 20 per page
+const ofType = (page, type) => page.evaluate((t) => PROTO.PRODUCTS.filter((p) => p.type === t).length, type);
+const matching = (page, word) => page.evaluate((w) => PROTO.PRODUCTS.filter((p) => (p.name + ' ' + PROTO.typeOf(p.type).name + ' ' + PROTO.typeOf(p.type).keywords).toLowerCase().replace(/[\[\]]/g, '').includes(w)).length, word);
 
 async function noHorizontalOverflow(page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -14,7 +17,7 @@ test.describe('shop', () => {
   test('shows large video-led cards with number, name and price; the sold-out one is marked', async ({ page }) => {
     await page.goto('/index.html#/shop');
     await expect(page.getByRole('heading', { level: 1, name: 'Shop' })).toBeVisible();
-    await expect(cards(page)).toHaveCount(6);
+    await expect(cards(page)).toHaveCount(PAGE);
     await expect(cards(page).first()).toContainText('01');
     await expect(cards(page).first()).toContainText('[Sample outfit 01]');
     await expect(cards(page).first()).toContainText('₦ [48,000]');
@@ -22,7 +25,7 @@ test.describe('shop', () => {
     await expect(sold).toHaveCount(1);
     await expect(sold).toContainText('Sold out');
     await expect(sold.locator('.quick')).toHaveCount(0);
-    expect(await page.locator('main .vframe[data-video]').count()).toBe(6);
+    expect(await page.locator('main .vframe[data-video]').count()).toBe(PAGE);
   });
 
   test('clothing type chips filter, and the filter is in the address', async ({ page }) => {
@@ -31,7 +34,7 @@ test.describe('shop', () => {
     await expect(nav.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
     await nav.getByRole('link', { name: '[Blazer]' }).click();
     await expect(page).toHaveURL(/#\/shop\?type=blazer$/);
-    await expect(cards(page)).toHaveCount(2);
+    await expect(cards(page)).toHaveCount(Math.min(PAGE, await ofType(page, 'blazer')));
     await expect(nav.getByRole('link', { name: '[Blazer]' })).toHaveAttribute('aria-current', 'page');
   });
 
@@ -50,10 +53,12 @@ test.describe('shop', () => {
     await expect(pager.getByRole('link', { name: 'Page 2' })).toBeVisible();
     await pager.getByRole('link', { name: 'Next' }).click();
     await expect(page).toHaveURL(/page=2/);
-    await expect(cards(page)).toHaveCount(4);
+    const total = await page.evaluate(() => PROTO.PRODUCTS.length);
+    await expect(cards(page)).toHaveCount(total - PAGE);
     await expect(pager.locator('[aria-current=page]')).toContainText('2');
+    await expect(page.getByText(`Sample catalogue: ${total} outfits, ${PAGE} per page, as in the real shop.`)).toBeVisible();
     await pager.getByRole('link', { name: 'Previous' }).click();
-    await expect(cards(page)).toHaveCount(6);
+    await expect(cards(page)).toHaveCount(PAGE);
   });
 
   test('plays no more clips than the limit while scrolling the grid', async ({ page }) => {
@@ -138,9 +143,9 @@ test.describe('search results', () => {
   test('match by name and by clothing type', async ({ page }) => {
     await page.goto('/index.html#/search?q=blazer');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('blazer');
-    await expect(cards(page)).toHaveCount(2);
+    await expect(cards(page)).toHaveCount(Math.min(PAGE, await matching(page, 'blazer')));
     await page.goto('/index.html#/search?q=gown');
-    await expect(cards(page)).toHaveCount(3);
+    await expect(cards(page)).toHaveCount(Math.min(PAGE, await matching(page, 'gown')));
   });
 
   test('a word with no match shows the exact message', async ({ page }) => {
@@ -163,7 +168,7 @@ test.describe('search results', () => {
     await page.locator('#page-q').fill('shirt');
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/#\/search\?q=shirt$/);
-    await expect(cards(page)).toHaveCount(2);
+    await expect(cards(page)).toHaveCount(Math.min(PAGE, await matching(page, 'shirt')));
   });
 });
 
@@ -242,8 +247,9 @@ test.describe('product page', () => {
   test('shows similar outfits of the same type, and hides the row when there are none', async ({ page }) => {
     await page.goto('/index.html#/product/sample-outfit-03');
     const row = page.getByRole('region', { name: 'Similar outfits' });
-    await expect(row.locator('article')).toHaveCount(1);
-    await expect(row).toContainText('[Sample outfit 06]');
+    const blazers = await ofType(page, 'blazer');
+    await expect(row.locator('article')).toHaveCount(Math.min(6, blazers - 1));
+    for (const label of await row.locator('article .no').allTextContents()) expect(label).toContain('[Blazer]');
     await page.goto('/index.html#/product/sample-outfit-05'); // the only suit
     await expect(page.getByRole('region', { name: 'Similar outfits' })).toHaveCount(0);
   });
@@ -308,4 +314,16 @@ test.describe('accessibility', () => {
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
     });
   }
+});
+
+test.describe('regressions', () => {
+  test('adding to the cart after visiting a product page twice adds exactly once', async ({ page }) => {
+    await page.goto('/index.html#/product/sample-outfit-08');
+    await page.goto('/index.html#/shop');
+    await page.goto('/index.html#/product/sample-outfit-08');
+    await page.getByRole('radio', { name: /^Size M/ }).click();
+    await page.locator('#add').click();
+    await expect(page.getByRole('dialog', { name: 'Your cart' })).toContainText('[Sample outfit 08]');
+    await expect(page.locator('[data-cart-count]')).toHaveText('2'); // 1 sample line already in the cart + 1
+  });
 });

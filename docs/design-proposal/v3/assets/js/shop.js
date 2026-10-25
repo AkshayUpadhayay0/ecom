@@ -41,7 +41,7 @@
         : '<a href="' + href(base, Object.assign({}, s, { page: i })) + '"><span class="sr-only">Page </span>' + i + '</a>');
     }
     if (next) links.push('<a href="' + next + '" rel="next">Next</a>');
-    return '<nav class="pager" aria-label="Pagination">' + links.join('') + '</nav>';
+    return '<nav class="pager" aria-label="Pagination">' + links.join('') + '</nav><p class="muted" style="text-align:center;font-size:.8125rem;margin-top:1rem">Sample catalogue: ' + D.PRODUCTS.length + ' outfits, ' + D.PAGE_SIZE + ' per page, as in the real shop.</p>';
   }
 
   function gridHtml(list) {
@@ -133,7 +133,7 @@
     }).join('');
     return (
       '<div class="dlg-head"><b>Quick add</b><button type="button" class="icon-btn" data-close aria-label="Close quick add">' + U.ICON.close + '</button></div>' +
-      '<div class="sheet-body"><div class="sheet-top">' + U.vframe(p.id, { ratio: '4/5' }) +
+      '<div class="sheet-body"><div class="sheet-top">' + U.vframe(p.media, { ratio: '4/5' }) +
       '<div><b>' + U.esc(p.name) + '</b><small>' + U.esc(t.name) + '</small></div><b class="price">' + D.money(p.priceNaira) + '</b></div>' +
       '<div class="block" style="margin-top:0"><h2 id="qa-sizes">Sizes</h2>' +
       (direct

@@ -58,7 +58,7 @@
     var p = D.bySlug(params.slug);
     if (!p) return notFound();
     var t = D.typeOf(p.type);
-    var similar = D.PRODUCTS.filter(function (o) { return o.type === p.type && o.id !== p.id; });
+    var similar = D.PRODUCTS.filter(function (o) { return o.type === p.type && o.id !== p.id; }).slice(0, 6);
     var state = { size: null, qty: 1 };
 
     function decision() { return p.profile ? D.state.fits[p.slug] || null : null; }
@@ -82,8 +82,8 @@
     }
 
     var html =
-      '<div class="wrap page"><div class="pdp">' +
-      '<div class="gallery">' + U.vframe(p.id, { ratio: '4/5', alt: p.name, eager: true }) + (p.soldOut ? '<span class="soldtag">Sold out</span>' : '') + '</div>' +
+      '<div id="pdp-scope"><div class="wrap page"><div class="pdp">' +
+      '<div class="gallery">' + U.vframe(p.media, { ratio: '4/5', alt: p.name, eager: true }) + (p.soldOut ? '<span class="soldtag">Sold out</span>' : '') + '</div>' +
       '<div class="info"><p class="crumb"><a href="#/shop">Shop</a> / <a href="#/shop?type=' + p.type + '">' + U.esc(t.name) + '</a></p>' +
       '<h1>' + U.esc(p.name) + '</h1><p class="p-price">' + D.money(p.priceNaira) + '</p>' +
       '<div id="buy">' + buyHtml() + '</div>' +
@@ -98,7 +98,7 @@
           '<div class="carousel" role="region" aria-label="Similar outfits" tabindex="0"><ul class="track">' + similar.map(function (o) { return '<li>' + U.card(o, { quick: true }) + '</li>'; }).join('') + '</ul></div></section>'
         : '') +
       '</div>' +
-      '<div class="sticky-bar" id="sticky"><span class="p">' + D.money(p.priceNaira) + '</span><button type="button" class="btn" id="add-sticky"' + (p.soldOut ? ' disabled' : '') + '>' + (p.soldOut ? 'Out of stock' : 'Add to cart') + '</button></div>';
+      '<div class="sticky-bar" id="sticky"><span class="p">' + D.money(p.priceNaira) + '</span><button type="button" class="btn" id="add-sticky"' + (p.soldOut ? ' disabled' : '') + '>' + (p.soldOut ? 'Out of stock' : 'Add to cart') + '</button></div></div>';
 
     return {
       title: p.name,
@@ -122,7 +122,8 @@
           U.openCart();
         }
 
-        root.addEventListener('click', function (e) {
+        // listen on this page's own element: <main> lives on across routes and would collect listeners
+        U.$('#pdp-scope', root).addEventListener('click', function (e) {
           var sz = e.target.closest('[data-size]');
           if (sz && !p.profile) { state.size = sz.dataset.size; redraw(); var again = U.$('[data-size="' + state.size + '"]', root); if (again) again.focus(); return; }
           var q = e.target.closest('[data-q]');

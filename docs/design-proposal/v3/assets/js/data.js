@@ -25,13 +25,29 @@
     ['p10', 'gown', 'female', 63500, 'L', { S: 1, M: 2, L: 2, XL: 1 }],
   ];
 
+  /* Outfits 11 to 25 re-use the ten clips (same type as the clip), so the shop has 25 outfits and
+   * shows the real 20-per-page behaviour. SAMPLE catalogue only. */
+  var CLIPS_BY_TYPE = { gown: ['p01', 'p07', 'p10'], dress: ['p02', 'p09'], blazer: ['p03', 'p06'], shirt: ['p04', 'p08'] };
+  var EXTRA_TYPES = ['gown', 'dress', 'blazer', 'shirt'];
+  var SAMPLE_COUNT = 25;
+  for (var k = P.length; k < SAMPLE_COUNT; k += 1) {
+    var xt = EXTRA_TYPES[k % EXTRA_TYPES.length];
+    var clips = CLIPS_BY_TYPE[xt];
+    var profile = xt === 'shirt' ? null : xt === 'blazer' ? 'male' : 'female';
+    var stock = profile === 'male' ? { M: 4, L: 3, XL: 2, XXL: 1 } : profile === 'female' ? { S: 3, M: 4, L: 3, XL: 2 } : { S: 4, M: 6, L: 5, XL: 3 };
+    if (k === SAMPLE_COUNT - 1) stock = { S: 0, M: 0, L: 0, XL: 0 };
+    var price = 25000 + (((k + 1) * 7919) % 60000);
+    P.push([clips[Math.floor(k / EXTRA_TYPES.length) % clips.length], xt, profile, Math.round(price / 500) * 500, 'M', stock, clips[Math.floor(k / EXTRA_TYPES.length) % clips.length]]);
+  }
+
   var PRODUCTS = P.map(function (row, i) {
     var n = i + 1;
     var stock = row[5];
     var total = 0;
     Object.keys(stock).forEach(function (k) { total += stock[k]; });
     return {
-      id: row[0],
+      id: 'p' + (n < 10 ? '0' : '') + n,
+      media: i < 10 ? row[0] : row[6],
       slug: 'sample-outfit-' + (n < 10 ? '0' : '') + n,
       no: (n < 10 ? '0' : '') + n,
       name: '[Sample outfit ' + (n < 10 ? '0' : '') + n + ']',
@@ -89,7 +105,7 @@
     { id: 'UI-[0004]', placed: '[date]', status: 1, total: 41000, lines: [{ product: 'p04', size: 'L', qty: 1 }, { product: 'p08', size: 'M', qty: 1 }], zone: 'mainland' },
   ];
 
-  var PAGE_SIZE = 6; /* SAMPLE page size so the prototype shows pagination with 10 outfits */
+  var PAGE_SIZE = 20; /* the real shop shows 20 per page; the sample catalogue has 25 outfits */
   var LOW_STOCK = 2;
   /** 'in' | 'low' | 'out' for one size of one product. */
   function stockState(p, size) {
@@ -123,7 +139,7 @@
       cart: [{ product: 'p01', size: 'M', qty: 1, fit: 'recommended' }],
       orders: [],
       fits: {},
-      checkout: { zone: 'island' },
+      checkout: { zone: '' },
     };
   }
   var state;
