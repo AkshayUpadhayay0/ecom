@@ -270,6 +270,16 @@
       '<div class="dlg-head"><b>Prototype guide</b><button type="button" class="icon-btn" data-close aria-label="Close guide">' + ICON.close + '</button></div>' +
       '<div class="guide-list">' +
       '<p class="note">Design proposal v3. Sample content only: nothing is saved or sent, and prices, zones and sizes are made up. Orders and sign-in are simulated.</p>' +
+      '<section><h3>Start here: home to a confirmed order</h3><ol class="path">' +
+      '<li><a data-close href="#/">Home</a>: open <b>Shop</b></li>' +
+      '<li><a data-close href="#/shop">Shop</a>: open <b>[Sample outfit 03]</b></li>' +
+      '<li><a data-close href="#/product/sample-outfit-03">The outfit</a>: <b>Find my size</b> (sign in when asked)</li>' +
+      '<li>Enter measurements (or use the sample shortcut), pick a fit, <b>Use size</b></li>' +
+      '<li><b>Add to cart</b>, then <b>Checkout</b> in the cart</li>' +
+      '<li>Delivery: use the sample details and choose a zone</li>' +
+      '<li>Review, then <b>Continue to secure payment</b></li>' +
+      '<li>Pay (try both outcomes with the Prototype switch)</li>' +
+      '<li>Confirmation, then <a data-close href="#/orders">My orders</a> and its status timeline</li></ol></section>' +
       GUIDE.map(function (g) {
         return '<section><h3>' + g[0] + '</h3>' + g[1].map(function (l) { return '<a data-close href="' + l[1] + '">' + l[0] + '</a>'; }).join('') + '</section>';
       }).join('') +

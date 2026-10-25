@@ -98,6 +98,8 @@
     U.shell();
     window.addEventListener('hashchange', render);
     render();
+    var boot = document.getElementById('boot-hero');
+    if (boot) boot.remove();
   }
   init();
 })();

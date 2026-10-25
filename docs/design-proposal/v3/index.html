@@ -7,11 +7,17 @@
 <meta name="theme-color" content="#FFFCEB">
 <title>Urban Ìbílé | design proposal v3</title>
 <link rel="icon" href="assets/brand/icon.svg" type="image/svg+xml">
+<script>
+  // Landing on the home page: a static copy of the hero (below) paints at once, before the scripts have built the page.
+  if (!location.hash || location.hash === '#' || location.hash === '#/') document.documentElement.setAttribute('data-landing', 'home');
+</script>
+<style>html:not([data-landing=home]) #boot-hero{display:none}</style>
 <link rel="stylesheet" href="assets/css/styles.css">
 <link rel="stylesheet" href="assets/css/screens.css">
 </head>
 <body>
 <noscript><p style="padding:2rem;font-family:sans-serif">This design prototype needs JavaScript.</p></noscript>
+<div id="boot-hero" aria-hidden="true"><section class="hero on-dark"><div class="vframe runway"><div class="layer"><picture><source media="(max-width: 767px)" srcset="media/poster/hero-tall.webp" width="720" height="1366"><img src="media/poster/hero-wide.webp" alt="" width="1280" height="675" fetchpriority="high" decoding="async"></picture></div></div><div class="shade"></div><div class="copy"><p class="t-display">Urban Ìbílé</p><p class="intro">[Introductory message: supplied by the client]</p><span class="btn">Shop</span></div></section></div>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/video.js"></script>
 <script src="assets/js/ui.js"></script>

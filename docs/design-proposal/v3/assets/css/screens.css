@@ -203,3 +203,6 @@ ol.steps{list-style:none;padding:0}
 .order-lines span:nth-of-type(1){flex:1}
 .order-lines small{display:block;color:var(--muted);font:400 .8125rem var(--body)}
 ol.timeline{list-style:none}
+.guide-list .path{padding-left:1.25rem;display:grid;gap:.35rem;font:400 .9375rem/1.45 var(--body);margin:0}
+.guide-list .path li{list-style:decimal}
+.guide-list .path a{display:inline}
