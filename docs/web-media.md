@@ -47,3 +47,43 @@ waiting, the API and the media worker call the website:
   one is ready (`product_pending_media`).
 - Tags: `catalog` (products, product detail, clothing types) and `site` (config, content blocks).
   Search is never cached.
+
+### Playable before complete, and the upload limits
+
+- A video is **playable** (`playableAt` in the admin media DTO) as soon as its poster, grid preview and
+  smallest size exist, usually seconds after the upload. The shop shows it then with the sizes that exist
+  (the website picks the best one available) and refreshes again when the rest is done. `status`
+  keeps its meaning: `ready` = every size complete.
+- If a later size fails the video stays playable. The admin shows "Playable, with a warning" with the
+  reason; Retry makes the missing sizes. A replacement that fails before it is playable never touches the
+  live video.
+- Limits (Settings, super admin only): `media.max_video_bytes` (500 MB), `media.max_video_seconds`
+  (120 s), `media.max_image_bytes`. The size is checked when the upload is requested and again when it
+  is completed; the length is checked by the worker the moment it probes the file (the API cannot know it
+  earlier), which fails the file at once with a message that gives both lengths. The admin form reads the
+  same limits and refuses early; it also warns above about 60 s.
+
+### Troubleshooting revalidation
+
+**Is it working?** Upload or replace a video and watch the API/worker log. A healthy run prints
+`website told to refresh its public data` (info) a moment after `media playable` and again after
+`media ready`. The home page should show the new video within about a second. To test by hand:
+
+```
+curl -i -X POST <website>/api/revalidate -H "Authorization: Bearer <secret>" \
+  -H "Content-Type: application/json" -d '{"tags":["catalog","site"]}'
+```
+
+| Answer | Meaning | Fix |
+|---|---|---|
+| `200 {"revalidated":[...]}` | Working. | none |
+| `404 Not found` | The website has no `REVALIDATE_SECRET`, so the route is switched off. | Set `REVALIDATE_SECRET` on the website and rebuild/restart it. |
+| `401 Unauthorized` | Missing header or the secret differs. | Make `REVALIDATE_SECRET` (website) equal `WEB_REVALIDATE_SECRET` (API and worker); watch for stray spaces or quotes. |
+| `400 Unknown or missing tags` | The body is not JSON or names a tag other than `catalog` / `site`. | Send `{"tags":["catalog","site"]}`. |
+
+API/worker log lines: `website revalidation was refused` (with the status above) or `website
+revalidation request failed` (website unreachable: check `WEB_REVALIDATE_URL`; it must be reachable from
+the API server, not from a browser). `website could not be told to refresh; it will catch up by itself`
+means all three attempts failed; the website then refreshes within its normal 60 s cache time. Nothing is
+logged at all when `WEB_REVALIDATE_URL` / `WEB_REVALIDATE_SECRET` are unset on the API (the feature is off).
+Only the one web instance that receives the call is refreshed (launch blocker 7 in `CLAUDE.md`).
