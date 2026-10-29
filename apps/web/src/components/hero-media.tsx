@@ -5,7 +5,9 @@ import { MediaImage } from '@/components/media-image';
 import { useEffect, useRef, useState } from 'react';
 import { useRenditionUrl } from '@/lib/video/use-rendition-url';
 import { useI18n } from '@/lib/i18n/provider';
+import { isAutoplayBlocked } from '@/lib/video/play-result';
 import { useMediaPreferences } from '@/lib/video/use-media-preferences';
+import { registerPausedVideo, type PausedReason } from '@/lib/video/video-notice';
 
 /**
  * Hero background. The poster is server-rendered and preloaded (it is the LCP element); the video
@@ -32,12 +34,32 @@ export function HeroMedia({ video }: { video: PublicVideoDto }) {
       () => {
         setBlocked(false);
       },
-      () => {
+      (error: unknown) => {
+        // AbortError = the source changed while starting: not a refusal.
+        if (!isAutoplayBlocked(error)) return;
         setBlocked(true);
         setPlaying(false);
       },
     );
   }, [src]);
+
+  // Explain on the page why the hero shows its poster (see VideoNotice).
+  const reason: PausedReason | null = userStarted
+    ? null
+    : prefs.reducedMotion
+      ? 'reduced_motion'
+      : prefs.constrainedKind === 'save_data'
+        ? 'save_data'
+        : prefs.constrainedKind === 'slow'
+          ? 'slow'
+          : blocked
+            ? 'autoplay_blocked'
+            : null;
+  const connectionType = prefs.connectionType;
+  useEffect(() => {
+    if (!reason) return;
+    return registerPausedVideo('hero', { reason, detail: connectionType });
+  }, [reason, connectionType]);
 
   function toggle(): void {
     const el = element.current;
@@ -51,8 +73,8 @@ export function HeroMedia({ video }: { video: PublicVideoDto }) {
         () => {
           setBlocked(false);
         },
-        () => {
-          setBlocked(true);
+        (error: unknown) => {
+          if (isAutoplayBlocked(error)) setBlocked(true);
         },
       );
     } else {

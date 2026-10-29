@@ -12,7 +12,7 @@
  * Prerequisite: `pnpm db:test:setup` (schema + migrations + reference data in ecom_test).
  */
 import { randomBytes } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import sharp from 'sharp';
@@ -24,7 +24,8 @@ const ZONE_CODE = 'e2e-lagos';
 const TEST_EMAIL_PATTERN = 'e2e-%@example.test';
 const SLUG_PREFIX = 'e2e-';
 const BULK_PRODUCTS = 25;
-const VIDEO_PRODUCTS = 4;
+const VIDEO_PRODUCTS = BULK_PRODUCTS; // every grid card has a (real, tiny) video, so autoplay can be tested above and below the fold
+const PLAYABLE_MP4 = fileURLToPath(new URL('../tests/fixtures/preview.mp4', import.meta.url));
 export const E2E_MAIL_DIR = fileURLToPath(new URL('../e2e-mail/', import.meta.url));
 export const E2E_MEDIA_DIR = fileURLToPath(new URL('../e2e-media/', import.meta.url));
 
@@ -142,10 +143,11 @@ async function insertVideo(client: pg.Client, label: string, color: string): Pro
   const poster = await makeJpeg(color, 720, 900);
   for (const [name, format, width, height] of renditions) {
     const key = `${KEY_PREFIX}/${label}/${name}.${format}`;
-    // MOCK: the MP4 bytes are not a playable video (no FFmpeg here); posters are real JPEGs.
+    // Posters are real JPEGs and every MP4 is a real, tiny, playable H.264 clip (tests/fixtures,
+    // made with ffmpeg), so the website's autoplay can be tested for real.
     await writeObject(
       key,
-      format === 'jpg' ? poster : Buffer.from('mock-mp4'),
+      format === 'jpg' ? poster : await readFile(PLAYABLE_MP4),
       format === 'jpg' ? 'image/jpeg' : 'video/mp4',
     );
     await client.query(

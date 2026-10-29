@@ -69,6 +69,11 @@ export const en = {
 
   'video.play': 'Play video',
   'video.pause': 'Pause video',
+  'video.paused.reduced_motion': 'Videos paused: reduced motion is on.',
+  'video.paused.save_data': 'Videos paused: Data Saver is on.',
+  'video.paused.slow': 'Videos paused: slow connection ({type}).',
+  'video.paused.autoplay_blocked': 'Videos paused: your browser blocked autoplay.',
+  'video.paused.hint': 'Tap a play button to start one.',
 
   'footer.rights': '© {year} {brand}',
   'footer.nav': 'Footer navigation',

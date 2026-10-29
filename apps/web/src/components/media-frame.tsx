@@ -1,11 +1,13 @@
 'use client';
 
 import type { PublicGridMediaDto, PublicImageDto } from '@urban-ibile/shared';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { MediaImage } from '@/components/media-image';
 import { useI18n } from '@/lib/i18n/provider';
+import { isAutoplayBlocked } from '@/lib/video/play-result';
 import { useMediaPreferences } from '@/lib/video/use-media-preferences';
 import { useVideoSlot } from '@/lib/video/use-video-slot';
+import { registerPausedVideo, type PausedReason } from '@/lib/video/video-notice';
 
 /** Smallest image variant at least this wide is used as a card poster fallback. */
 const CARD_IMAGE_MIN_WIDTH = 640;
@@ -48,27 +50,60 @@ export function MediaFrame({ media, image, priority = false, sizes }: Props) {
   const previewUrl = media?.previewUrl ?? null;
   const posterUrl = cardPosterUrl(media, image);
 
-  const [failed, setFailed] = useState(false);
+  const id = useId();
+
+  const [failed, setFailed] = useState(false); // the file could not be loaded
+  const [blocked, setBlocked] = useState(false); // the browser refused to autoplay it
   const [tapped, setTapped] = useState(false);
   const [playing, setPlaying] = useState(false);
 
-  const autoplayAllowed = Boolean(previewUrl) && !prefs.reducedMotion && !prefs.saveData && !failed;
+  const autoplayAllowed =
+    Boolean(previewUrl) && !prefs.reducedMotion && !prefs.saveData && !failed && !blocked;
   const slotActive = useVideoSlot(frame, { enabled: autoplayAllowed });
   const showVideo = Boolean(previewUrl) && !failed && (slotActive || tapped);
   const needsPlayButton = Boolean(previewUrl) && !autoplayAllowed && !tapped;
 
-  const attach = useCallback((element: HTMLVideoElement | null) => {
-    if (!element) return;
-    element.play().catch(() => {
-      // Autoplay blocked: stay on the poster and offer the play button again.
-      setFailed(true);
-      setTapped(false);
-    });
-    return () => {
-      unloadVideo(element);
-      setPlaying(false);
-    };
-  }, []);
+  // Tell the page why this card shows a poster, so the small notice can explain it.
+  const pausedReason: PausedReason | null =
+    !previewUrl || tapped
+      ? null
+      : prefs.reducedMotion
+        ? 'reduced_motion'
+        : prefs.constrainedKind === 'save_data'
+          ? 'save_data'
+          : prefs.constrainedKind === 'slow'
+            ? 'slow'
+            : blocked
+              ? 'autoplay_blocked'
+              : null;
+  const connectionType = prefs.connectionType;
+  useEffect(() => {
+    if (!pausedReason) return;
+    return registerPausedVideo(id, { reason: pausedReason, detail: connectionType });
+  }, [id, pausedReason, connectionType]);
+
+  const attach = useCallback(
+    (element: HTMLVideoElement | null) => {
+      if (!element) return;
+      // StrictMode (development) runs cleanup and attach again on the SAME element: the cleanup
+      // below removed its source, and React does not set an unchanged src prop again.
+      if (previewUrl && !element.getAttribute('src')) element.src = previewUrl;
+      let mounted = true;
+      element.play().catch((error: unknown) => {
+        // Unloaded while starting (StrictMode remount, slot taken away): not a refusal, ignore.
+        if (!mounted || !isAutoplayBlocked(error)) return;
+        // Autoplay really blocked: stay on the poster and offer the play button.
+        setBlocked(true);
+        setTapped(false);
+      });
+      return () => {
+        mounted = false;
+        unloadVideo(element);
+        setPlaying(false);
+      };
+    },
+    [previewUrl],
+  );
 
   return (
     <div
@@ -112,7 +147,9 @@ export function MediaFrame({ media, image, priority = false, sizes }: Props) {
         <button
           type="button"
           onClick={() => {
+            // A tap is a user gesture: the browser allows playback now.
             setFailed(false);
+            setBlocked(false);
             setTapped(true);
           }}
           aria-label={t('video.play')}

@@ -9,6 +9,7 @@ import { SiteHeader } from '@/components/site-header';
 import { allLocales, getTranslator, toLocale } from '@/lib/i18n/server';
 import { DraftRestorer } from '@/components/draft-restorer';
 import { MotionPreferences } from '@/components/motion-preferences';
+import { VideoNotice } from '@/components/video-notice';
 import { Providers } from '@/components/providers';
 import { I18nProvider } from '@/lib/i18n/provider';
 import { drafting, inter } from '../fonts';
@@ -63,6 +64,7 @@ export default async function LocaleLayout({
           <Providers>
             <DraftRestorer />
             <MotionPreferences />
+            <VideoNotice />
             <a className="skip-link" href="#main">
               {t('a11y.skip_to_content')}
             </a>
