@@ -15,6 +15,27 @@ interface Props {
   className?: string;
 }
 
+const warnedOrigins = new Set<string>();
+
+/**
+ * A refused URL used to vanish without a trace (an empty coloured box). Say so once per origin, in
+ * the server log and the browser console, with the setting that fixes it.
+ */
+function warnRefused(url: string): void {
+  let origin = url;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    // keep the raw text
+  }
+  if (warnedOrigins.has(origin)) return;
+  warnedOrigins.add(origin);
+  // eslint-disable-next-line no-console -- the one place a refused media URL is reported
+  console.warn(
+    `[media] Not showing ${url}: ${origin} is not an allowed media location. Set NEXT_PUBLIC_MEDIA_BASE_URL to the API's R2_PUBLIC_BASE_URL (apps/web/.env.local), then restart or rebuild the website. See docs/web-media.md.`,
+  );
+}
+
 /** `url 320w, url 640w, ...` from renditions that report a width. */
 export function srcSetOf(variants: readonly Rendition[]): string | undefined {
   const sized = variants.filter((v) => (v.width ?? 0) > 0);
@@ -39,7 +60,10 @@ export function MediaImage({
   fetchPriority,
   className,
 }: Props) {
-  if (!isMediaUrlAllowed(src)) return null;
+  if (!isMediaUrlAllowed(src)) {
+    warnRefused(src);
+    return null;
+  }
   const allowed = (variants ?? []).filter((v) => isMediaUrlAllowed(v.url));
   const srcSet = srcSetOf(allowed);
 

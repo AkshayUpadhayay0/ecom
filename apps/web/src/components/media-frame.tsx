@@ -7,7 +7,8 @@ import { useI18n } from '@/lib/i18n/provider';
 import { isAutoplayBlocked } from '@/lib/video/play-result';
 import { useMediaPreferences } from '@/lib/video/use-media-preferences';
 import { useVideoSlot } from '@/lib/video/use-video-slot';
-import { registerPausedVideo, type PausedReason } from '@/lib/video/video-notice';
+import { pausedReasonFor } from '@/lib/video/paused-reason';
+import { registerPausedVideo } from '@/lib/video/video-notice';
 
 /** Smallest image variant at least this wide is used as a card poster fallback. */
 const CARD_IMAGE_MIN_WIDTH = 640;
@@ -64,18 +65,7 @@ export function MediaFrame({ media, image, priority = false, sizes }: Props) {
   const needsPlayButton = Boolean(previewUrl) && !autoplayAllowed && !tapped;
 
   // Tell the page why this card shows a poster, so the small notice can explain it.
-  const pausedReason: PausedReason | null =
-    !previewUrl || tapped
-      ? null
-      : prefs.reducedMotion
-        ? 'reduced_motion'
-        : prefs.constrainedKind === 'save_data'
-          ? 'save_data'
-          : prefs.constrainedKind === 'slow'
-            ? 'slow'
-            : blocked
-              ? 'autoplay_blocked'
-              : null;
+  const pausedReason = pausedReasonFor(prefs, { hasVideo: Boolean(previewUrl), tapped, blocked });
   const connectionType = prefs.connectionType;
   useEffect(() => {
     if (!pausedReason) return;

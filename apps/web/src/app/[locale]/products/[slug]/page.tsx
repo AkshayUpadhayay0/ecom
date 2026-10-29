@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
-import { MediaImage } from '@/components/media-image';
 import { notFound } from 'next/navigation';
 import { PurchasePanel } from '@/components/blueprint/purchase-panel';
-import { ProductPlayer } from '@/components/product-player';
+import { ProductMedia } from '@/components/product-media';
 import { getProduct, getSiteConfig, maxQuantityFrom, supportFrom } from '@/lib/api/public';
 import { formatPrice } from '@/lib/format/price';
 import { getTranslator, toLocale } from '@/lib/i18n/server';
@@ -21,7 +20,6 @@ interface PageProps {
 }
 
 const DESCRIPTION_LIMIT = 160;
-const IMAGE_SIZES = '(min-width: 1024px) 45vw, 100vw';
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -60,39 +58,10 @@ export default async function ProductPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd(product)) }}
       />
-      <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr]">
-        <div className="space-y-4">
-          {video ? <ProductPlayer video={video} name={product.name} /> : null}
-          {product.images.length > 0 ? (
-            <ul
-              aria-label={t('product.gallery')}
-              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
-            >
-              {product.images.map((image, index) => {
-                const src = image.variants[image.variants.length - 1];
-                if (!src) return null;
-                return (
-                  <li
-                    key={src.url}
-                    className="relative aspect-[4/5] overflow-hidden"
-                    style={{ backgroundColor: image.dominantColor ?? 'var(--ui-line)' }}
-                  >
-                    <MediaImage
-                      src={src.url}
-                      variants={image.variants}
-                      alt={`${product.name} (${index + 1})`}
-                      sizes={IMAGE_SIZES}
-                      priority={!video && index === 0}
-                      className="object-cover"
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-          {!video && product.images.length === 0 ? (
-            <div className="aspect-[4/5] bg-line" role="img" aria-label={product.name} />
-          ) : null}
+      <div className="grid gap-10 lg:grid-cols-[var(--product-media-width)_1fr]">
+        {/* Sticky while the details scroll; sizes live in globals.css (.product-media-stage). */}
+        <div className="lg:sticky lg:top-[calc(var(--ui-header-h)+1rem)] lg:self-start">
+          <ProductMedia video={video} images={product.images} name={product.name} />
         </div>
 
         <div>

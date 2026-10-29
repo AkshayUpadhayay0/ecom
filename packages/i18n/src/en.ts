@@ -59,6 +59,10 @@ export const en = {
   'product.type': 'Type',
   'product.gallery': 'Photos',
   'product.video_label': 'Product video',
+  'product.media_label': 'Product media',
+  'product.photo_n': 'Photo {n} of {total}',
+  'product.quality': 'Video quality',
+  'product.quality_auto': 'Auto',
   'product.blueprint_applies':
     'This outfit has a Blueprint fit: your size is worked out from your body measurements.',
   'product.blueprint_measurements': 'Measurements needed',
@@ -69,6 +73,8 @@ export const en = {
 
   'video.play': 'Play video',
   'video.pause': 'Pause video',
+  'video.mute': 'Mute video',
+  'video.unmute': 'Unmute video',
   'video.paused.reduced_motion': 'Videos paused: reduced motion is on.',
   'video.paused.save_data': 'Videos paused: Data Saver is on.',
   'video.paused.slow': 'Videos paused: slow connection ({type}).',

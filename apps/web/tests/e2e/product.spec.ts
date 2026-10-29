@@ -28,8 +28,10 @@ test.describe('product page', () => {
     await page.goto(`/products/${SEEDED.withVideo}`);
     const video = page.locator('main video');
     await expect(video).toHaveCount(1);
-    await expect(video).toHaveAttribute('controls', '');
-    await expect(video).not.toHaveAttribute('autoplay', /.*/);
+    // Autoplays muted on a loop; no native control bar (the overlay has its own buttons).
+    await expect(video).not.toHaveAttribute('controls', /.*/);
+    await expect(video).toHaveAttribute('loop', '');
+    await expect(video).toHaveJSProperty('muted', true);
 
     const sizes = page.getByRole('region', { name: 'Sizes' });
     await expect(sizes.getByText('Out of stock')).toBeVisible(); // M

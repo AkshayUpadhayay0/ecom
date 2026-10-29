@@ -172,3 +172,32 @@ html[data-save-data='true'] *::after {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Product page media column (sizes in ONE place). Desktop: about 28rem wide and at most 75vh tall;
+   phones: full width and at most 70vh. The stage keeps the media's own aspect ratio (--media-aspect
+   = width / height, set by the component) so nothing shifts while loading and nothing is cropped. */
+:root {
+  --product-media-width: 28rem;
+  --product-media-max-h: 70vh;
+}
+@media (min-width: 1024px) {
+  :root {
+    --product-media-max-h: 75vh;
+  }
+}
+.product-media-stage {
+  position: relative;
+  width: 100%;
+  max-height: var(--product-media-max-h);
+  aspect-ratio: var(--media-aspect);
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .product-media-stage {
+    width: min(
+      100%,
+      var(--product-media-width),
+      calc(var(--product-media-max-h) * var(--media-aspect))
+    );
+  }
+}
