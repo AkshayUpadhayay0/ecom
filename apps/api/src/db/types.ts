@@ -329,11 +329,11 @@ export interface MediaAssets {
   original_filename: string | null;
   original_key: string;
   owner_customer_id: string | null;
+  playable_at: Timestamp | null;
   poster_asset_id: string | null;
   processing_attempts: Generated<number>;
   processing_error: string | null;
   processing_started_at: Timestamp | null;
-  playable_at: Timestamp | null;
   processing_status: Generated<string>;
   purged_at: Timestamp | null;
   retired_at: Timestamp | null;
