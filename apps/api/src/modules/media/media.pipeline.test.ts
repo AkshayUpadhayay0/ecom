@@ -64,6 +64,38 @@ describe.skipIf(!hasTestDatabase)('media pipeline: order, parallelism, wake-up',
     ]);
   });
 
+  it('announces a published asset once, after it is ready, and never for a failure', async () => {
+    const published: string[] = [];
+    const ffmpeg = stubFfmpeg({ source: FULL_HD });
+    await uploadAndComplete(ctx, adminToken, {
+      fileName: 'a.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    const processor = makeProcessor(ctx, ffmpeg, ctx.db, {
+      onPublished: (id) => published.push(id),
+    });
+    await processor.processNext(['video']);
+    expect(published).toHaveLength(1);
+    const row = await ctx.db
+      .selectFrom('media_assets')
+      .select('processing_status')
+      .where('id', '=', published[0] ?? '')
+      .executeTakeFirstOrThrow();
+    expect(row.processing_status).toBe('ready');
+
+    const broken = stubFfmpeg({ source: FULL_HD, fail: true });
+    await uploadAndComplete(ctx, adminToken, {
+      fileName: 'b.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    await makeProcessor(ctx, broken, ctx.db, { onPublished: (id) => published.push(id) })
+      .processNext(['video'])
+      .catch(() => undefined);
+    expect(published).toHaveLength(1);
+  });
+
   it('runs at most MEDIA_TRANSCODE_PARALLELISM encodes at once, and only renditions overlap', async () => {
     const inner = stubFfmpeg({ source: FULL_HD });
     let running = 0;

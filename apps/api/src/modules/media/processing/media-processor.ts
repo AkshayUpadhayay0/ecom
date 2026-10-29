@@ -55,6 +55,11 @@ export interface MediaProcessorDeps {
    * replacements). A failure rolls the completion back and the job is retried.
    */
   onReady?: (trx: Database, assetId: string) => Promise<void>;
+  /**
+   * Called AFTER the transaction that marked an asset ready has committed (never on failure):
+   * e.g. tell the website to refresh. Must not throw; its errors are logged and ignored.
+   */
+  onPublished?: (assetId: string) => void;
 }
 
 /** Milliseconds spent in each stage of one job (logged with "media ready"; used to find slow steps). */
@@ -253,6 +258,11 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
           await deps.onReady?.(trx, row.id);
         }),
       );
+      try {
+        deps.onPublished?.(row.id);
+      } catch (err) {
+        logger.warn({ err, mediaAssetId: row.id }, 'media ready hook failed');
+      }
       logger.info(
         {
           mediaAssetId: row.id,

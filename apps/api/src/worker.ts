@@ -15,6 +15,7 @@ import { API_BASE_PATH } from './app.js';
 import { EnvValidationError, loadEnv, type Env } from './config/env.js';
 import { createDatabase } from './db/database.js';
 import { listenForJobs } from './lib/job-wakeup.js';
+import { createWebRevalidator } from './lib/web-revalidate.js';
 import { createLogger } from './lib/logger.js';
 import { buildPendingMediaApplier } from './modules/catalog/pending-media.module.js';
 import { releaseExpiredReservations } from './modules/checkout/reservation-expiry.js';
@@ -84,6 +85,12 @@ const outbox = createEmailOutboxService({
   batchSize: env.EMAIL_OUTBOX_BATCH,
   logger,
 });
+// Tells the website to refresh the moment a video or image becomes ready (no-op if not configured).
+const webRevalidator = createWebRevalidator({
+  url: env.WEB_REVALIDATE_URL,
+  secret: env.WEB_REVALIDATE_SECRET,
+  logger,
+});
 const ffmpeg = createFfmpegRunner({ ffmpegPath: env.FFMPEG_PATH, ffprobePath: env.FFPROBE_PATH });
 const processor = createMediaProcessor({
   db,
@@ -111,6 +118,9 @@ const processor = createMediaProcessor({
   tempDir: env.MEDIA_TEMP_DIR ?? tmpdir(),
   // Swaps in pending product media replacements once their assets are ready.
   onReady: buildPendingMediaApplier(logger),
+  onPublished: () => {
+    webRevalidator.revalidate('media ready');
+  },
 });
 
 let running = true;
@@ -228,6 +238,7 @@ ${FFMPEG_INSTALL_HELP}
   );
   await Promise.all([housekeepingLoop(), mediaLoop(kinds)]);
   await wakeup.close();
+  await webRevalidator.flush();
   await db.destroy();
   logger.info('worker stopped');
 }

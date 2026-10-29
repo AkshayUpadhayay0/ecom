@@ -18,6 +18,8 @@ const WEB_PORT = 3100;
 const FLAGS_PORT = 3101;
 const API_URL = `http://localhost:${API_PORT}`;
 const WEB_URL = `http://localhost:${WEB_PORT}`;
+/** TEST ONLY shared secret between the e2e API and website. */
+const REVALIDATE_SECRET = 'e2e-revalidate-secret-not-for-production-0001';
 const FLAGS_URL = `http://localhost:${FLAGS_PORT}`;
 const MEDIA_DIR = fileURLToPath(new URL('./e2e-media/', import.meta.url));
 const MAIL_DIR = fileURLToPath(new URL('./e2e-mail/', import.meta.url));
@@ -54,6 +56,9 @@ const apiEnv = {
   CART_RATE_LIMIT_MAX: '100000',
   // The website's BFF is the one client of the API and forwards the real client address.
   TRUST_PROXY: '1',
+  // Tells the website to refresh when media becomes ready (tests/e2e/revalidate.spec.ts).
+  WEB_REVALIDATE_URL: `http://localhost:${WEB_PORT}/api/revalidate`,
+  WEB_REVALIDATE_SECRET: REVALIDATE_SECRET,
 };
 
 const webEnv = {
@@ -118,6 +123,7 @@ export default defineConfig({
       env: {
         ...webEnv,
         NEXT_DIST_DIR: '.next-e2e',
+        REVALIDATE_SECRET,
         NEXT_PUBLIC_SITE_URL: WEB_URL,
         NEXT_PUBLIC_ENABLE_PIDGIN: 'false',
         NEXT_PUBLIC_ENABLE_BODY_SCAN: 'false',

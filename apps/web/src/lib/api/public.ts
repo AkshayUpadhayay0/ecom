@@ -10,6 +10,7 @@ import type {
 } from '@urban-ibile/shared';
 import { CATALOG_REVALIDATE_SECONDS } from '@/config/constants';
 import { ApiError, apiGet } from './client';
+import { CATALOG_TAG, SITE_TAG } from './cache-tags';
 
 /** Search with free text is never cached: arbitrary queries would only fill the data cache. */
 const SEARCH_REVALIDATE_SECONDS = 0;
@@ -24,6 +25,7 @@ export interface ListParams {
 export async function getSiteConfig(): Promise<PublicSiteConfigDto> {
   const body = await apiGet<{ data: PublicSiteConfigDto }>('/site/config', {
     revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [SITE_TAG],
   });
   return body.data;
 }
@@ -35,6 +37,7 @@ export async function getContentBlock(key: string): Promise<PublicContentBlockDt
       `/site/content/${encodeURIComponent(key)}`,
       {
         revalidate: CATALOG_REVALIDATE_SECONDS,
+        tags: [SITE_TAG],
       },
     );
     return body.data;
@@ -47,6 +50,7 @@ export async function getContentBlock(key: string): Promise<PublicContentBlockDt
 export function getProducts(params: ListParams): Promise<PublicProductListDto> {
   return apiGet<PublicProductListDto>('/catalog/products', {
     revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_TAG],
     query: { ...params },
   });
 }
@@ -61,6 +65,7 @@ export function searchProducts(q: string, params: ListParams): Promise<PublicSea
 export async function getClothingTypes(): Promise<PublicClothingTypeDto[]> {
   const body = await apiGet<{ data: PublicClothingTypeDto[] }>('/catalog/clothing-types', {
     revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_TAG],
   });
   return body.data;
 }
@@ -72,6 +77,7 @@ export async function getProduct(slug: string): Promise<PublicProductDetailDto |
       `/catalog/products/${encodeURIComponent(slug)}`,
       {
         revalidate: CATALOG_REVALIDATE_SECONDS,
+        tags: [CATALOG_TAG],
       },
     );
     return body.data;

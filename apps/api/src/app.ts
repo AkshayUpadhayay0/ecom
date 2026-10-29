@@ -10,6 +10,8 @@ import { privateByDefault } from './middleware/private-cache.js';
 import { notFound } from './middleware/not-found.js';
 import { apiRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
+import { createWebRevalidator, type WebRevalidator } from './lib/web-revalidate.js';
+import { revalidateWebsiteAfterAdminWrites } from './middleware/web-revalidate.js';
 import { ADMIN_AUTH_PATH } from './modules/admin-users/admin-auth.routes.js';
 import { ADMIN_API_PATH, createAdminApiRouter } from './modules/admin-api.js';
 import { createAdminAuthModule } from './modules/admin-users/admin-auth.module.js';
@@ -69,6 +71,8 @@ export interface AppDeps {
   storage?: StorageProvider;
   /** Injected in tests; otherwise built from PAYMENT_PROVIDER. */
   paymentProvider?: PaymentProvider;
+  /** Injected in tests; otherwise built from WEB_REVALIDATE_URL / WEB_REVALIDATE_SECRET. */
+  webRevalidator?: WebRevalidator;
 }
 
 /** Builds the Express app. Has no side effects (no listen), so tests can use it directly. */
@@ -78,6 +82,7 @@ export function createApp({
   db,
   storage: injectedStorage,
   paymentProvider,
+  webRevalidator,
 }: AppDeps): Express {
   const app = express();
   app.set('trust proxy', env.TRUST_PROXY);
@@ -130,8 +135,17 @@ export function createApp({
   const adminAuth = createAdminAuthModule({ env, db, logger, basePath: API_BASE_PATH });
   v1.use(ADMIN_AUTH_PATH, adminAuth.router);
   // Every other /admin route requires an admin token (mounted after /admin/auth).
+  const revalidator =
+    webRevalidator ??
+    createWebRevalidator({
+      url: env.WEB_REVALIDATE_URL,
+      secret: env.WEB_REVALIDATE_SECRET,
+      logger,
+    });
   v1.use(
     ADMIN_API_PATH,
+    // After a successful admin write the website is told to refresh (no-op when not configured).
+    revalidateWebsiteAfterAdminWrites(revalidator),
     createAdminApiRouter({ env, db, storage, logger, requireAdmin: adminAuth.requireAdmin }),
   );
   const blueprint = createBlueprintModule({

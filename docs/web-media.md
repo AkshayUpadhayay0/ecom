@@ -26,3 +26,24 @@ Recommendation (API change, not done): generate poster renditions in the media p
 ## r2.dev is development only
 The `pub-*.r2.dev` URL is rate-limited and has no caching control. Production uses a custom domain on
 the bucket behind the Cloudflare CDN (see CLAUDE.md, Known launch blockers, item 6).
+
+## Showing new or replaced media at once (on-demand revalidation)
+
+Technical Recommendation, additive and off unless configured. The website caches public API data for
+60 s. So that a video that just became ready (or was replaced, removed or published) shows up without
+waiting, the API and the media worker call the website:
+
+- `POST <website>/api/revalidate` with `Authorization: Bearer <secret>` and `{ "tags": ["catalog", "site"] }`.
+- Server to server only. The route answers 404 when `REVALIDATE_SECRET` is unset, 401 for a wrong
+  secret (timing-safe compare), 400 for tags it does not know. It is not linked from the site.
+- Set the SAME secret (32+ characters) as `REVALIDATE_SECRET` on the website and as
+  `WEB_REVALIDATE_SECRET` on the API and worker, plus `WEB_REVALIDATE_URL` (the route's URL) on the
+  API and worker. Both API variables or neither.
+- Triggers: any successful admin write to media, content, products, clothing types, variants,
+  delivery zones or settings (API), and a media asset becoming ready (worker, after the commit).
+  Calls within 250 ms become one request; failures are retried twice and then only logged. The 60 s
+  cache stays as the safety net, so a failed call delays the site, it never breaks it.
+- A failed replacement still never removes the live video: the old media stays attached until the new
+  one is ready (`product_pending_media`).
+- Tags: `catalog` (products, product detail, clothing types) and `site` (config, content blocks).
+  Search is never cached.

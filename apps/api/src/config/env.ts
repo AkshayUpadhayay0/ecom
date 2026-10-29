@@ -98,6 +98,14 @@ export const envSchema = z.object({
   // Cache-Control max-age for catalog/site responses (ETags make revalidation cheap).
   PUBLIC_CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
 
+  // --- Website freshness (optional) ---
+  // When both are set, the API (and the worker, when media becomes ready) POSTs here so the
+  // customer website drops its cached public data at once instead of after its cache time.
+  // WEB_REVALIDATE_URL is the website's /api/revalidate route (server to server);
+  // WEB_REVALIDATE_SECRET must equal the website's REVALIDATE_SECRET.
+  WEB_REVALIDATE_URL: z.url().optional(),
+  WEB_REVALIDATE_SECRET: z.string().min(MIN_SECRET_LENGTH).optional(),
+
   // --- Blueprint / Body Scan (Phase 5a) ---
   // 'none' = Body Scan unavailable. 'mock' = MOCK adapter with fixed sample results (dev/test
   // only; refused in production). Real providers are a team decision (not built).
@@ -247,6 +255,14 @@ const refinedEnvSchema = envSchema
       }
     }
   })
+  .refine(
+    (env) => (env.WEB_REVALIDATE_URL === undefined) === (env.WEB_REVALIDATE_SECRET === undefined),
+    {
+      path: ['WEB_REVALIDATE_URL'],
+      message:
+        'WEB_REVALIDATE_URL and WEB_REVALIDATE_SECRET must be set together (or both left out)',
+    },
+  )
   .refine(
     (env) =>
       env.SERIAL_HMAC_SECRET !== env.JWT_ACCESS_SECRET &&

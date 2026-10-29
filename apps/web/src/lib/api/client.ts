@@ -19,6 +19,8 @@ export interface FetchOptions {
   query?: Record<string, QueryValue>;
   /** Seconds Next may reuse the response; 0 = never cache (search with arbitrary text). */
   revalidate: number;
+  /** Cache tags, so the API can ask for these responses to be dropped at once (/api/revalidate). */
+  tags?: readonly string[];
   signal?: AbortSignal;
 }
 
@@ -39,11 +41,16 @@ interface ErrorBody {
  * decide what a 404 means (notFound) and what is a real failure (error boundary).
  */
 export async function apiGet<T>(path: string, options: FetchOptions): Promise<T> {
-  const init: RequestInit & { next?: { revalidate: number } } = {
+  const init: RequestInit & { next?: { revalidate: number; tags?: string[] } } = {
     headers: { Accept: 'application/json' },
     ...(options.signal ? { signal: options.signal } : {}),
     ...(options.revalidate > 0
-      ? { next: { revalidate: options.revalidate } }
+      ? {
+          next: {
+            revalidate: options.revalidate,
+            ...(options.tags ? { tags: [...options.tags] } : {}),
+          },
+        }
       : { cache: 'no-store' as const }),
   };
   const response = await fetch(buildUrl(path, options.query), init);

@@ -31,6 +31,8 @@ const API_PORT = 4010;
 const WEB_PORT = 3100;
 const API = `http://localhost:${API_PORT}/api/v1`;
 const WEB = `http://localhost:${WEB_PORT}`;
+/** TEST ONLY shared secret between the measured API/worker and website. */
+const REVALIDATE_SECRET = 'measure-revalidate-secret-not-for-production-01';
 const ADMIN_EMAIL = `measure-video-${Date.now()}@example.test`; // unique: an admin row can outlive a run (audit log)
 const ADMIN_PASSWORD = 'Quartz-Lantern-Harbour-7391!';
 const POLL_MS = 100;
@@ -75,6 +77,13 @@ const childEnv: NodeJS.ProcessEnv = {
   AUTH_RATE_LIMIT_MAX: '100000',
   PUBLIC_RATE_LIMIT_MAX: '100000',
   LOG_LEVEL: 'info',
+  // TEST ONLY: with --web the worker tells the website to refresh when media is ready.
+  ...(withWeb
+    ? {
+        WEB_REVALIDATE_URL: `http://localhost:${WEB_PORT}/api/revalidate`,
+        WEB_REVALIDATE_SECRET: REVALIDATE_SECRET,
+      }
+    : {}),
 };
 
 const children: ChildProcess[] = [];
@@ -225,6 +234,7 @@ async function main(): Promise<void> {
       NEXT_PUBLIC_API_BASE_URL: `http://localhost:${API_PORT}`,
       NEXT_PUBLIC_SITE_URL: WEB,
       NEXT_ALLOW_LOCAL_MEDIA: 'true',
+      REVALIDATE_SECRET,
       NODE_ENV: 'production',
     });
     await waitFor(WEB, 60_000);
