@@ -9,12 +9,14 @@ import { MediaThumb } from '@/features/media/MediaThumb';
 import { catalogApi } from '@/lib/api/catalog';
 import {
   IMAGE_TYPES,
-  MEDIA_POLL_MS,
-  STILL_WORKING,
+  RECOMMENDED_VIDEO,
+  assetRefetchInterval,
+  checkFile,
   VIDEO_TYPES,
   uploadPublicFile,
 } from '@/lib/media-upload';
 import { errorMessage } from '@/lib/notify';
+import { useMediaLimits } from '@/lib/use-media-limits';
 
 /** One file in the form: being uploaded, failed to upload, or an asset on the server. */
 export interface MediaItem {
@@ -25,6 +27,8 @@ export interface MediaItem {
   uploading: boolean;
   /** Upload error (the file never reached processing). */
   uploadError: string | null;
+  /** Upload progress in percent while `uploading` (real progress from the browser). */
+  progress?: number | null;
 }
 
 export interface MediaDraft {
@@ -60,8 +64,7 @@ export function useDraftAssets(draft: MediaDraft): Map<string, MediaAssetDto> {
     queries: ids.map((id) => ({
       queryKey: ['catalog', 'media-asset', id],
       queryFn: () => catalogApi.mediaAsset(id),
-      refetchInterval: (query: { state: { data?: MediaAssetDto } }) =>
-        query.state.data && !STILL_WORKING.has(query.state.data.status) ? false : MEDIA_POLL_MS,
+      refetchInterval: assetRefetchInterval,
     })),
   });
   return new Map(queries.flatMap((q) => (q.data ? [[q.data.id, q.data] as const] : [])));
@@ -76,7 +79,13 @@ interface ItemState {
 /** Pending / Processing / Ready / Failed as the admin sees it. */
 export function itemState(item: MediaItem, asset: MediaAssetDto | undefined): ItemState {
   if (item.uploadError) return { label: 'Failed', tone: 'danger', detail: item.uploadError };
-  if (item.uploading) return { label: 'Pending', tone: 'neutral', detail: 'Uploading…' };
+  if (item.uploading) {
+    return {
+      label: 'Pending',
+      tone: 'neutral',
+      detail: item.progress == null ? 'Uploading…' : `Uploading… ${item.progress}%`,
+    };
+  }
   if (!asset) return { label: 'Pending', tone: 'neutral', detail: null };
   if (asset.status === 'ready') return { label: 'Ready', tone: 'success', detail: null };
   if (asset.status === 'failed') {
@@ -239,6 +248,7 @@ export function ProductMediaFields({
   product: ProductDto | undefined;
 }) {
   const [picker, setPicker] = useState<MediaKind | null>(null);
+  const limits = useMediaLimits();
 
   function start(kind: MediaKind, file: File) {
     const item: MediaItem = {
@@ -265,8 +275,17 @@ export function ProductMediaFields({
         ? { ...current, video: item }
         : { ...current, images: [...current.images, item] },
     );
-    uploadPublicFile(file).then(
-      (asset) => patch({ assetId: asset.id, uploading: false }),
+    // Refuse a wrong or too large file at once, with the real limit and a recommendation.
+    const problem = checkFile(file, limits).problem;
+    if (problem) {
+      patch({ uploading: false, uploadError: problem });
+      return;
+    }
+    uploadPublicFile(file, {
+      onProgress: (sent, total) =>
+        patch({ progress: total > 0 ? Math.round((sent / total) * 100) : null }),
+    }).then(
+      (asset) => patch({ assetId: asset.id, uploading: false, progress: null }),
       (err: unknown) => patch({ uploading: false, uploadError: errorMessage(err) }),
     );
   }
@@ -287,7 +306,8 @@ export function ProductMediaFields({
       <legend className="text-sm font-medium">Images and video</legend>
       <p className="text-xs text-muted-foreground">
         Files are public product media. They upload straight away; you can save while they are still
-        processing. The shop shows each file once it is ready.
+        processing. The shop shows each file once it is ready. Recommended video:{' '}
+        {RECOMMENDED_VIDEO}
       </p>
 
       <section aria-label="Product video" className="space-y-2">

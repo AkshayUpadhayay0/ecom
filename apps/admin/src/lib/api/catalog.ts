@@ -175,3 +175,49 @@ export async function putToStorage(
   }
   if (!response.ok) throw await storageRejection(response);
 }
+
+/**
+ * The same upload with REAL progress (fetch cannot report upload progress, XMLHttpRequest can) and
+ * cancel support. Errors are the same plain-language ApiErrors as putToStorage.
+ */
+export function putToStorageWithProgress(
+  upload: CreateUploadResultDto['upload'],
+  file: File,
+  onProgress?: (sent: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(upload.method, upload.url);
+    for (const [name, value] of Object.entries(upload.headers)) xhr.setRequestHeader(name, value);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(file.size, file.size);
+        resolve();
+        return;
+      }
+      void storageRejection(new Response(xhr.responseText, { status: xhr.status })).then(reject);
+    };
+    xhr.onerror = () => {
+      reject(
+        new ApiError(
+          'UPLOAD_FAILED',
+          0,
+          typeof navigator !== 'undefined' && !navigator.onLine
+            ? 'You appear to be offline. Check your internet connection, then retry the upload.'
+            : 'The file could not be sent to storage: the connection dropped or the browser blocked the upload. Retry; if it keeps happening, storage may not allow uploads from this site (CORS): ask a developer.',
+        ),
+      );
+    };
+    xhr.onabort = () => {
+      reject(new ApiError('UPLOAD_FAILED', 0, 'The upload was cancelled.'));
+    };
+    signal?.addEventListener('abort', () => {
+      xhr.abort();
+    });
+    xhr.send(file);
+  });
+}

@@ -36,7 +36,7 @@ function video(status: MediaAssetDto['status']): MediaAssetDto {
     processingError: null,
     publicUrl: null,
     renditions: [],
-    createdAt: '2026-10-19T10:00:00.000Z',
+    createdAt: new Date().toISOString(), // just uploaded: the page polls a new file quickly
     uploadedAt: null,
     retiredAt: null,
     purgedAt: null,

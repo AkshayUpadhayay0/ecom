@@ -1,10 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  MEDIA_KINDS,
-  MEDIA_MIME_TYPES,
-  MEDIA_STATUSES,
-  type MediaLibraryItemDto,
-} from '@urban-ibile/shared';
+import { MEDIA_KINDS, MEDIA_STATUSES, type MediaLibraryItemDto } from '@urban-ibile/shared';
 import { ImageIcon, RotateCw, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -24,137 +19,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
 import { catalogKeys } from '@/features/products/products.queries';
-import { catalogApi, putToStorage } from '@/lib/api/catalog';
+import { catalogApi } from '@/lib/api/catalog';
+import { libraryRefetchInterval } from '@/lib/media-upload';
 import { formatDateTime } from '@/lib/format';
-import { errorMessage, notify } from '@/lib/notify';
+import { notify } from '@/lib/notify';
 import { humanise, mediaStatusDisplay } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 import { useUrlFilters } from '@/lib/use-url-filters';
 import { DeleteMediaDialog, type MediaToDelete } from './DeleteMediaDialog';
+import { UploadDialog } from './UploadDialog';
 import { MediaThumb } from './MediaThumb';
 
 const FILTERS = ['kind', 'status', 'retired', 'unused'] as const;
 const BYTES_PER_MB = 1024 * 1024;
-const ACCEPT = Object.keys(MEDIA_MIME_TYPES).join(',');
-
-type UploadStep = 'idle' | 'preparing' | 'uploading' | 'verifying';
-const STEP_LABEL: Record<UploadStep, string> = {
-  idle: 'Upload',
-  preparing: 'Preparing…',
-  uploading: 'Uploading…',
-  verifying: 'Checking the file…',
-};
-
-function UploadDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [temporary, setTemporary] = useState(false);
-  const [step, setStep] = useState<UploadStep>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const upload = useAdminMutation(
-    async (input: { file: File; temporary: boolean }) => {
-      setStep('preparing');
-      const created = await catalogApi.createUpload({
-        fileName: input.file.name,
-        mimeType: input.file.type,
-        sizeBytes: input.file.size,
-        // Library uploads are public product / site media (private files never come from here).
-        visibility: 'public',
-        isTemporary: input.temporary,
-      });
-      setStep('uploading');
-      await putToStorage(created.upload, input.file);
-      setStep('verifying');
-      return catalogApi.completeUpload(created.asset.id);
-    },
-    {
-      success: 'Uploaded. Processing runs in the background (pnpm worker).',
-      invalidate: [catalogKeys.all],
-    },
-  );
-
-  async function submit() {
-    if (!file) return;
-    setError(null);
-    try {
-      await upload.mutateAsync({ file, temporary });
-      setFile(null);
-      onOpenChange(false);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setStep('idle');
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => step === 'idle' && onOpenChange(o)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Upload media</DialogTitle>
-          <DialogDescription>
-            The file goes straight to storage; the server then checks its size, type and content
-            before processing it.
-          </DialogDescription>
-        </DialogHeader>
-        <Field
-          label="File"
-          required
-          hint="Videos: MP4, MOV, WebM. Images: JPEG, PNG, WebP. Size limits are set in Settings."
-        >
-          <input
-            type="file"
-            accept={ACCEPT}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm"
-          />
-        </Field>
-        {file ? (
-          <p className="text-xs text-muted-foreground">
-            {file.name} · {(file.size / BYTES_PER_MB).toFixed(1)} MB · {file.type || 'unknown type'}
-          </p>
-        ) : null}
-        <div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={temporary}
-              onChange={(e) => setTemporary(e.target.checked)}
-            />
-            Temporary (to be replaced later)
-          </label>
-        </div>
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={step !== 'idle'}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => void submit()}
-            disabled={!file || step !== 'idle'}
-            aria-live="polite"
-          >
-            <Upload aria-hidden="true" /> {STEP_LABEL[step]}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /** "Indigo Kaftan (product video), the homepage hero" or null when unused. */
 export function usedByText(item: MediaLibraryItemDto): string | null {
@@ -330,6 +208,8 @@ export function MediaPage() {
   const media = useQuery({
     queryKey: catalogKeys.media(params),
     queryFn: () => catalogApi.media(params),
+    // Files still being processed update by themselves (2 s slowing to 10 s); no refresh needed.
+    refetchInterval: libraryRefetchInterval,
   });
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<MediaLibraryItemDto | null>(null);
@@ -456,7 +336,12 @@ export function MediaPage() {
       </ListCard>
       {media.data ? <Pagination meta={media.data.meta} onPage={setPage} /> : null}
       <UploadDialog open={uploading} onOpenChange={setUploading} />
-      <AssetDialog asset={selected} onClose={() => setSelected(null)} />
+      <AssetDialog
+        asset={
+          selected ? (media.data?.data.find((item) => item.id === selected.id) ?? selected) : null
+        }
+        onClose={() => setSelected(null)}
+      />
       <DeleteMediaDialog media={deleting} onClose={() => setDeleting(null)} />
       <ConfirmDialog
         open={purgeAll}

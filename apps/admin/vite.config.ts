@@ -27,6 +27,9 @@ export default defineConfig({
     // Full-app tests (real routes + MSW) type through whole forms; under parallel load a few take
     // longer than the 5 s default.
     testTimeout: 15_000,
+    // Time-based tests (polling, debounce) need CPU when they fire: one worker per logical CPU
+    // starved them on a 20-thread machine, so keep some headroom.
+    maxWorkers: 6,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     css: false,

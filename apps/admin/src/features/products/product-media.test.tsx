@@ -32,7 +32,7 @@ function asset(id: string, overrides: Partial<MediaAssetDto> = {}): MediaAssetDt
     processingError: null,
     publicUrl: null,
     renditions: [],
-    createdAt: '2026-10-19T10:00:00.000Z',
+    createdAt: new Date().toISOString(), // just uploaded: the page polls a new file quickly
     uploadedAt: null,
     retiredAt: null,
     purgedAt: null,

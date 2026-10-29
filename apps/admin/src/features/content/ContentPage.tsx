@@ -3,7 +3,6 @@ import {
   CONTENT_KEYS_NOT_SHOWN_ON_SITE,
   CONTENT_NOT_SHOWN_NOTE,
   type ContentBlockSummaryDto,
-  type MediaAssetDto,
 } from '@urban-ibile/shared';
 import { FileText } from 'lucide-react';
 import { useState } from 'react';
@@ -32,7 +31,8 @@ import { TextBlockEditor } from './TextBlockEditor';
 import { UploadButton, itemState } from '@/features/products/ProductMediaFields';
 import { catalogApi } from '@/lib/api/catalog';
 import { configApi } from '@/lib/api/config-api';
-import { MEDIA_POLL_MS, STILL_WORKING, VIDEO_TYPES, uploadPublicFile } from '@/lib/media-upload';
+import { VIDEO_TYPES, assetRefetchInterval, checkFile, uploadPublicFile } from '@/lib/media-upload';
+import { useMediaLimits } from '@/lib/use-media-limits';
 import { errorMessage } from '@/lib/notify';
 import { formatDateTime } from '@/lib/format';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
@@ -55,16 +55,25 @@ function HeroVideoUpload({ onUse }: { onUse: (assetId: string) => Promise<unknow
     queryKey: ['catalog', 'media-asset', assetId],
     queryFn: () => catalogApi.mediaAsset(assetId ?? ''),
     enabled: assetId !== null,
-    refetchInterval: (query: { state: { data?: MediaAssetDto } }) =>
-      query.state.data && !STILL_WORKING.has(query.state.data.status) ? false : MEDIA_POLL_MS,
+    refetchInterval: assetRefetchInterval,
   });
+  const limits = useMediaLimits();
+  const [progress, setProgress] = useState<number | null>(null);
 
   function start(file: File) {
     setFileName(file.name);
-    setUploading(true);
     setUploadError(null);
     setAssetId(null);
-    uploadPublicFile(file).then(
+    setProgress(null);
+    const problem = checkFile(file, limits).problem;
+    if (problem) {
+      setUploadError(problem);
+      return;
+    }
+    setUploading(true);
+    uploadPublicFile(file, {
+      onProgress: (sent, total) => setProgress(total > 0 ? Math.round((sent / total) * 100) : null),
+    }).then(
       (created) => {
         setAssetId(created.id);
         setUploading(false);
@@ -79,7 +88,7 @@ function HeroVideoUpload({ onUse }: { onUse: (assetId: string) => Promise<unknow
   const state =
     fileName === ''
       ? null
-      : itemState({ key: 'hero', fileName, assetId, uploading, uploadError }, asset.data);
+      : itemState({ key: 'hero', fileName, assetId, uploading, uploadError, progress }, asset.data);
   return (
     <div className="space-y-2 rounded-lg border p-3">
       <UploadButton
@@ -101,7 +110,8 @@ function HeroVideoUpload({ onUse }: { onUse: (assetId: string) => Promise<unknow
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          The new video can be used here once processing has finished.
+          The new video can be used here once processing has finished (usually under a minute for a
+          30 second clip). This page updates by itself.
         </p>
       )}
     </div>
