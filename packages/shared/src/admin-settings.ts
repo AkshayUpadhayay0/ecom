@@ -84,6 +84,8 @@ export const SETTING_DEFINITIONS = {
     schema: z.number().int().min(60).max(SECONDS_PER_DAY),
     default: 900,
   },
+  // Hard cap on video length [TEAM DESIGN, 29 Oct 2026]; enforced by the worker when it probes the file.
+  'media.max_video_seconds': { schema: z.number().int().min(1).max(3600), default: 120 },
   'media.preview_seconds': { schema: z.number().int().min(1).max(60), default: 6 },
   'media.video_heights': { schema: dimensionListSchema, default: [480, 720, 1080] },
   'media.image_widths': { schema: dimensionListSchema, default: [320, 640, 1280, 1920] },

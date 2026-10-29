@@ -16,6 +16,7 @@ import {
   fakeMp4,
   makeMediaTestApp,
   makeProcessor,
+  putToUploadUrl,
   stubFfmpeg,
   uploadAndComplete,
   type MediaTestContext,
@@ -181,6 +182,77 @@ describe.skipIf(!hasTestDatabase)('media pipeline: order, parallelism, wake-up',
       ['480p', '720p', 'poster', 'preview'].sort(),
     );
     expect(stages).toEqual(['playable']); // never announced as ready
+  });
+
+  it('refuses a video longer than the cap with a friendly reason, without retrying or encoding', async () => {
+    const ffmpeg = stubFfmpeg({ source: { ...FULL_HD, durationMs: 150_000 } });
+    const id = await uploadAndComplete(ctx, adminToken, {
+      fileName: 'long.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    await makeProcessor(ctx, ffmpeg).processNext(['video']);
+
+    const row = await ctx.db
+      .selectFrom('media_assets')
+      .select(['processing_status', 'processing_error', 'processing_attempts', 'playable_at'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(row.processing_status).toBe('failed'); // at once: retrying cannot help
+    expect(row.processing_attempts).toBe(1);
+    expect(row.processing_error).toBe(
+      'This video is 2:30 long; the longest allowed is 2:00. Trim it or upload a shorter clip.',
+    );
+    expect(row.playable_at).toBeNull();
+    expect(ffmpeg.calls).toEqual([]); // nothing was encoded
+  });
+
+  it('the length cap is a setting: raising it lets the same video through', async () => {
+    await ctx.db
+      .updateTable('app_settings')
+      .set({ value: JSON.stringify(300) })
+      .where('setting_key', '=', 'media.max_video_seconds')
+      .execute();
+    const id = await uploadAndComplete(ctx, adminToken, {
+      fileName: 'long.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    await makeProcessor(
+      ctx,
+      stubFfmpeg({ source: { ...FULL_HD, durationMs: 150_000 } }),
+    ).processNext(['video']);
+    const row = await ctx.db
+      .selectFrom('media_assets')
+      .select('processing_status')
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(row.processing_status).toBe('ready');
+  });
+
+  it('the size cap is enforced again when the upload is completed (it may have been lowered)', async () => {
+    const bytes = fakeMp4(4096);
+    const created = await request(ctx.app)
+      .post('/api/v1/admin/media/uploads')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ fileName: 'a.mp4', mimeType: 'video/mp4', sizeBytes: bytes.length });
+    expect(created.status).toBe(201);
+    const { asset, upload } = (
+      created.body as {
+        data: { asset: { id: string }; upload: Parameters<typeof putToUploadUrl>[1] };
+      }
+    ).data;
+    expect((await putToUploadUrl(ctx, upload, bytes)).status).toBe(200);
+    await ctx.db
+      .updateTable('app_settings')
+      .set({ value: JSON.stringify(1000) })
+      .where('setting_key', '=', 'media.max_video_bytes')
+      .execute();
+    const completed = await request(ctx.app)
+      .post(`/api/v1/admin/media/${asset.id}/complete`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(completed.status).toBe(413);
+    expect((completed.body as { error: { code: string } }).error.code).toBe('FILE_TOO_LARGE');
   });
 
   it('announces a published asset when it is playable and when it is ready, and never for a failure', async () => {

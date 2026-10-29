@@ -171,7 +171,7 @@ export function UploadDialog({
             <Field
               label="File"
               required
-              hint={`Videos: MP4, MOV, WebM (up to ${formatMb(limits.maxVideoBytes)}). Images: JPEG, PNG, WebP (up to ${formatMb(limits.maxImageBytes)}).`}
+              hint={`Videos: MP4, MOV, WebM (up to ${formatMb(limits.maxVideoBytes)} and ${limits.maxVideoSeconds} seconds). Images: JPEG, PNG, WebP (up to ${formatMb(limits.maxImageBytes)}).`}
             >
               <input
                 type="file"

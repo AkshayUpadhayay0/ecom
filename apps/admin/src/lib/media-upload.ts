@@ -69,6 +69,8 @@ export const RECOMMENDED_VIDEO =
 export const RECOMMENDED_IMAGE = 'JPEG or WebP, about 2000 px wide, under 5 MB.';
 export const DEFAULT_MAX_VIDEO_BYTES = 500 * BYTES_PER_MB;
 export const DEFAULT_MAX_IMAGE_BYTES = 20 * BYTES_PER_MB;
+/** Matches the server's default for media.max_video_seconds (2 minutes). */
+export const DEFAULT_MAX_VIDEO_SECONDS = 120;
 /** A clip longer than this still uploads, but is flagged (it only makes processing slower). */
 export const RECOMMENDED_MAX_VIDEO_SECONDS = 60;
 /** A file this large is flagged as bigger than needed. */
@@ -77,11 +79,14 @@ export const LARGE_VIDEO_BYTES = 150 * BYTES_PER_MB;
 export interface MediaLimits {
   maxVideoBytes: number;
   maxImageBytes: number;
+  /** Hard cap on video length (setting media.max_video_seconds); the server enforces it too. */
+  maxVideoSeconds: number;
 }
 
 export const DEFAULT_LIMITS: MediaLimits = {
   maxVideoBytes: DEFAULT_MAX_VIDEO_BYTES,
   maxImageBytes: DEFAULT_MAX_IMAGE_BYTES,
+  maxVideoSeconds: DEFAULT_MAX_VIDEO_SECONDS,
 };
 
 const ACCEPTED: Record<string, 'video' | 'image'> = {
@@ -95,6 +100,12 @@ const ACCEPTED: Record<string, 'video' | 'image'> = {
 
 const mb = (bytes: number): string =>
   `${(bytes / BYTES_PER_MB).toFixed(bytes >= 10 * BYTES_PER_MB ? 0 : 1)} MB`;
+
+/** 125 seconds as "2:05". */
+function formatClock(totalSeconds: number): string {
+  const whole = Math.round(totalSeconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
 
 export interface FileCheck {
   /** false = do not upload: `problem` says why in plain words. */
@@ -131,6 +142,13 @@ export function checkFile(
     };
   }
   if (file.size === 0) return { ok: false, problem: 'This file is empty.', warnings: [] };
+  if (kind === 'video' && durationSeconds !== null && durationSeconds > limits.maxVideoSeconds) {
+    return {
+      ok: false,
+      problem: `This video is ${formatClock(durationSeconds)} long; the longest we accept is ${formatClock(limits.maxVideoSeconds)}. Trim it or upload a shorter clip. ${RECOMMENDED_VIDEO}`,
+      warnings: [],
+    };
+  }
   const warnings: string[] = [];
   if (kind === 'video' && file.size > LARGE_VIDEO_BYTES) {
     warnings.push(

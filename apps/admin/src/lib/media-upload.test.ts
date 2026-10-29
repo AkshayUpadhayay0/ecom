@@ -77,7 +77,7 @@ describe('libraryRefetchInterval', () => {
 });
 
 describe('checkFile', () => {
-  const limits = { maxVideoBytes: 500 * MB, maxImageBytes: 20 * MB };
+  const limits = { maxVideoBytes: 500 * MB, maxImageBytes: 20 * MB, maxVideoSeconds: 120 };
   const file = (type: string, size: number, name = 'clip') => ({ name, type, size });
 
   it('accepts a normal video without warnings', () => {
@@ -113,8 +113,17 @@ describe('checkFile', () => {
     const big = checkFile(file('video/mp4', 200 * MB), limits, 20);
     expect(big.ok).toBe(true);
     expect(big.warnings.join(' ')).toContain('bigger than needed');
-    const long = checkFile(file('video/mp4', 40 * MB), limits, 180);
+    const long = checkFile(file('video/mp4', 40 * MB), limits, 90);
     expect(long.ok).toBe(true);
-    expect(long.warnings.join(' ')).toContain('180 seconds');
+    expect(long.warnings.join(' ')).toContain('90 seconds');
+  });
+  it('refuses a video longer than the hard cap, with the real number', () => {
+    const result = checkFile(file('video/mp4', 40 * MB), limits, 150);
+    expect(result.ok).toBe(false);
+    expect(result.problem).toContain('2:30');
+    expect(result.problem).toContain('2:00');
+    expect(checkFile(file('video/mp4', 40 * MB), { ...limits, maxVideoSeconds: 300 }, 150).ok).toBe(
+      true,
+    );
   });
 });

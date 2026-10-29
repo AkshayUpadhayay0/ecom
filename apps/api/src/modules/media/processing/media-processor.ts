@@ -25,6 +25,7 @@ import {
 
 const MS_PER_SECOND = 1000;
 const BITS_PER_BYTE = 8;
+const SECONDS_PER_MINUTE = 60;
 const TEMP_PREFIX = 'ui-media-';
 const PARTIAL_FAILURE_PREFIX =
   'Some video sizes could not be made; the video still plays with the sizes that exist.';
@@ -86,6 +87,24 @@ async function timed<T>(timings: StageTimings, stage: string, work: () => Promis
   }
 }
 
+/**
+ * A file the pipeline refuses for a reason retrying cannot fix (e.g. a video longer than the cap).
+ * The message is shown to the editor as is, so it says what to do.
+ */
+export class MediaRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MediaRejectedError';
+  }
+}
+
+/** 125 seconds as "2:05". */
+export function formatDuration(totalSeconds: number): string {
+  const whole = Math.round(totalSeconds);
+  const seconds = String(whole % SECONDS_PER_MINUTE).padStart(2, '0');
+  return `${Math.floor(whole / SECONDS_PER_MINUTE)}:${seconds}`;
+}
+
 /** Exponential backoff: base, 2x base, 4x base, ... */
 export function retryDelaySeconds(baseSeconds: number, attempt: number): number {
   return baseSeconds * 2 ** Math.max(0, attempt - 1);
@@ -118,6 +137,12 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
     const bucket = bucketOf(row.visibility);
     const jobStartedAt = Date.now();
     const probe = await timed(timings, 'probe', () => ffmpeg.probe(input));
+    const maxSeconds = await settings.getLimit(db, 'media.max_video_seconds');
+    if (probe.durationMs !== null && probe.durationMs > maxSeconds * MS_PER_SECOND) {
+      throw new MediaRejectedError(
+        `This video is ${formatDuration(probe.durationMs / MS_PER_SECOND)} long; the longest allowed is ${formatDuration(maxSeconds)}. Trim it or upload a shorter clip.`,
+      );
+    }
     const heights = await settings.getDimensionList(db, 'media.video_heights');
     const previewSeconds = await settings.getLimit(db, 'media.preview_seconds');
     const renditions: NewRendition[] = [];
@@ -261,7 +286,8 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
     // Once playable the video keeps playing with the sizes that exist: this is a warning.
     const message = playable ? `${PARTIAL_FAILURE_PREFIX} ${raw}` : raw;
     const maxAttempts = await settings.getLimit(db, 'media.processing_max_attempts');
-    if (row.processingAttempts >= maxAttempts) {
+    // Retrying cannot make a refused file acceptable: fail at once, with the reason as written.
+    if (err instanceof MediaRejectedError || row.processingAttempts >= maxAttempts) {
       await repository.failProcessing(db, row.id, message);
       logger.error(
         { mediaAssetId: row.id, attempt: row.processingAttempts, err },

@@ -120,6 +120,16 @@ describe.skipIf(!hasTestDatabase)('admin settings API', () => {
     expect(audit.ip_address).not.toBeNull();
   });
 
+  it('the video length cap defaults to 2 minutes and is validated (super admin only, see below)', async () => {
+    const listed = bodyOf<{ data: { key: string; value: unknown; defaultValue: unknown }[] }>(
+      await api.get('/settings'),
+    ).data.find((row) => row.key === 'media.max_video_seconds');
+    expect(listed?.value).toBe(120);
+    expect((await api.patch('/settings/media.max_video_seconds', { value: 90 })).status).toBe(200);
+    expect((await api.patch('/settings/media.max_video_seconds', { value: 0 })).status).toBe(400);
+    expect((await api.patch('/settings/media.max_video_seconds', { value: 1.5 })).status).toBe(400);
+  });
+
   describe('who may change which setting (decision 19 Oct 2026)', () => {
     const restricted = SETTING_KEYS.filter((key) => !isAdminEditableSetting(key));
 

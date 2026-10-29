@@ -136,7 +136,7 @@ async function openUpload() {
 describe('Upload dialog: limits and friendly errors', () => {
   it('shows the real limits and the recommended settings', async () => {
     const { dialog } = await openUpload();
-    await waitFor(() => expect(dialog).toHaveTextContent('up to 500.0 MB'));
+    await waitFor(() => expect(dialog).toHaveTextContent('up to 500.0 MB and 120 seconds'));
     expect(dialog).toHaveTextContent('Images: JPEG, PNG, WebP (up to 20.0 MB)');
     expect(dialog).toHaveTextContent(
       'Recommended video: MP4 (H.264), 1080p or smaller, about 8 to 10 Mbps, 60 seconds or less.',

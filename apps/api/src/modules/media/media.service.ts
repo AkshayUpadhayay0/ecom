@@ -209,6 +209,22 @@ export function createMediaService(deps: MediaServiceDeps): MediaService {
         `Uploaded size (${head.contentLength} bytes) differs from the declared size (${row.sizeBytes} bytes).`,
       );
     }
+    // The cap may have been lowered since the upload URL was issued: enforce the current value.
+    if (isMediaMimeType(row.mimeType)) {
+      const { kind } = MEDIA_MIME_TYPES[row.mimeType];
+      const maxBytes = await settings.getLimit(
+        db,
+        kind === 'video' ? 'media.max_video_bytes' : 'media.max_image_bytes',
+      );
+      if (head.contentLength > maxBytes) {
+        return new AppError(
+          'FILE_TOO_LARGE',
+          HTTP_STATUS.PAYLOAD_TOO_LARGE,
+          'The file is too large.',
+          { maxBytes },
+        );
+      }
+    }
     const storedType = head.contentType?.split(';')[0]?.trim().toLowerCase();
     if (storedType !== row.mimeType) {
       return uploadMismatch('Uploaded content type differs from the declared type.');

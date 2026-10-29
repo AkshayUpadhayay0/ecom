@@ -10,7 +10,8 @@ function bytesOf(value: unknown, fallback: number): number {
 }
 
 /**
- * The upload size limits the server enforces (settings media.max_video_bytes / media.max_image_bytes),
+ * The upload limits the server enforces (settings media.max_video_bytes / media.max_image_bytes /
+ * media.max_video_seconds),
  * so the form can refuse a too-large file at once and say the real number. Falls back to the
  * documented defaults while loading or if settings cannot be read.
  */
@@ -28,5 +29,6 @@ export function useMediaLimits(): MediaLimits {
   return {
     maxVideoBytes: bytesOf(find('media.max_video_bytes'), DEFAULT_LIMITS.maxVideoBytes),
     maxImageBytes: bytesOf(find('media.max_image_bytes'), DEFAULT_LIMITS.maxImageBytes),
+    maxVideoSeconds: bytesOf(find('media.max_video_seconds'), DEFAULT_LIMITS.maxVideoSeconds),
   };
 }
