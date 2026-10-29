@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import { Writable } from 'node:stream';
 import pg from 'pg';
+import request from 'supertest';
 import { pino } from 'pino';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -20,6 +21,7 @@ import {
   type MediaTestContext,
 } from '../../../test/media-fixtures.js';
 import { MEDIA_JOBS_CHANNEL } from './media.repository.js';
+import { loadUsableMedia } from './public-media.repository.js';
 
 const FULL_HD = { durationMs: 30_000, width: 1920, height: 1080, hasAudio: true };
 const settle = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -64,7 +66,124 @@ describe.skipIf(!hasTestDatabase)('media pipeline: order, parallelism, wake-up',
     ]);
   });
 
-  it('announces a published asset once, after it is ready, and never for a failure', async () => {
+  it('is playable BEFORE every size is complete, then ready; the shop lists only the sizes that exist', async () => {
+    const stages: string[] = [];
+    const seen: { stage: string; status: string; playable: boolean; labels: string[] }[] = [];
+    let assetId = '';
+    const snapshot = async (stage: string): Promise<void> => {
+      // The playable step runs beside the next encode (it never delays it): wait for it to land.
+      for (let i = 0; i < 100 && stage === 'before 720p'; i += 1) {
+        const row = await ctx.db
+          .selectFrom('media_assets')
+          .select('playable_at')
+          .where('id', '=', assetId)
+          .executeTakeFirstOrThrow();
+        if (row.playable_at !== null) break;
+        await settle(20);
+      }
+      const row = await ctx.db
+        .selectFrom('media_assets')
+        .select(['processing_status', 'playable_at'])
+        .where('id', '=', assetId)
+        .executeTakeFirstOrThrow();
+      const usable = (await loadUsableMedia(ctx.db, [assetId])).get(assetId);
+      seen.push({
+        stage,
+        status: row.processing_status,
+        playable: row.playable_at !== null,
+        labels: (usable?.renditions ?? []).map((r) => r.label).sort(),
+      });
+    };
+    const ffmpeg = stubFfmpeg({
+      source: FULL_HD,
+      beforeRun: async (output) => {
+        if (output === '720p.mp4') await snapshot('before 720p'); // 480p is stored by now
+        if (output === '1080p.mp4') await snapshot('before 1080p');
+      },
+    });
+    assetId = await uploadAndComplete(ctx, adminToken, {
+      fileName: 'a.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    await makeProcessor(ctx, ffmpeg, ctx.db, {
+      onPublished: (_id, stage) => stages.push(stage),
+    }).processNext(['video']);
+
+    // Not 'ready' yet (that still means all sizes), but already shown, with what exists.
+    expect(seen[0]).toEqual({
+      stage: 'before 720p',
+      status: 'processing',
+      playable: true,
+      labels: ['480p', 'poster', 'preview'].sort(),
+    });
+    // 720p may still be uploading (it overlaps the next encode): never fewer than before.
+    expect(seen[1]?.labels).toEqual(expect.arrayContaining(['480p', 'poster', 'preview']));
+    const final = (await loadUsableMedia(ctx.db, [assetId])).get(assetId);
+    expect((final?.renditions ?? []).map((r) => r.label).sort()).toEqual(
+      ['1080p', '480p', '720p', 'poster', 'preview'].sort(),
+    );
+    const row = await ctx.db
+      .selectFrom('media_assets')
+      .select('processing_status')
+      .where('id', '=', assetId)
+      .executeTakeFirstOrThrow();
+    expect(row.processing_status).toBe('ready');
+    // The website is told twice: when it becomes playable and when every size is complete.
+    expect(stages).toEqual(['playable', 'ready']);
+  });
+
+  it('is NOT shown before the poster, preview and smallest size exist', async () => {
+    const ffmpeg = stubFfmpeg({ source: FULL_HD, failOutput: /^480p\.mp4$/ });
+    const id = await uploadAndComplete(ctx, adminToken, {
+      fileName: 'a.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    const stages: string[] = [];
+    await makeProcessor(ctx, ffmpeg, ctx.db, {
+      onPublished: (_id, stage) => stages.push(stage),
+    }).processNext(['video']);
+    expect((await loadUsableMedia(ctx.db, [id])).size).toBe(0);
+    expect(stages).toEqual([]);
+  });
+
+  it('a later size failing keeps the video playable with what exists and shows a warning', async () => {
+    const ffmpeg = stubFfmpeg({ source: FULL_HD, failOutput: /^1080p\.mp4$/ });
+    const id = await uploadAndComplete(ctx, adminToken, {
+      fileName: 'a.mp4',
+      mimeType: 'video/mp4',
+      bytes: fakeMp4(),
+    });
+    // Last attempt: the claim makes it attempt 3 of 3, so the failure is final.
+    await ctx.db
+      .updateTable('media_assets')
+      .set({ processing_attempts: 2 })
+      .where('id', '=', id)
+      .execute();
+    const stages: string[] = [];
+    await makeProcessor(ctx, ffmpeg, ctx.db, {
+      onPublished: (_id, stage) => stages.push(stage),
+    }).processNext(['video']);
+
+    const asset = (
+      await request(ctx.app)
+        .get(`/api/v1/admin/media/${id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+    ).body as {
+      data: { status: string; playableAt: string | null; processingError: string | null };
+    };
+    expect(asset.data.status).toBe('failed'); // not 'ready': the full set was never completed
+    expect(asset.data.playableAt).not.toBeNull();
+    expect(asset.data.processingError).toContain('still plays with the sizes that exist');
+    const usable = (await loadUsableMedia(ctx.db, [id])).get(id);
+    expect((usable?.renditions ?? []).map((r) => r.label).sort()).toEqual(
+      ['480p', '720p', 'poster', 'preview'].sort(),
+    );
+    expect(stages).toEqual(['playable']); // never announced as ready
+  });
+
+  it('announces a published asset when it is playable and when it is ready, and never for a failure', async () => {
     const published: string[] = [];
     const ffmpeg = stubFfmpeg({ source: FULL_HD });
     await uploadAndComplete(ctx, adminToken, {
@@ -76,7 +195,8 @@ describe.skipIf(!hasTestDatabase)('media pipeline: order, parallelism, wake-up',
       onPublished: (id) => published.push(id),
     });
     await processor.processNext(['video']);
-    expect(published).toHaveLength(1);
+    expect(published).toHaveLength(2); // playable, then ready (same asset)
+    expect(new Set(published).size).toBe(1);
     const row = await ctx.db
       .selectFrom('media_assets')
       .select('processing_status')
@@ -93,7 +213,7 @@ describe.skipIf(!hasTestDatabase)('media pipeline: order, parallelism, wake-up',
     await makeProcessor(ctx, broken, ctx.db, { onPublished: (id) => published.push(id) })
       .processNext(['video'])
       .catch(() => undefined);
-    expect(published).toHaveLength(1);
+    expect(published).toHaveLength(2);
   });
 
   it('runs at most MEDIA_TRANSCODE_PARALLELISM encodes at once, and only renditions overlap', async () => {

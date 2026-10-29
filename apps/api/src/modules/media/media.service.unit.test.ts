@@ -30,6 +30,7 @@ const ASSET: MediaRow = {
   dominantColor: null,
   processingAttempts: 1,
   processingError: null,
+  playableAt: new Date(),
   uploadExpiresAt: null,
   uploadedAt: new Date(),
   retiredAt: null,

@@ -47,6 +47,7 @@ export function toMediaAssetDto(
     dominantColor: row.dominantColor,
     processingAttempts: row.processingAttempts,
     processingError: row.processingError,
+    playableAt: row.playableAt?.toISOString() ?? null,
     publicUrl:
       servable && STORED_STATUSES.has(row.status) ? storage.getPublicUrl(row.originalKey) : null,
     renditions: renditions.map((r) => toRenditionDto(r, servable, storage)),

@@ -26,6 +26,8 @@ import {
 const MS_PER_SECOND = 1000;
 const BITS_PER_BYTE = 8;
 const TEMP_PREFIX = 'ui-media-';
+const PARTIAL_FAILURE_PREFIX =
+  'Some video sizes could not be made; the video still plays with the sizes that exist.';
 
 export interface MediaProcessor {
   /**
@@ -51,15 +53,25 @@ export interface MediaProcessorDeps {
   /** Scratch folder; one sub-folder per job, always removed afterwards. */
   tempDir: string;
   /**
-   * Runs inside the transaction that marks an asset ready (e.g. apply pending product media
-   * replacements). A failure rolls the completion back and the job is retried.
+   * Runs inside the transaction that makes an asset playable AND the one that marks it ready (e.g.
+   * apply pending product media replacements; it must be safe to run twice). A failure rolls that
+   * step back and the job is retried.
    */
   onReady?: (trx: Database, assetId: string) => Promise<void>;
   /**
-   * Called AFTER the transaction that marked an asset ready has committed (never on failure):
-   * e.g. tell the website to refresh. Must not throw; its errors are logged and ignored.
+   * Called AFTER the transaction that made an asset playable (stage 'playable') or ready (stage
+   * 'ready') has committed, never on failure: e.g. tell the website to refresh. Must not throw;
+   * its errors are logged and ignored.
    */
-  onPublished?: (assetId: string) => void;
+  onPublished?: (assetId: string, stage: PublishStage) => void;
+}
+
+/** 'playable' = poster, preview and smallest size exist; 'ready' = every size is complete. */
+export type PublishStage = 'playable' | 'ready';
+
+/** Progress of one job that the failure handler needs (a warning, not a failure, once playable). */
+interface JobState {
+  playable: boolean;
 }
 
 /** Milliseconds spent in each stage of one job (logged with "media ready"; used to find slow steps). */
@@ -83,6 +95,15 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
   const { db, repository, storage, settings, ffmpeg, images, logger } = deps;
   const parallelism = Math.max(1, deps.transcodeParallelism ?? 1);
 
+  /** Tells the hook (website refresh) that something became visible; never throws. */
+  function publish(assetId: string, stage: PublishStage): void {
+    try {
+      deps.onPublished?.(assetId, stage);
+    } catch (err) {
+      logger.warn({ err, mediaAssetId: assetId, stage }, 'media published hook failed');
+    }
+  }
+
   async function sizeOf(path: string): Promise<number> {
     return (await stat(path)).size;
   }
@@ -92,8 +113,10 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
     input: string,
     dir: string,
     timings: StageTimings,
+    state: JobState,
   ): Promise<ProcessingResult> {
     const bucket = bucketOf(row.visibility);
+    const jobStartedAt = Date.now();
     const probe = await timed(timings, 'probe', () => ffmpeg.probe(input));
     const heights = await settings.getDimensionList(db, 'media.video_heights');
     const previewSeconds = await settings.getLimit(db, 'media.preview_seconds');
@@ -111,7 +134,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
         storage.uploadFile(bucket, key, path, contentType),
       );
       const bytes = await sizeOf(path);
-      renditions.push({
+      const rendition: NewRendition = {
         label,
         format,
         storageKey: key,
@@ -122,8 +145,32 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
             ? Math.round((bytes * BITS_PER_BYTE) / probe.durationMs)
             : null,
         sizeBytes: bytes,
-      });
+      };
+      renditions.push(rendition);
+      // Visible at once: the public API lists a rendition as soon as it exists (and only then).
+      await repository.addRendition(db, row.id, rendition);
       return bytes;
+    };
+
+    const makePlayable = async (): Promise<void> => {
+      await timed(timings, 'mark playable', () =>
+        db.transaction().execute(async (trx) => {
+          await repository.markPlayable(trx, row.id, {
+            durationMs: probe.durationMs,
+            width: probe.width,
+            height: probe.height,
+            dominantColor: poster.dominantColor,
+            renditions: [],
+          });
+          await deps.onReady?.(trx, row.id);
+        }),
+      );
+      state.playable = true;
+      publish(row.id, 'playable');
+      logger.info(
+        { mediaAssetId: row.id, msSinceStart: Date.now() - jobStartedAt },
+        'media playable',
+      );
     };
 
     // Order: the poster first (cheap; it is the first thing a visitor sees), then the grid preview,
@@ -142,7 +189,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
     // Encoding is CPU-bound, so encodes normally run one after another (each uses every core);
     // the UPLOAD of a finished rendition overlaps with the encode of the next one.
     const targets = [...planRenditions(probe, heights)].sort((x, y) => x.shortSide - y.shortSide);
-    const uploads: Promise<number>[] = [];
+    const uploads: Promise<unknown>[] = [];
     try {
       await mapLimit(targets, parallelism, async (target) => {
         const output = join(dir, `${target.label}.mp4`);
@@ -150,13 +197,16 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
           ffmpeg.run(renditionArgs(input, output, probe, target, deps.encode)),
         );
         const encoded = await ffmpeg.probe(output);
-        uploads.push(store(output, target.label, 'mp4', 'video/mp4', encoded));
+        const stored = store(output, target.label, 'mp4', 'video/mp4', encoded);
+        // The video is playable once the smallest size is stored: the website may show it now.
+        uploads.push(target === targets[0] ? stored.then(makePlayable) : stored);
       });
     } finally {
       // Never leave an upload running behind a failed job (its temp folder is removed next).
       await Promise.allSettled(uploads);
     }
     await Promise.all(uploads);
+    if (targets.length === 0) await makePlayable();
 
     return {
       durationMs: probe.durationMs,
@@ -206,8 +256,10 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
     };
   }
 
-  async function handleFailure(row: MediaRow, err: unknown): Promise<void> {
-    const message = err instanceof Error ? err.message : String(err);
+  async function handleFailure(row: MediaRow, err: unknown, playable: boolean): Promise<void> {
+    const raw = err instanceof Error ? err.message : String(err);
+    // Once playable the video keeps playing with the sizes that exist: this is a warning.
+    const message = playable ? `${PARTIAL_FAILURE_PREFIX} ${raw}` : raw;
     const maxAttempts = await settings.getLimit(db, 'media.processing_max_attempts');
     if (row.processingAttempts >= maxAttempts) {
       await repository.failProcessing(db, row.id, message);
@@ -243,6 +295,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
     const dir = await mkdtemp(join(deps.tempDir, TEMP_PREFIX));
     const startedAt = Date.now();
     const timings: StageTimings = {};
+    const state: JobState = { playable: row.playableAt !== null };
     try {
       const input = join(dir, 'original');
       await timed(timings, 'download original', () =>
@@ -250,7 +303,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
       );
       const result =
         row.kind === 'video'
-          ? await processVideo(row, input, dir, timings)
+          ? await processVideo(row, input, dir, timings, state)
           : await processImage(row, input, dir, timings);
       await timed(timings, 'mark ready', () =>
         db.transaction().execute(async (trx) => {
@@ -258,11 +311,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
           await deps.onReady?.(trx, row.id);
         }),
       );
-      try {
-        deps.onPublished?.(row.id);
-      } catch (err) {
-        logger.warn({ err, mediaAssetId: row.id }, 'media ready hook failed');
-      }
+      publish(row.id, 'ready');
       logger.info(
         {
           mediaAssetId: row.id,
@@ -274,7 +323,7 @@ export function createMediaProcessor(deps: MediaProcessorDeps): MediaProcessor {
         'media ready',
       );
     } catch (err) {
-      await handleFailure(row, err);
+      await handleFailure(row, err, state.playable);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

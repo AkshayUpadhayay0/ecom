@@ -24,7 +24,7 @@ import { catalogApi } from '@/lib/api/catalog';
 import { libraryRefetchInterval } from '@/lib/media-upload';
 import { formatDateTime } from '@/lib/format';
 import { notify } from '@/lib/notify';
-import { humanise, mediaStatusDisplay } from '@/lib/status';
+import { humanise, isPlayableOnly, mediaDisplay, mediaStatusDisplay } from '@/lib/status';
 import { useAdminMutation } from '@/lib/use-admin-mutation';
 import { useUrlFilters } from '@/lib/use-url-filters';
 import { DeleteMediaDialog, type MediaToDelete } from './DeleteMediaDialog';
@@ -131,7 +131,7 @@ function AssetDialog({
               <div>
                 <dt className="text-xs text-muted-foreground">Status</dt>
                 <dd>
-                  <StatusBadge display={mediaStatusDisplay(asset.status)} />
+                  <StatusBadge display={mediaDisplay(asset)} />
                 </dd>
               </div>
               <div>
@@ -152,8 +152,12 @@ function AssetDialog({
               </div>
               {asset.processingError ? (
                 <div className="sm:col-span-2">
-                  <dt className="text-xs text-muted-foreground">Processing error</dt>
-                  <dd className="text-destructive">{asset.processingError}</dd>
+                  <dt className="text-xs text-muted-foreground">
+                    {isPlayableOnly(asset) ? 'Warning' : 'Processing error'}
+                  </dt>
+                  <dd className={isPlayableOnly(asset) ? 'text-warning' : 'text-destructive'}>
+                    {asset.processingError}
+                  </dd>
                 </div>
               ) : null}
             </dl>
@@ -300,7 +304,7 @@ export function MediaPage() {
                       {asset.originalFilename ?? asset.id.slice(0, 8)}
                     </span>
                     <span className="mt-1 flex flex-wrap gap-1">
-                      <StatusBadge display={mediaStatusDisplay(asset.status)} />
+                      <StatusBadge display={mediaDisplay(asset)} />
                       {asset.retiredAt ? <Badge>Retired</Badge> : null}
                       {asset.isTemporary ? <Badge tone="accent">Temporary</Badge> : null}
                     </span>

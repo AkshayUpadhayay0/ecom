@@ -21,6 +21,7 @@ function item(id: string, overrides: Partial<MediaLibraryItemDto> = {}): MediaLi
     dominantColor: null,
     processingAttempts: 0,
     processingError: null,
+    playableAt: null,
     publicUrl: null,
     renditions: [],
     createdAt: '2026-10-22T10:00:00.000Z',

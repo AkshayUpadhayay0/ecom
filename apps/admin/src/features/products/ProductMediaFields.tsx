@@ -17,6 +17,7 @@ import {
 } from '@/lib/media-upload';
 import { errorMessage } from '@/lib/notify';
 import { useMediaLimits } from '@/lib/use-media-limits';
+import { isPlayableOnly } from '@/lib/status';
 
 /** One file in the form: being uploaded, failed to upload, or an asset on the server. */
 export interface MediaItem {
@@ -71,7 +72,7 @@ export function useDraftAssets(draft: MediaDraft): Map<string, MediaAssetDto> {
 }
 
 interface ItemState {
-  label: 'Pending' | 'Processing' | 'Ready' | 'Failed';
+  label: 'Pending' | 'Processing' | 'Playable' | 'Playable, with a warning' | 'Ready' | 'Failed';
   tone: BadgeTone;
   detail: string | null;
 }
@@ -88,6 +89,20 @@ export function itemState(item: MediaItem, asset: MediaAssetDto | undefined): It
   }
   if (!asset) return { label: 'Pending', tone: 'neutral', detail: null };
   if (asset.status === 'ready') return { label: 'Ready', tone: 'success', detail: null };
+  if (isPlayableOnly(asset)) {
+    // Shown in the shop already; a failed later size is only a warning (Retry stays available).
+    return asset.status === 'failed'
+      ? {
+          label: 'Playable, with a warning',
+          tone: 'warning',
+          detail: asset.processingError ?? 'Some sizes could not be made.',
+        }
+      : {
+          label: 'Playable',
+          tone: 'success',
+          detail: 'Already shown in the shop; the other sizes are still being made.',
+        };
+  }
   if (asset.status === 'failed') {
     return {
       label: 'Failed',
@@ -104,7 +119,11 @@ export function draftProblem(draft: MediaDraft, assets: Map<string, MediaAssetDt
   const items = [...(draft.video ? [draft.video] : []), ...draft.images];
   if (items.some((i) => i.uploading)) return 'Wait for the uploads to finish.';
   const failed = items.some(
-    (i) => i.uploadError !== null || (i.assetId && assets.get(i.assetId)?.status === 'failed'),
+    (i) =>
+      i.uploadError !== null ||
+      (i.assetId &&
+        assets.get(i.assetId)?.status === 'failed' &&
+        !assets.get(i.assetId)?.playableAt),
   );
   if (failed) return 'Retry or remove the files that failed before saving.';
   return null;

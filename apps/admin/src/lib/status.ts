@@ -88,6 +88,24 @@ export const responsibilityDisplay = (code: string) => lookup(RESPONSIBILITY, co
 export const productStatusDisplay = (code: string) => lookup(PRODUCT_STATUS, code);
 export const mediaStatusDisplay = (code: string) => lookup(MEDIA_STATUS, code);
 
+/**
+ * What an editor sees for a media file. 'Ready' still means every size is complete; a video that
+ * is already shown in the shop but still finishing is 'Playable', and one that plays but lost a
+ * size is 'Playable, with a warning'.
+ */
+export function mediaDisplay(asset: { status: string; playableAt?: string | null }): StatusDisplay {
+  if (asset.status !== 'ready' && asset.playableAt) {
+    return asset.status === 'failed'
+      ? { label: 'Playable, with a warning', tone: 'warning' }
+      : { label: 'Playable (finishing)', tone: 'success' };
+  }
+  return mediaStatusDisplay(asset.status);
+}
+
+/** True when the shop shows the file although not every size is complete. */
+export const isPlayableOnly = (asset: { status: string; playableAt?: string | null }): boolean =>
+  asset.status !== 'ready' && Boolean(asset.playableAt);
+
 const FIT_METHOD: Table = {
   MANUAL_MEASUREMENTS: { label: 'Quick Fit (measurements typed in)', tone: 'neutral' },
   BODY_SCAN: { label: 'Body Scan', tone: 'neutral' },

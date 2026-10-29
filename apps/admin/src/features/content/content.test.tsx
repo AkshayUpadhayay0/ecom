@@ -34,6 +34,7 @@ function video(status: MediaAssetDto['status']): MediaAssetDto {
     dominantColor: null,
     processingAttempts: 0,
     processingError: null,
+    playableAt: null,
     publicUrl: null,
     renditions: [],
     createdAt: new Date().toISOString(), // just uploaded: the page polls a new file quickly

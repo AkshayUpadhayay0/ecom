@@ -21,6 +21,7 @@ const VIDEO: MediaAssetDto = {
   dominantColor: null,
   processingAttempts: 0,
   processingError: null,
+  playableAt: null,
   publicUrl: null,
   renditions: [],
   createdAt: '2026-10-19T10:00:00.000Z',

@@ -12,6 +12,15 @@ const READY_STATUS = 'ready';
  * are refused.
  */
 const ATTACHABLE_STATUSES = new Set(['uploaded', 'processing', READY_STATUS]);
+/**
+ * What the storefront can show: processed ('ready') or already playable (a video whose poster,
+ * preview and smallest size exist while the other sizes are still being made, or that kept playing
+ * after a later size failed). 'ready' itself still means every rendition is complete.
+ */
+function isLive(asset: MediaAssetStatusRow): boolean {
+  return asset.processingStatus === READY_STATUS || asset.playableAt !== null;
+}
+
 /** Catalogue media is shown to everyone; private assets (e.g. return evidence) never are. */
 const PUBLIC_VISIBILITY = 'public';
 
@@ -27,7 +36,7 @@ export interface MediaAssetsService {
    * or ready (rows locked FOR SHARE). Returns whether every asset is already ready.
    */
   assertAttachable(db: Database, ids: string[], kind: MediaKind): Promise<{ allReady: boolean }>;
-  /** Which of `ids` the public catalogue can show now: ready, public, not retired or purged. */
+  /** Which of `ids` the public catalogue can show now: ready or playable, public, not retired or purged. */
   liveIds(db: Database, ids: readonly string[]): Promise<Set<string>>;
   /**
    * Replace flow: after a reference swap (inside the same transaction), retires the replaced
@@ -54,7 +63,7 @@ function assertAttachableAsset(asset: MediaAssetStatusRow | undefined, kind: Med
       mediaAssetId: asset.id,
     });
   }
-  if (!ATTACHABLE_STATUSES.has(asset.processingStatus)) {
+  if (!ATTACHABLE_STATUSES.has(asset.processingStatus) && !isLive(asset)) {
     throw new AppError(
       'MEDIA_NOT_READY',
       HTTP_STATUS.CONFLICT,
@@ -84,7 +93,7 @@ function assertUsable(asset: MediaAssetStatusRow | undefined, kind: MediaKind): 
       mediaAssetId: asset.id,
     });
   }
-  if (asset.processingStatus !== READY_STATUS) {
+  if (!isLive(asset)) {
     throw new AppError(
       'MEDIA_NOT_READY',
       HTTP_STATUS.CONFLICT,
@@ -116,7 +125,12 @@ export function createMediaAssetsService(repository: MediaAssetsRepository): Med
         (await repository.findStatuses(db, ids, true)).map((row) => [row.id, row]),
       );
       for (const id of ids) assertAttachableAsset(found.get(id), kind);
-      return { allReady: ids.every((id) => found.get(id)?.processingStatus === READY_STATUS) };
+      return {
+        allReady: ids.every((id) => {
+          const asset = found.get(id);
+          return asset !== undefined && isLive(asset);
+        }),
+      };
     },
 
     async liveIds(db, ids) {
@@ -125,7 +139,7 @@ export function createMediaAssetsService(repository: MediaAssetsRepository): Med
         rows
           .filter(
             (row) =>
-              row.processingStatus === READY_STATUS &&
+              isLive(row) &&
               row.visibility === PUBLIC_VISIBILITY &&
               row.retiredAt === null &&
               row.purgedAt === null,

@@ -21,7 +21,8 @@ export interface UsableMedia {
 }
 
 /**
- * Media the storefront may show: processed (ready), public, not retired, not purged. Anything
+ * Media the storefront may show: playable (every image once ready; a video as soon as its poster,
+ * preview and smallest size exist, while the other sizes may still be coming), public, not retired, not purged. Anything
  * else is simply absent from the result (callers render no media).
  */
 export async function loadUsableMedia(
@@ -42,7 +43,9 @@ export async function loadUsableMedia(
       'dominant_color as dominantColor',
     ])
     .where('id', 'in', ids)
-    .where('processing_status', '=', 'ready')
+    .where((eb) =>
+      eb.or([eb('processing_status', '=', 'ready'), eb('playable_at', 'is not', null)]),
+    )
     .where('visibility', '=', 'public')
     .where('retired_at', 'is', null)
     .where('purged_at', 'is', null)

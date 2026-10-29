@@ -5,6 +5,7 @@ export interface MediaAssetStatusRow {
   id: string;
   kind: string;
   processingStatus: string;
+  playableAt: Date | null;
   visibility: string;
   retiredAt: Date | null;
   purgedAt: Date | null;
@@ -39,6 +40,7 @@ export function createMediaAssetsRepository(): MediaAssetsRepository {
           'id',
           'kind',
           'processing_status as processingStatus',
+          'playable_at as playableAt',
           'visibility',
           'retired_at as retiredAt',
           'purged_at as purgedAt',

@@ -35,4 +35,20 @@ describe('pickRendition', () => {
     ).toBe('480p');
     expect(pickRendition([], { viewportWidth: 1920, constrained: false })).toBeUndefined();
   });
+
+  describe('while the video is still being processed (only some sizes exist yet)', () => {
+    it('uses the one size that exists on any screen', () => {
+      const first = [{ label: '480p', url: 'a', width: 854, height: 480 }];
+      for (const viewportWidth of [390, 1280, 1920]) {
+        expect(pickRendition(first, { viewportWidth, constrained: false })?.label).toBe('480p');
+      }
+    });
+    it('takes the best size that exists, then the larger ones as they appear', () => {
+      const two = sources.slice(1);
+      expect(pickRendition(two, { viewportWidth: 1920, constrained: false })?.label).toBe('720p');
+      expect(pickRendition(sources, { viewportWidth: 1920, constrained: false })?.label).toBe(
+        '1080p',
+      );
+    });
+  });
 });

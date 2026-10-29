@@ -36,9 +36,13 @@ type Phase = 'choose' | UploadStage | 'sent';
 const formatMb = (bytes: number): string => `${(bytes / BYTES_PER_MB).toFixed(1)} MB`;
 
 /** What the worker is doing, in words an editor understands. */
-function processingText(status: string | undefined): string {
-  if (status === 'ready') return 'Ready. The shop shows it as soon as its cache refreshes.';
+function processingText(status: string | undefined, playable: boolean): string {
+  if (status === 'ready') return 'Ready: every size is complete and the shop shows it.';
+  if (status === 'failed' && playable) {
+    return 'Playable with a warning: the shop shows it, but some sizes could not be made.';
+  }
   if (status === 'failed') return 'Processing failed.';
+  if (playable) return 'Playable: the shop already shows it. The other sizes are still being made.';
   if (status === 'processing') {
     return 'Processing: making the web versions (poster, preview and sizes).';
   }
@@ -78,6 +82,7 @@ export function UploadDialog({
   });
   const status = asset.data?.status;
   const finished = status === 'ready' || status === 'failed';
+  const playable = Boolean(asset.data?.playableAt);
   const notified = useRef(false);
   useEffect(() => {
     if (finished && !notified.current) {
@@ -85,6 +90,10 @@ export function UploadDialog({
       void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
     }
   }, [finished, queryClient]);
+  // The moment it becomes playable the shop shows it: refresh the lists once.
+  useEffect(() => {
+    if (playable) void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
+  }, [playable, queryClient]);
 
   function reset() {
     setFile(null);
@@ -241,22 +250,32 @@ export function UploadDialog({
                 <p className="flex items-center gap-2 text-sm">
                   {status === 'ready' ? (
                     <Badge tone="success">Ready</Badge>
+                  ) : status === 'failed' && playable ? (
+                    <Badge tone="warning">Playable, with a warning</Badge>
                   ) : status === 'failed' ? (
                     <Badge tone="danger">Failed</Badge>
+                  ) : playable ? (
+                    <Badge tone="success">Playable</Badge>
                   ) : (
                     <Badge tone="warning">
                       {status === 'processing' ? 'Processing' : 'Queued'}
                     </Badge>
                   )}
-                  <span role="status">{processingText(status)}</span>
+                  <span role="status">{processingText(status, playable)}</span>
                 </p>
-                {status === 'failed' ? (
+                {status === 'failed' && !playable ? (
                   <p
                     role="alert"
                     className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive"
                   >
                     {asset.data?.processingError ?? 'The file could not be processed.'} Upload a
                     different file, or open it in the library and choose Retry.
+                  </p>
+                ) : null}
+                {status === 'failed' && playable ? (
+                  <p role="status" className="rounded-md bg-warning-soft px-3 py-2 text-sm">
+                    {asset.data?.processingError} Open it in the library and choose Retry to make
+                    the missing sizes.
                   </p>
                 ) : null}
                 {!finished ? (

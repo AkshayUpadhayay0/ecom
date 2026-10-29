@@ -333,6 +333,7 @@ export interface MediaAssets {
   processing_attempts: Generated<number>;
   processing_error: string | null;
   processing_started_at: Timestamp | null;
+  playable_at: Timestamp | null;
   processing_status: Generated<string>;
   purged_at: Timestamp | null;
   retired_at: Timestamp | null;

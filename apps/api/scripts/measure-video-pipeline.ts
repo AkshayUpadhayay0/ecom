@@ -301,36 +301,40 @@ async function main(): Promise<void> {
   t.complete = now() - tComplete;
   const tQueued = now();
 
-  let claimed: number | null = null;
-  let ready: number | null = null;
-  let status = '';
+  // Written by the watcher below, read by the main flow.
+  const seen: { claimed: number | null; playable: number | null; ready: number | null } = {
+    claimed: null,
+    playable: null,
+    ready: null,
+  };
   const end = Date.now() + 15 * 60_000;
-  while (Date.now() < end) {
-    const asset = (await api(`/admin/media/${id}`, token)) as {
-      status: string;
-      processingError?: string;
-    };
-    if (asset.status !== status) status = asset.status;
-    if (status === 'processing' && claimed === null) claimed = now() - tQueued;
-    if (status === 'ready') {
-      ready = now() - tQueued;
-      break;
+  // Playable = poster, preview and smallest size exist (the shop can show it); ready = all sizes.
+  // Both are watched from one loop that keeps running while the hero/website checks below happen.
+  const watcher = (async (): Promise<void> => {
+    while (Date.now() < end) {
+      const asset = (await api(`/admin/media/${id}`, token)) as {
+        status: string;
+        playableAt?: string | null;
+        processingError?: string;
+      };
+      if (asset.status === 'processing' && seen.claimed === null) seen.claimed = now() - tQueued;
+      if (asset.playableAt && seen.playable === null) seen.playable = now() - tQueued;
+      if (asset.status === 'ready') {
+        seen.ready = now() - tQueued;
+        return;
+      }
+      if (asset.status === 'failed' && !asset.playableAt) {
+        throw new Error(`processing failed: ${asset.processingError ?? ''}`);
+      }
+      await sleep(POLL_MS);
     }
-    if (status === 'failed') throw new Error(`processing failed: ${asset.processingError ?? ''}`);
-    await sleep(POLL_MS);
+  })();
+  while (seen.playable === null && seen.ready === null) {
+    await Promise.race([sleep(POLL_MS), watcher]);
   }
-  if (ready === null) throw new Error('timed out waiting for ready');
-  t.claim = claimed ?? 0;
-  t.ready = ready;
-
-  // worker's own stage timings
-  const stageLine = workerLines.find((l) => l.includes('"msg":"media ready"') && l.includes(id));
-  const stages = stageLine
-    ? ((JSON.parse(stageLine) as { stagesMs?: Record<string, number> }).stagesMs ?? {})
-    : {};
-
+  t.playable = seen.playable ?? seen.ready ?? 0;
   // put it on the home hero and watch the API, then the website
-  const tAssign = now();
+  const tAssign = now(); // assigned the moment it is playable, while the other sizes are still being made
   await api('/admin/content-blocks/home.hero/media', token, {
     method: 'PUT',
     body: JSON.stringify({ mediaAssetId: id }),
@@ -363,6 +367,17 @@ async function main(): Promise<void> {
     t.website = webSeen ?? -1;
   }
 
+  await watcher;
+  if (seen.ready === null) throw new Error('timed out waiting for ready');
+  t.claim = seen.claimed ?? 0;
+  t.ready = seen.ready;
+
+  // worker's own stage timings
+  const stageLine = workerLines.find((l) => l.includes('"msg":"media ready"') && l.includes(id));
+  const stages = stageLine
+    ? ((JSON.parse(stageLine) as { stagesMs?: Record<string, number> }).stagesMs ?? {})
+    : {};
+
   const rows: [string, string][] = [
     ['Request the upload URL', seconds(t.createUpload)],
     [
@@ -372,15 +387,16 @@ async function main(): Promise<void> {
     ['"Complete" call (size, type and magic-byte check)', seconds(t.complete)],
     ['Wait until the worker claims the job', seconds(t.claim)],
     ...Object.entries(stages).map(([k, v]): [string, string] => [`  worker: ${k}`, seconds(v)]),
-    ['Queued until status = ready', seconds(t.ready)],
+    ['Queued until PLAYABLE (poster + preview + smallest size)', seconds(t.playable)],
+    ['Queued until READY (every size complete)', seconds(t.ready)],
     [
-      'Ready until the public API shows it (after assigning it to the hero)',
+      'Playable until the public API shows it (after assigning it to the hero)',
       t.publicApi >= 0 ? seconds(t.publicApi) : 'not seen in 60 s',
     ],
     ...(withWeb
       ? ([
           [
-            'Ready until the website home page shows it',
+            'Playable until the website home page shows it',
             (t.website ?? -1) >= 0 ? seconds(t.website as number) : 'not seen in 4 min',
           ],
         ] as [string, string][])

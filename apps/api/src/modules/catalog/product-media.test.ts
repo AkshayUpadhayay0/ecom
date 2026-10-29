@@ -232,6 +232,50 @@ describe.skipIf(!hasTestDatabase)('product-form media', () => {
     });
   });
 
+  it('a replacement that fails BEFORE it is playable never removes the live video', async () => {
+    const live = await ready(queuedVideo());
+    const created = bodyOf<ApiData<ProductDto>>(await createProduct({ videoAssetId: live })).data;
+    await sellable(created.id);
+    const replacement = await queuedVideo();
+    await api.put(`/products/${created.id}/video`, { mediaAssetId: replacement });
+
+    // The poster (the first step) crashes: the new video never becomes playable.
+    const processor = makeProcessor(ctx, stubFfmpeg({ failOutput: /^poster\.jpg$/ }));
+    await processor.processNext(['video']);
+
+    expect(await product(created.id)).toMatchObject({
+      videoAssetId: live,
+      pendingMedia: { videoAssetId: replacement },
+    });
+    expect(await isRetired(live)).toBe(false);
+    expect((await card(created.id))?.media).not.toBeNull(); // the live video is still shown
+  });
+
+  it('a replacement is swapped in as soon as it is playable; a later size failing only warns, and the video keeps playing', async () => {
+    const live = await ready(queuedVideo());
+    const created = bodyOf<ApiData<ProductDto>>(await createProduct({ videoAssetId: live })).data;
+    await sellable(created.id);
+    const replacement = await queuedVideo();
+    await api.put(`/products/${created.id}/video`, { mediaAssetId: replacement });
+
+    // The stub clip is 720p, so the sizes are 480p then 720p: the 720p encode crashes.
+    const processor = makeProcessor(ctx, stubFfmpeg({ failOutput: /^720p\.mp4$/ }));
+    await processor.processNext(['video']);
+
+    expect(await product(created.id)).toMatchObject({
+      videoAssetId: replacement,
+      pendingMedia: { videoAssetId: null },
+    });
+    expect(await isRetired(live)).toBe(true);
+    const shown = (await card(created.id))?.media;
+    expect(shown).not.toBeNull();
+    expect(shown?.mp4.map((source) => source.label)).toEqual(['480p']);
+    const asset = bodyOf<ApiData<MediaAssetDto>>(await api.get(`/media/${replacement}`)).data;
+    expect(asset.status).not.toBe('ready'); // 'ready' still means every size is complete
+    expect(asset.playableAt).not.toBeNull();
+    expect(asset.processingError).toContain('still plays with the sizes that exist');
+  });
+
   it('failed processing keeps the old media live and retires nothing; a retry then swaps it in', async () => {
     const live = await ready(queuedVideo());
     const created = bodyOf<ApiData<ProductDto>>(await createProduct({ videoAssetId: live })).data;

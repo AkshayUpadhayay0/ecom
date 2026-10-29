@@ -191,6 +191,7 @@ describe('inventory and media', () => {
       dominantColor: null,
       processingAttempts: 3,
       processingError: 'decode failed',
+      playableAt: null,
       publicUrl: null,
       renditions: [],
       createdAt: '2026-10-10T10:00:00.000Z',

@@ -19,6 +19,12 @@ export interface MediaRow {
   dominantColor: string | null;
   processingAttempts: number;
   processingError: string | null;
+  /**
+   * Poster, preview and the smallest rendition exist: the storefront may show the video with the
+   * renditions that exist, even while processingStatus is not 'ready' yet. Stays set on a later
+   * failure or retry (then processingError is the warning).
+   */
+  playableAt: Date | null;
   uploadExpiresAt: Date | null;
   uploadedAt: Date | null;
   retiredAt: Date | null;
@@ -100,6 +106,7 @@ const COLUMNS = [
   'dominant_color as dominantColor',
   'processing_attempts as processingAttempts',
   'processing_error as processingError',
+  'playable_at as playableAt',
   'upload_expires_at as uploadExpiresAt',
   'uploaded_at as uploadedAt',
   'retired_at as retiredAt',
@@ -141,6 +148,13 @@ export interface MediaRepository {
   claimNext(db: Database, kinds: readonly MediaKind[]): Promise<MediaRow | undefined>;
   /** Requeues (or fails, at the attempt limit) jobs whose lease ran out. Returns how many. */
   recoverStale(db: Database, leaseSeconds: number, maxAttempts: number): Promise<number>;
+  /**
+   * Early-ready: the asset becomes playable. Stores what is known so far (metadata and the first
+   * renditions) without changing processing_status ('ready' still means ALL renditions are done).
+   */
+  markPlayable(db: Database, id: string, result: ProcessingResult): Promise<void>;
+  /** Adds (or replaces, same label and format) one rendition of an asset that is already playable. */
+  addRendition(db: Database, id: string, rendition: NewRendition): Promise<void>;
   completeProcessing(db: Database, id: string, result: ProcessingResult): Promise<void>;
   scheduleRetry(db: Database, id: string, error: string, retryAt: Date): Promise<void>;
   failProcessing(db: Database, id: string, error: string): Promise<void>;
@@ -151,6 +165,28 @@ export interface MediaRepository {
   markPurged(db: Database, id: string): Promise<void>;
   /** True if the asset is evidence on a return request owned by the customer. */
   isEvidenceOwnedBy(db: Database, assetId: string, customerId: string): Promise<boolean>;
+}
+
+async function insertRendition(db: Database, id: string, r: NewRendition): Promise<void> {
+  await db
+    .deleteFrom('media_renditions')
+    .where('asset_id', '=', id)
+    .where('label', '=', r.label)
+    .where('format', '=', r.format)
+    .execute();
+  await db
+    .insertInto('media_renditions')
+    .values({
+      asset_id: id,
+      label: r.label,
+      format: r.format,
+      storage_key: r.storageKey,
+      width: r.width,
+      height: r.height,
+      bitrate_kbps: r.bitrateKbps,
+      size_bytes: r.sizeBytes,
+    })
+    .execute();
 }
 
 const truncate = (error: string): string => error.slice(0, ERROR_MAX_LENGTH);
@@ -316,6 +352,25 @@ export function createMediaRepository(): MediaRepository {
       return Number(result.numAffectedRows ?? 0);
     },
 
+    async markPlayable(db, id, result) {
+      for (const rendition of result.renditions) await insertRendition(db, id, rendition);
+      await db
+        .updateTable('media_assets')
+        .set({
+          playable_at: sql<Date>`COALESCE(playable_at, now())`,
+          duration_ms: result.durationMs,
+          width: result.width,
+          height: result.height,
+          dominant_color: result.dominantColor,
+        })
+        .where('id', '=', id)
+        .execute();
+    },
+
+    async addRendition(db, id, rendition) {
+      await insertRendition(db, id, rendition);
+    },
+
     async completeProcessing(db, id, result) {
       await db.deleteFrom('media_renditions').where('asset_id', '=', id).execute();
       if (result.renditions.length > 0) {
@@ -339,6 +394,7 @@ export function createMediaRepository(): MediaRepository {
         .updateTable('media_assets')
         .set({
           processing_status: 'ready',
+          playable_at: sql<Date>`COALESCE(playable_at, now())`,
           duration_ms: result.durationMs,
           width: result.width,
           height: result.height,

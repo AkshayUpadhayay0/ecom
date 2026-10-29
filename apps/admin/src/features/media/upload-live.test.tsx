@@ -24,6 +24,7 @@ function asset(status: MediaAssetDto['status'], extra: Partial<MediaAssetDto> = 
     dominantColor: null,
     processingAttempts: 0,
     processingError: null,
+    playableAt: null,
     publicUrl: null,
     renditions: [],
     createdAt: new Date().toISOString(), // just uploaded: polled every 2 s
@@ -45,6 +46,8 @@ function videoFile(sizeBytes: number, name = 'clip.mp4', type = 'video/mp4'): Fi
 }
 
 let polls: number;
+/** From this poll on the file is playable (the shop shows it) although not every size is done. */
+let playableAfter: number;
 let statuses: MediaAssetDto['status'][];
 let requests: string[];
 
@@ -52,6 +55,7 @@ beforeEach(() => {
   apiState.hasSession = true;
   apiState.role = 'admin';
   polls = 0;
+  playableAfter = Number.POSITIVE_INFINITY;
   requests = [];
   statuses = ['uploaded', 'processing', 'ready'];
   server.use(
@@ -104,14 +108,19 @@ beforeEach(() => {
     }),
     http.get(`${API}/admin/media/clip-1`, () => {
       const status = statuses[Math.min(polls, statuses.length - 1)] ?? 'ready';
+      const playable = polls >= playableAfter;
       polls += 1;
       return HttpResponse.json({
-        data: asset(
-          status,
-          status === 'failed'
-            ? { processingError: 'ffmpeg exited with code 1: corrupt moov atom' }
-            : {},
-        ),
+        data: asset(status, {
+          ...(playable ? { playableAt: new Date().toISOString() } : {}),
+          ...(status === 'failed'
+            ? {
+                processingError: playable
+                  ? 'Some video sizes could not be made; the video still plays with the sizes that exist. disk full'
+                  : 'ffmpeg exited with code 1: corrupt moov atom',
+              }
+            : {}),
+        }),
       });
     }),
     http.get(`${API}/admin/media`, () => HttpResponse.json(listOf([]))),
@@ -180,7 +189,7 @@ describe('Upload dialog: progress, then live processing without a refresh', () =
       await within(dialog).findByText(/Processing: making the web versions/, {}, { timeout: 8000 }),
     ).toBeInTheDocument();
     expect(
-      await within(dialog).findByText(/Ready\. The shop shows it/, {}, { timeout: 8000 }),
+      await within(dialog).findByText(/Ready: every size is complete/, {}, { timeout: 8000 }),
     ).toBeInTheDocument();
     expect(within(dialog).getByText('Ready')).toBeInTheDocument();
     // it stops asking once ready
@@ -188,6 +197,35 @@ describe('Upload dialog: progress, then live processing without a refresh', () =
     await new Promise((resolve) => setTimeout(resolve, 2600));
     expect(polls).toBe(settled);
     expect(within(dialog).getByRole('button', { name: 'Upload another' })).toBeInTheDocument();
+  }, 20000);
+
+  it('says Playable as soon as the shop can show it, before every size is done', async () => {
+    statuses = ['processing', 'processing', 'ready'];
+    playableAfter = 1;
+    const { user, dialog } = await openUpload();
+    await user.upload(within(dialog).getByLabelText(/File/), videoFile(5 * MB));
+    await user.click(within(dialog).getByRole('button', { name: 'Upload' }));
+    expect(
+      await within(dialog).findByText(/Playable: the shop already shows it/, {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Playable')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText(/Ready: every size is complete/, {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+  }, 20000);
+
+  it('a size that failed after it became playable is a warning, not a failure', async () => {
+    statuses = ['processing', 'failed'];
+    playableAfter = 1;
+    const { user, dialog } = await openUpload();
+    await user.upload(within(dialog).getByLabelText(/File/), videoFile(5 * MB));
+    await user.click(within(dialog).getByRole('button', { name: 'Upload' }));
+    expect(
+      await within(dialog).findByText(/Playable with a warning/, {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    expect(dialog).toHaveTextContent('still plays with the sizes that exist');
+    expect(within(dialog).queryByText('Failed')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/Upload a different file/)).not.toBeInTheDocument();
   }, 20000);
 
   it('shows a failed file with the real reason and what to do', async () => {

@@ -99,6 +99,12 @@ export interface MediaAssetDto {
   dominantColor: string | null;
   processingAttempts: number;
   processingError: string | null;
+  /**
+   * Poster, preview and the smallest size exist, so the shop already shows the video with the sizes
+   * that exist (status may still be 'processing'; 'ready' = every size complete). Not null with
+   * status 'failed' or a processingError means "plays, but some sizes are missing" (a warning).
+   */
+  playableAt: string | null;
   /** Public URL of the original upload; always null for private media. */
   publicUrl: string | null;
   renditions: MediaRenditionDto[];

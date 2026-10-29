@@ -1,7 +1,7 @@
 import { buildPendingMediaApplier } from '../src/modules/catalog/pending-media.module.js';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { ApiData, CreateUploadResultDto } from '@urban-ibile/shared';
 import { pino } from 'pino';
 import sharp from 'sharp';
@@ -123,7 +123,16 @@ const STUB_SOURCE: VideoProbe = { durationMs: 4000, width: 1280, height: 720, ha
  * Stub FFmpeg (unit/integration tests without ffmpeg): `run` writes the output file named by the
  * last argument (a real tiny JPEG for posters), `probe` reports sizes from the file name.
  */
-export function stubFfmpeg(options: { fail?: boolean; source?: VideoProbe } = {}): FfmpegRunner & {
+export function stubFfmpeg(
+  options: {
+    fail?: boolean;
+    source?: VideoProbe;
+    /** Fails only the encodes whose output file name matches (e.g. a single rendition). */
+    failOutput?: RegExp;
+    /** Called just before each encode starts, with the output file name (inspect mid-job state). */
+    beforeRun?: (output: string) => Promise<void>;
+  } = {},
+): FfmpegRunner & {
   calls: string[][];
 } {
   const calls: string[][] = [];
@@ -148,8 +157,11 @@ export function stubFfmpeg(options: { fail?: boolean; source?: VideoProbe } = {}
     },
     async run(args) {
       calls.push([...args]);
-      if (options.fail) throw new Error('stub ffmpeg: simulated encoder crash');
       const output = args[args.length - 1] ?? '';
+      await options.beforeRun?.(basename(output));
+      if (options.fail || options.failOutput?.test(basename(output))) {
+        throw new Error('stub ffmpeg: simulated encoder crash');
+      }
       await writeFile(output, output.endsWith('.jpg') ? await tinyJpeg() : fakeMp4(256));
     },
   };

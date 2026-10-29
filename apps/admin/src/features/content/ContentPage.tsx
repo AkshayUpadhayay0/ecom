@@ -102,7 +102,7 @@ function HeroVideoUpload({ onUse }: { onUse: (assetId: string) => Promise<unknow
           <span className="font-medium">{fileName}</span>
           <Badge tone={state.tone}>{state.label}</Badge>
           {state.detail ? <span className="text-muted-foreground">{state.detail}</span> : null}
-          {asset.data?.status === 'ready' && assetId ? (
+          {(asset.data?.status === 'ready' || asset.data?.playableAt) && assetId ? (
             <Button size="sm" onClick={() => void onUse(assetId)}>
               Use as this block's video
             </Button>

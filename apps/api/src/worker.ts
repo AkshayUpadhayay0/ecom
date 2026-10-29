@@ -118,8 +118,9 @@ const processor = createMediaProcessor({
   tempDir: env.MEDIA_TEMP_DIR ?? tmpdir(),
   // Swaps in pending product media replacements once their assets are ready.
   onReady: buildPendingMediaApplier(logger),
-  onPublished: () => {
-    webRevalidator.revalidate('media ready');
+  // Once when the video becomes playable and again when every size is complete.
+  onPublished: (_assetId, stage) => {
+    webRevalidator.revalidate(`media ${stage}`);
   },
 });
 
