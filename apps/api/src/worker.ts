@@ -3,22 +3,23 @@
  *  1. releases stock held by unpaid orders whose reservation expired;
  *  2. reconciles unresolved payment attempts with the provider (missed webhooks);
  *  3. sends due emails from email_outbox (retries with backoff);
- *  4. processes uploaded media.
+ *  4. processes uploaded media (in its own loop, woken at once by Postgres NOTIFY).
  *
  *   pnpm worker        (alias: pnpm worker:media)
  *
  * Several workers may run at once; each job row is claimed by exactly one.
  */
-import { tmpdir } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import type { MediaKind } from '@urban-ibile/shared';
 import { API_BASE_PATH } from './app.js';
 import { EnvValidationError, loadEnv, type Env } from './config/env.js';
 import { createDatabase } from './db/database.js';
+import { listenForJobs } from './lib/job-wakeup.js';
 import { createLogger } from './lib/logger.js';
 import { buildPendingMediaApplier } from './modules/catalog/pending-media.module.js';
 import { releaseExpiredReservations } from './modules/checkout/reservation-expiry.js';
 import { createReservationsRepository } from './modules/inventory/reservations.repository.js';
-import { createMediaRepository } from './modules/media/media.repository.js';
+import { MEDIA_JOBS_CHANNEL, createMediaRepository } from './modules/media/media.repository.js';
 import {
   FFMPEG_INSTALL_HELP,
   createFfmpegRunner,
@@ -92,7 +93,21 @@ const processor = createMediaProcessor({
   ffmpeg,
   images: createImageProcessor(),
   logger,
-  encode: { preset: env.FFMPEG_X264_PRESET, crf: env.FFMPEG_X264_CRF },
+  // Parallel encodes share the CPUs: each gets its fair share of threads.
+  encode: {
+    preset: env.FFMPEG_X264_PRESET,
+    crf: env.FFMPEG_X264_CRF,
+    // One encode at a time: ffmpeg uses every core by itself. Parallel encodes share them.
+    ...(env.MEDIA_TRANSCODE_PARALLELISM > 1
+      ? {
+          threads: Math.max(
+            1,
+            Math.floor(availableParallelism() / env.MEDIA_TRANSCODE_PARALLELISM),
+          ),
+        }
+      : {}),
+  },
+  transcodeParallelism: env.MEDIA_TRANSCODE_PARALLELISM,
   tempDir: env.MEDIA_TEMP_DIR ?? tmpdir(),
   // Swaps in pending product media replacements once their assets are ready.
   onReady: buildPendingMediaApplier(logger),
@@ -101,26 +116,49 @@ const processor = createMediaProcessor({
 let running = true;
 /** Read through a function: `stop` flips the flag from a signal handler. */
 const isRunning = (): boolean => running;
-let wake: (() => void) | undefined;
+
+/**
+ * A sleep that ends early when someone calls wake(). A wake() that arrives while nobody is
+ * sleeping (the worker is busy) is remembered, so a notification is never lost.
+ */
+function createWaiter(): { wait(ms: number): Promise<void>; wake(): void } {
+  let pending = false;
+  let wakeNow: (() => void) | undefined;
+  return {
+    wait(ms) {
+      if (pending) {
+        pending = false;
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        const timer = setTimeout(done, ms);
+        function done(): void {
+          clearTimeout(timer);
+          wakeNow = undefined;
+          resolve();
+        }
+        wakeNow = done;
+      });
+    },
+    wake() {
+      if (wakeNow) wakeNow();
+      else pending = true;
+    },
+  };
+}
+
+const housekeepingWaiter = createWaiter();
+const mediaWaiter = createWaiter();
 
 function stop(signal: NodeJS.Signals): void {
   if (!running) return;
   running = false;
   logger.info({ signal }, 'worker stopping after the current job');
-  wake?.();
+  housekeepingWaiter.wake();
+  mediaWaiter.wake();
 }
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    wake = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-  });
-}
 
 /** One job type failing never stops the others. */
 async function step(name: string, job: () => Promise<unknown>): Promise<void> {
@@ -131,15 +169,48 @@ async function step(name: string, job: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/** Expiry, payment reconciliation and emails: never held up by a long video transcode. */
+async function housekeepingLoop(): Promise<void> {
+  while (isRunning()) {
+    await step('reservation expiry', () =>
+      releaseExpiredReservations(expiryDeps, env.RESERVATION_SWEEP_BATCH),
+    );
+    await step('payment reconciliation', () => reconcilePayments(reconciliationDeps));
+    await step('email outbox', () => outbox.processBatch());
+    if (isRunning()) await housekeepingWaiter.wait(env.EMAIL_OUTBOX_POLL_MS);
+  }
+}
+
+/**
+ * Media jobs, one at a time. Wakes immediately on a Postgres NOTIFY when an upload is completed;
+ * the poll interval only covers retries that become due and a dropped LISTEN connection.
+ */
+async function mediaLoop(kinds: readonly MediaKind[]): Promise<void> {
+  while (isRunning()) {
+    await step('media processing', () => processor.drain(kinds));
+    if (isRunning()) await mediaWaiter.wait(env.MEDIA_WORKER_POLL_MS);
+  }
+}
+
 async function main(): Promise<void> {
   const check = await ffmpeg.check();
   let kinds: MediaKind[] = ['video', 'image'];
   if (check.ok) {
-    logger.info({ ffmpeg: check.version, storage: env.MEDIA_STORAGE_DRIVER }, 'worker started');
+    logger.info(
+      {
+        ffmpeg: check.version,
+        storage: env.MEDIA_STORAGE_DRIVER,
+        transcodeParallelism: env.MEDIA_TRANSCODE_PARALLELISM,
+      },
+      'worker started',
+    );
   } else {
     // Images still work (sharp); videos wait in the queue until ffmpeg is installed.
     kinds = ['image'];
-    process.stderr.write(`\n${FFMPEG_INSTALL_HELP}\n\n`);
+    process.stderr.write(`
+${FFMPEG_INSTALL_HELP}
+
+`);
     logger.error({ error: check.error }, 'ffmpeg unavailable: processing images only');
   }
   logger.info(
@@ -147,16 +218,16 @@ async function main(): Promise<void> {
     'payments + email outbox enabled',
   );
 
-  const pollMs = Math.min(env.MEDIA_WORKER_POLL_MS, env.EMAIL_OUTBOX_POLL_MS);
-  while (isRunning()) {
-    await step('reservation expiry', () =>
-      releaseExpiredReservations(expiryDeps, env.RESERVATION_SWEEP_BATCH),
-    );
-    await step('payment reconciliation', () => reconcilePayments(reconciliationDeps));
-    await step('email outbox', () => outbox.processBatch());
-    await step('media processing', () => processor.drain(kinds));
-    if (isRunning()) await sleep(pollMs);
-  }
+  const wakeup = listenForJobs(
+    env.DATABASE_URL,
+    MEDIA_JOBS_CHANNEL,
+    () => {
+      mediaWaiter.wake();
+    },
+    logger,
+  );
+  await Promise.all([housekeepingLoop(), mediaLoop(kinds)]);
+  await wakeup.close();
   await db.destroy();
   logger.info('worker stopped');
 }

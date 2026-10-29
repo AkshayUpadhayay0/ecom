@@ -155,6 +155,17 @@ export interface MediaRepository {
 
 const truncate = (error: string): string => error.slice(0, ERROR_MAX_LENGTH);
 
+/** Postgres NOTIFY channel the worker LISTENs on: "a media job is ready to claim". */
+export const MEDIA_JOBS_CHANNEL = 'media_jobs';
+
+/**
+ * Wakes the worker at once. pg_notify inside the caller's transaction is delivered only when that
+ * transaction commits, so the worker never wakes for a job it cannot see yet.
+ */
+async function notifyJob(db: Database, id: string): Promise<void> {
+  await sql`SELECT pg_notify(${MEDIA_JOBS_CHANNEL}, ${id})`.execute(db);
+}
+
 export function createMediaRepository(): MediaRepository {
   async function findById(db: Database, id: string, lock = false) {
     let query = db.selectFrom('media_assets').select(COLUMNS).where('id', '=', id);
@@ -262,6 +273,7 @@ export function createMediaRepository(): MediaRepository {
         })
         .where('id', '=', id)
         .execute();
+      await notifyJob(db, id);
     },
 
     async markFailed(db, id, error) {
@@ -365,6 +377,7 @@ export function createMediaRepository(): MediaRepository {
         .where('id', '=', id)
         .where('processing_status', '=', 'failed')
         .execute();
+      await notifyJob(db, id);
     },
 
     async failProcessing(db, id, error) {

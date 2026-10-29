@@ -4,7 +4,12 @@ import type { VideoProbe } from './ffmpeg-runner.js';
 export interface EncodeOptions {
   preset: string;
   crf: number;
+  /** x264 threads per encode (set so parallel encodes share the CPUs); omitted = ffmpeg decides. */
+  threads?: number;
 }
+
+const threadArgs = (options: EncodeOptions): string[] =>
+  options.threads ? ['-threads', String(options.threads)] : [];
 
 export interface RenditionTarget {
   /** e.g. "720p": the SHORT side of the frame (portrait product videos are common). */
@@ -52,6 +57,7 @@ export function renditionArgs(
     input,
     '-vf',
     scaleFilter(probe, target.shortSide),
+    ...threadArgs(options),
     '-c:v',
     'libx264',
     '-preset',
@@ -106,6 +112,7 @@ export function previewArgs(
     '-an',
     '-vf',
     scaleFilter(probe, Math.min(PREVIEW_SHORT_SIDE, Math.min(probe.width, probe.height))),
+    ...threadArgs(options),
     '-c:v',
     'libx264',
     '-preset',

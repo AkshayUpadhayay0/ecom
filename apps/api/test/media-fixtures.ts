@@ -14,6 +14,7 @@ import { createImageProcessor } from '../src/modules/media/processing/image-proc
 import {
   createMediaProcessor,
   type MediaProcessor,
+  type MediaProcessorDeps,
 } from '../src/modules/media/processing/media-processor.js';
 import { createMediaRepository } from '../src/modules/media/media.repository.js';
 import {
@@ -158,6 +159,7 @@ export function makeProcessor(
   ctx: MediaTestContext,
   ffmpeg: FfmpegRunner,
   db: Database = ctx.db,
+  overrides: Partial<MediaProcessorDeps> = {},
 ): MediaProcessor {
   return createMediaProcessor({
     db,
@@ -170,5 +172,6 @@ export function makeProcessor(
     encode: { preset: 'ultrafast', crf: 30 },
     tempDir: tmpdir(),
     onReady: buildPendingMediaApplier(pino({ level: 'silent' })),
+    ...overrides,
   });
 }

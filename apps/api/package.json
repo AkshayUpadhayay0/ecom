@@ -22,6 +22,7 @@
     "admin:list": "tsx --conditions=source scripts/admin-list.ts",
     "admin:reset-password": "tsx --conditions=source scripts/admin-reset-password.ts",
     "content:reset": "tsx --conditions=source scripts/content-reset.ts",
+    "measure:video": "tsx --conditions=source scripts/measure-video-pipeline.ts",
     "payments:simulate-webhook": "tsx --conditions=source scripts/simulate-paystack-webhook.ts"
   },
   "dependencies": {

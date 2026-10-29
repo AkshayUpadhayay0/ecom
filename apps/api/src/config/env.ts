@@ -177,7 +177,14 @@ export const envSchema = z.object({
     .enum(['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow'])
     .default('veryfast'),
   FFMPEG_X264_CRF: z.coerce.number().int().min(0).max(51).default(23),
-  MEDIA_WORKER_POLL_MS: z.coerce.number().int().min(250).default(5_000),
+  // Fallback only: the worker wakes at once on Postgres NOTIFY when an upload is completed; this poll
+  // also picks up retries that become due and covers a lost LISTEN connection.
+  MEDIA_WORKER_POLL_MS: z.coerce.number().int().min(250).default(2_000),
+  // How many FFmpeg encodes of ONE video run at the same time. Jobs are processed one after
+  // another, so this is the machine's transcode limit. x264 already uses every core, so 1 is the
+  // fastest on most machines (measured: 2 was not faster); each parallel encode gets
+  // floor(cpus / this) threads. Uploads of finished renditions always overlap the next encode.
+  MEDIA_TRANSCODE_PARALLELISM: z.coerce.number().int().min(1).max(4).default(1),
   // Scratch folder for processing (defaults to the OS temp folder).
   MEDIA_TEMP_DIR: z.string().min(1).optional(),
   MEDIA_UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(900_000),
